@@ -14,3 +14,4 @@
 - 2026-10-26 — Validator — tools/codecheck.mjs placement scanner, prefab + removeBehaviors checks, warnings, per-file ✓ fix; 42 tests (build run)
 - 2026-10-26 — Hierarchy list — ☰ List panel with search, tap to select + frame, portrait sheet / landscape side panel (build run)
 - 2026-10-26 — Add/duplicate/delete — editing.js (nextId, add, duplicate, delete, setAsset) + editor UI; 46 tests (build run)
+- 2026-10-26 — Undo/redo — snapshot history with slider coalescing, toolbar + shortcuts; 50 tests (build run)
