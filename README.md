@@ -20,3 +20,8 @@ Covers every behavior, prefab merging, the validator (including that it catches 
 **⇪ Save** commits the open scene to GitHub. First time it asks for `owner/repo`, branch and a fine-grained token
 (github.com → Settings → Developer settings → Fine-grained tokens → only this repo → Contents: Read and write). The token stays on that device.
 If the file changed on GitHub since you opened it (e.g. Claude pushed), it asks before overwriting. A 401/403 clears the token so you can enter a new one.
+
+## Live editing (dev server)
+`npm install` then `npm run dev`. Open the editor on your computer (`/index.html?scene=./scenes/tiny-hop.scene.json`) and the game on your phone
+(`http://<computer-ip>:8080/play.html`, same Wi-Fi). Moves, slider tweaks and animation changes apply instantly; adding/removing objects or
+swapping models restarts the game with the new scene. Nothing is saved until you press ⇪ Save.

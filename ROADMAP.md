@@ -32,7 +32,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Save scene back to the repo (GitHub API with a token) instead of Copy JSON — ⇪ Save commits the open scene file; asks once for repo/branch/fine-grained token (stored on the device); warns before overwriting a newer repo copy; `runtime/github.js` tested against a fake API
 
 ## Stage 4 — Play mode + live link
-- [ ] [IN PROGRESS 23:29 UTC, build run] Dev server with WebSocket: editor edits hot-patch a running game in another tab/phone
+- [x] Dev server with WebSocket: editor edits hot-patch a running game in another tab/phone — `npm run dev` (static + /live relay, prints LAN URLs); editor streams the scene; play.html patches transforms/params/animation in place and rebuilds on structural changes (`runtime/livepatch.js`, tested)
+- [ ] Live link polish: Bob keeps its old base height when an edit moves the object mid-play (re-read base on position patch); show a small 'live' badge on both pages
 - [ ] Game reports state back (selection follows, errors, FPS)
 
 ## Stage 5 — MCP server

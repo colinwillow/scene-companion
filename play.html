@@ -46,12 +46,13 @@ addEventListener('unhandledrejection',e=>showErr(String(e.reason?.message||e.rea
 import * as THREE from 'three';
 import { World } from './runtime/World.js';
 import { createPost } from './runtime/post.js';
+import { applyScene } from './runtime/livepatch.js';
 import './behaviors/index.js';
 
 const $ = id => document.getElementById(id);
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/tiny-hop.scene.json';
 const TIER = new URLSearchParams(location.search).get('tier') || 'web';
-const data = await (await fetch(SCENE_URL)).json();
+let data = await (await fetch(SCENE_URL)).json();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 document.body.prepend(renderer.domElement);
@@ -124,7 +125,7 @@ async function start() {
   over = false; $('msg').style.display = 'none';
   world = new World(renderer, { tier: TIER });
   await world.load(structuredClone(data));    // the authored data is never touched by play
-  window.__sc = { world, data };
+  window.__sc = { world, data, get live() { return liveStatus; } };
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
   world.on('gameover', () => end('Game over'));
@@ -153,6 +154,26 @@ document.addEventListener('dblclick', e => e.preventDefault());
 let lastTouch = 0;
 document.addEventListener('touchend', e => { const n = Date.now(); if (n - lastTouch < 300) e.preventDefault(); lastTouch = n; }, { passive: false });
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
+// ---- live link: edits from the editor (served by `npm run dev`) patch this running game.
+let liveStatus = '';
+{
+  const connect = () => {
+    let ws; try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live`); } catch { return; }
+    let queue = Promise.resolve();                       // handle edits one at a time (a rebuild takes a moment)
+    ws.onmessage = ev => { queue = queue.then(() => handle(ev)).catch(e => showErr(e.message)); };
+    const handle = async ev => {
+      let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+      if (msg.type !== 'scene' || !msg.data || !SCENE_URL.endsWith(msg.url.replace(/^\.\//, ''))) return;
+      const result = world ? applyScene(world, data, msg.data) : 'rebuild';
+      data = msg.data;
+      if (result === 'rebuild') await start();
+      liveStatus = result;
+    };
+    ws.onclose = () => setTimeout(connect, 3000);
+  };
+  if (location.protocol.startsWith('http')) connect();
+}
 
 await start();
 updateCamera(0, true);

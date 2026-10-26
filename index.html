@@ -381,6 +381,22 @@ $('push').onclick = async () => {
   setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
 };
 
+// ---- live link: when served by `npm run dev`, every edit is sent to running games (play.html) to hot-patch.
+{
+  let ws, lastSent = '';
+  const connect = () => {
+    try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live`); } catch { return; }
+    ws.onopen = () => { lastSent = ''; $('play').title = 'Live link on'; };
+    ws.onclose = () => setTimeout(connect, 3000);
+  };
+  if (location.protocol.startsWith('http') && new URLSearchParams(location.search).get('live') !== '0') connect();
+  setInterval(() => {
+    if (ws?.readyState !== 1) return;
+    const text = JSON.stringify({ type: 'scene', url: SCENE_URL, data });
+    if (text !== lastSent) { ws.send(text); lastSent = text; }
+  }, 250);
+}
+
 // ---- undo / redo (whole-scene snapshots; sliders coalesce into one step)
 const hist = new History();
 function record(key) { hist.record(data, key); updateUndo(); }
