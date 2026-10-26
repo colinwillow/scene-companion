@@ -108,3 +108,20 @@ test('Stompable: side touch hurts, landing on top defeats', () => {
   st.update(0.016);
   assert.deepEqual(scores, [2], 'only once');
 });
+
+test('player rides a moving platform', () => {
+  const { pc, p, w } = setup({ solids: [['plat', [0, 1, 0], [2, 0.5, 2]]] });
+  p.y = 1.5; pc.update(1 / 60);                     // land on top
+  assert.equal(pc.grounded, true);
+  const plat = w.solids[0].entity.object3d.position;
+  for (let i = 0; i < 30; i++) { plat.x += 0.02; plat.y += 0.01; pc.update(1 / 60); }
+  assert.ok(Math.abs(p.x - 0.6) < 0.03, `x=${p.x}`);   // carried sideways (≤ one frame behind)
+  assert.ok(Math.abs(p.y - (plat.y + 0.5)) < 0.02, `y=${p.y}`);
+  assert.equal(pc.grounded, true);
+});
+
+test('landing after a real fall emits land', () => {
+  const { pc, p, w } = setup();
+  p.y = 2; run(pc, 60);
+  assert.ok(w.emitted.some(([n]) => n === 'land'));
+});

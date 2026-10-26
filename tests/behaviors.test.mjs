@@ -83,7 +83,7 @@ test('Pickup collects once inside radius and emits score', () => {
   player.object3d.position.x = 0.5;
   b.update(0.016); b.update(0.016);
   assert.equal(coin.object3d.visible, false);
-  assert.deepEqual(w.emitted, [['score', 3]], 'scored exactly once');
+  assert.deepEqual(w.emitted, [['pickup', 'coin'], ['score', 3]], 'scored exactly once');
 });
 
 test('Pickup with a missing collector does nothing', () => {
@@ -134,4 +134,27 @@ test('Animator picks idle / walk / run from actual speed', () => {
 test('Animator without a model animator is a no-op', () => {
   const a = attach(Animator, fakeEntity(), {}, fakeWorld());
   assert.doesNotThrow(() => a.update(0.1));
+});
+
+test('Animator plays jump while airborne on a PlayerController, then fall clip if set', async () => {
+  const { PlayerController } = await import('../behaviors/index.js');
+  const e = fakeEntity();
+  const played = [];
+  e.anim = { play: (n, o) => played.push(n) };
+  const pc = Object.assign(Object.create(PlayerController.prototype), { grounded: true, vy: 0 });
+  e.behaviors.push(pc);
+  const a = attach(Animator, e, { fallClip: 'Fall', airDelay: 0.1 }, fakeWorld());
+  a.update(0.05);                                   // grounded, still
+  pc.grounded = false; pc.vy = 5; a.update(0.05);   // take-off
+  pc.vy = -1; a.update(0.05);                       // falling, airborne 0.1 s
+  pc.grounded = true; pc.vy = 0; a.update(0.05);    // landed
+  pc.grounded = false; a.update(0.05);              // tiny drop: under airDelay → stays on ground clip
+  assert.deepEqual(played, ['Idle', 'Jump', 'Fall', 'Idle', 'Idle']);
+});
+
+test('Pickup emits pickup before score', () => {
+  const coin = fakeEntity('coin'), player = fakeEntity('player');
+  const w = fakeWorld([coin, player]);
+  attach(Pickup, coin, {}, w).update();
+  assert.deepEqual(w.emitted.map(x => x[0]), ['pickup', 'score']);
 });

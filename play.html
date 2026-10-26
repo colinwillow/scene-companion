@@ -11,6 +11,7 @@
   canvas { display:block; position:fixed; inset:0; width:100%; height:100%; touch-action:none; }
   #hud { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(12px + env(safe-area-inset-left)); right:calc(12px + env(safe-area-inset-right));
     display:flex; justify-content:space-between; pointer-events:none; text-shadow:0 2px 4px #0008; font-size:20px; z-index:2; }
+  #hud button { pointer-events:auto; font-size:14px; background:#0006; color:#fff; border:none; padding:6px 10px; border-radius:10px; }
   #hud a { pointer-events:auto; color:#fff; font-size:14px; background:#0006; padding:6px 10px; border-radius:10px; text-decoration:none; }
   #stick { position:fixed; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:#ffffff22; border:2px solid #ffffff55; display:none; z-index:2; pointer-events:none; }
   #knob { position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%; background:#ffffffaa; }
@@ -30,7 +31,7 @@
 </script>
 </head>
 <body>
-<div id="hud"><span id="hearts"></span><a href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a><span id="coins"></span></div>
+<div id="hud"><span id="hearts"></span><span><button id="mute">🔊</button> <a href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
 <div id="stick"><div id="knob"></div></div>
 <button id="jump">JUMP</button>
 <div id="hint">Left side: drag to move · Right side: drag to look · Jump on enemies</div>
@@ -47,6 +48,8 @@ import * as THREE from 'three';
 import { World } from './runtime/World.js';
 import { createPost } from './runtime/post.js';
 import { applyScene } from './runtime/livepatch.js';
+import { clipCamera } from './runtime/camera.js';
+import { createSfx } from './runtime/sfx.js';
 import './behaviors/index.js';
 
 const $ = id => document.getElementById(id);
@@ -58,6 +61,16 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 document.body.prepend(renderer.domElement);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 3000);
 let world, post, player, coinsTotal, over;
+
+// ---- sounds (synthesized; browsers only allow audio after the first tap)
+let muted = false; try { muted = localStorage.getItem('sc.muted') === '1'; } catch {}
+const sfx = createSfx({ muted });
+const muteBtn = $('mute');
+const showMute = () => (muteBtn.textContent = sfx.muted ? '🔇' : '🔊');
+showMute();
+muteBtn.addEventListener('pointerdown', e => { e.stopPropagation(); sfx.unlock(); sfx.muted = !sfx.muted; showMute(); try { localStorage.setItem('sc.muted', sfx.muted ? '1' : '0'); } catch {} });
+addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
+addEventListener('keydown', () => sfx.unlock(), { capture: true });
 
 // ---- input → world.input (camera-relative, world space)
 let yaw = 0, pitch = 0.35;                  // camera orbit around the player
@@ -116,7 +129,7 @@ function hud() {
   $('hearts').textContent = h ? hearts(h.current, h.params.max) : '';
   const got = coinsTotal - [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup' && !b.collected)).length;
   $('coins').textContent = `● ${got} / ${coinsTotal}`;
-  if (!over && got === coinsTotal) end('You got every coin! 🎉');
+  if (!over && got === coinsTotal) { sfx.play('win'); end('You got every coin! 🎉'); }
 }
 function end(text) { over = true; $('msgText').textContent = text; $('msg').style.display = 'flex'; }
 
@@ -128,21 +141,29 @@ async function start() {
   window.__sc = { world, data, get live() { return liveStatus; } };
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
-  world.on('gameover', () => end('Game over'));
-  world.on('health', hud);
+  world.on('gameover', () => { sfx.play('gameover'); end('Game over'); });
+  world.on('health', () => { sfx.play('hurt'); hud(); });
+  for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
   resize(); hud();
 }
 $('again').onclick = start;
 
-// ---- camera: behind and above the player, smoothed
+// ---- camera: behind and above the player, smoothed; pulls in when a solid is in the way
 const focus = new THREE.Vector3(), camPos = new THREE.Vector3();
+const CAM_DIST = 7;
+let camDist = CAM_DIST;
 function updateCamera(dt, snap) {
   const p = player.object3d.position;
   focus.set(p.x, p.y + 1.3, p.z);
-  const dist = 7;
-  camPos.set(focus.x + Math.sin(yaw) * Math.cos(pitch) * dist, focus.y + Math.sin(pitch) * dist, focus.z + Math.cos(yaw) * Math.cos(pitch) * dist);
-  camera.position.lerp(camPos, snap ? 1 : 1 - Math.exp(-dt * 8));
+  const dir = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)];
+  const boxes = (world.solids || []).map(s => s.box());
+  const allowed = clipCamera([focus.x, focus.y, focus.z], dir, CAM_DIST, boxes, { floorY: player.behaviors.find(b => b.constructor.name === 'PlayerController')?.params.groundY ?? 0 });
+  // Snap in fast when blocked (never look through a wall), ease back out slowly.
+  camDist = snap || allowed < camDist ? allowed : camDist + (allowed - camDist) * (1 - Math.exp(-dt * 3));
+  camPos.set(focus.x + dir[0] * camDist, focus.y + dir[1] * camDist, focus.z + dir[2] * camDist);
+  const blocked = allowed < CAM_DIST - 0.01;
+  camera.position.lerp(camPos, snap || blocked ? 1 : 1 - Math.exp(-dt * 8));
   camera.lookAt(focus);
 }
 

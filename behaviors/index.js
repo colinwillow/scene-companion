@@ -54,6 +54,7 @@ export class Pickup extends Behavior {
     if (Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < this.params.radius) {
       this.collected = true;
       this.entity.object3d.visible = false;
+      this.world.emit('pickup', this.entity.id);
       this.world.emit('score', this.params.points);
     }
   }
@@ -84,21 +85,34 @@ export class MoveTo extends Behavior {
 }
 
 // Picks idle / walk / run clips from how fast the entity is actually moving.
+// With a PlayerController on the same entity it also plays jump / fall clips while airborne.
 export class Animator extends Behavior {
   static schema = {
     idleClip: { type: 'string', default: 'Idle' },
     walkClip: { type: 'string', default: 'Walking' },
     runClip:  { type: 'string', default: 'Running' },
     runSpeed: { type: 'number', default: 4, min: 0.5, max: 15, step: 0.5 },  // m/s where walk becomes run
+    jumpClip: { type: 'string', default: 'Jump' },   // played once on take-off ('' = none)
+    fallClip: { type: 'string', default: '' },       // looped when falling a while ('' = hold the jump pose)
+    airDelay: { type: 'number', default: 0.12, min: 0, max: 1, step: 0.02 },  // s off the ground before air clips (skips tiny drops)
   };
-  start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; }
+  start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.air = 0; }
   update(dt) {
     const anim = this.entity.anim; if (!anim || dt <= 0) return;
-    const p = this.entity.object3d.position;
+    const P = this.params, p = this.entity.object3d.position;
     const speed = Math.hypot(p.x - this.last[0], p.z - this.last[1]) / dt;
     this.last = [p.x, p.z];
-    const clip = speed < 0.1 ? this.params.idleClip : speed < this.params.runSpeed ? this.params.walkClip : this.params.runClip;
-    anim.play(clip);
+    const pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    if (pc && !pc.grounded) {
+      this.air += dt;
+      const rising = pc.vy > 0;
+      if (rising || this.air >= P.airDelay) {
+        if (!rising && P.fallClip) anim.play(P.fallClip, { fade: 0.25 });
+        else if (P.jumpClip) anim.play(P.jumpClip, { once: true, fade: 0.1 });
+        return;
+      }
+    } else this.air = 0;
+    anim.play(speed < 0.1 ? P.idleClip : speed < P.runSpeed ? P.walkClip : P.runClip);
   }
 }
 
@@ -165,7 +179,13 @@ export class PlayerController extends Behavior {
     if (this.dead || dt <= 0) return;
     const P = this.params, p = this.entity.object3d.position, o = this.entity.object3d;
     const input = this.world.input || {}, move = input.move || [0, 0];
-    const solids = (this.world.solids || []).map(s => s.box());
+    const all = this.world.solids || [], solids = all.map(s => s.box());
+    // Ride moving platforms: move with whatever we stood on last frame by however much it moved since.
+    if (this.ride && this.grounded) {
+      const i = all.indexOf(this.ride.solid);
+      if (i >= 0) { const b = solids[i]; p.x += b.minX - this.ride.x; p.y += b.maxY - this.ride.y; p.z += b.minZ - this.ride.z; }
+    }
+    this.ride = null;
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
     o.visible = this.hurtTimer <= 0 || Math.floor(this.hurtTimer * 10) % 2 === 0;   // blink while invulnerable
 
@@ -198,13 +218,19 @@ export class PlayerController extends Behavior {
     // Vertical: gravity, land on the highest surface under us, bump heads on ceilings.
     this.vy -= P.gravity * dt;
     const ny = p.y + this.vy * dt;
-    let support = P.groundY;
-    for (const b of solids) if (b.maxY <= p.y + 0.05 && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) support = Math.max(support, b.maxY);
+    let support = P.groundY, supportIdx = -1;
+    solids.forEach((b, i) => {
+      if (b.maxY <= p.y + 0.05 && b.maxY > support && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { support = b.maxY; supportIdx = i; }
+    });
     if (this.vy > 0) for (const b of solids) {
       if (b.minY >= p.y + P.height - 0.01 && b.minY < ny + P.height && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { this.vy = 0; break; }
     }
-    if (ny <= support && this.vy <= 0) { p.y = support; this.vy = 0; this.grounded = true; }
-    else { p.y = this.vy === 0 && !this.grounded ? p.y : ny; this.grounded = false; }
+    if (ny <= support && this.vy <= 0) {
+      if (!this.grounded && this.airTime > 0.15) this.world.emit('land');
+      p.y = support; this.vy = 0; this.grounded = true; this.airTime = 0;
+      if (supportIdx >= 0) { const b = solids[supportIdx]; this.ride = { solid: all[supportIdx], x: b.minX, y: b.maxY, z: b.minZ }; }
+    }
+    else { p.y = this.vy === 0 && !this.grounded ? p.y : ny; this.grounded = false; this.airTime = (this.airTime || 0) + dt; }
 
     if (p.y < P.killY) { this.respawn(); this.hurt(1); }
   }
@@ -254,6 +280,7 @@ export class Stompable extends Behavior {
     if (falling && feet > p.y + P.height * 0.5) {
       this.defeated = true;
       this.entity.object3d.visible = false;
+      this.world.emit('stomp', this.entity.id);
       this.world.emit('score', P.points);
       this.world.emit('bounce', 0.7);
     } else this.world.emit('hurt', P.damage);
