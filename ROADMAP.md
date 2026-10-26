@@ -11,13 +11,13 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Real models: replace primitives with free CC0 models (e.g. Quaternius or Kenney packs from GitHub) — crates, coins, props, trees/rocks, enemies — and dress the kitchen-sink scene so it reads as a small game level.
 - [x] Toon look upgrade: outlines + rim light so `toon` looks stylized and intentional, not flat.
 - [x] Fix toon look: rim light was inverted (lit every pixel → washed grey); toon now cancels the sky's low exposure; outline width is in world metres (rigged robot sits under ×39 bones, which blew its hull into black shards); outline hulls share morph weights; clouds don't cast shadows.
-- [ ] More CC0 models: rocks, crates, a ground enemy. Only found Kenney starter-kit GLBs by guessing paths (raw.githubusercontent works, GitHub API/jsDelivr are blocked from build runs). Ask Colin to add a pack to the repo, or allow a Kenney repo for read.
+- [ ] [blocked: build runs can't list Kenney/Quaternius repos — needs Colin to drop a pack in or allow the repo] More CC0 models: rocks, crates, a ground enemy. Only found Kenney starter-kit GLBs by guessing paths (raw.githubusercontent works, GitHub API/jsDelivr are blocked from build runs). Ask Colin to add a pack to the repo, or allow a Kenney repo for read.
 
 ## Stage 1 — Format + runtime (v0 done)
 - [x] Scene format, Behavior base + schema, registry, World loader, look profiles, tier variants, validator, editor page v0
 - [x] GLB assets in scenes (with a sample character) + animation clips per entity
 - [x] Prefabs: reusable entity templates (`prefabs/*.prefab.json`) that scenes instance and override
-- [ ] Unit tests for the runtime and every behavior (node test runner, no browser)
+- [ ] [IN PROGRESS 23:09 UTC, build run] Unit tests for the runtime and every behavior (node test runner, no browser)
 
 ## Stage 2 — Skill
 - [ ] Vibe-code a tiny game from scratch following SKILL.md (third-person, jump, a few enemies, pickups); fix the skill wherever it was unclear

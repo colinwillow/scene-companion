@@ -8,3 +8,4 @@
 - 2026-10-26 — Toon upgrade — inverted-hull ink outlines (skinned too, floors skipped), shader rim light (live session)
 - 2026-10-26 — Real models — Kenney CC0 coin, brick blocks, platforms, flying enemy, trees, grass, walls, clouds, flag island; GLB `scale`/`offset` variant keys; 4 new prefabs (build run)
 - 2026-10-26 — Toon fix — rim sign bug, toonGain vs sky exposure, world-space outline width (no more shards on robot), morph-safe hulls, `castShadow:false` variant key (build run)
+- 2026-10-26 — More CC0 models — blocked: can't list asset repos from a build run (build run)
