@@ -33,6 +33,19 @@
     border:1px solid var(--line); border-radius:6px; padding:4px; font:inherit; }
   .row output { width:44px; text-align:right; }
   select.add { width:100%; margin-top:6px; padding:8px; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; }
+  #tree { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:38vh; display:none; flex-direction:column;
+    background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; }
+  #tree.open { display:flex; }
+  #tree input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; margin-bottom:6px; -webkit-user-select:text; user-select:text; }
+  #tree ul { list-style:none; margin:0; padding:0; overflow:auto; touch-action:pan-y; flex:1; }
+  #tree li { padding:9px 8px; border-radius:8px; display:flex; gap:8px; align-items:baseline; cursor:pointer; }
+  #tree li.sel { background:var(--accent); color:#111; }
+  #tree li.sel small { color:#111a; }
+  #tree li small { color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #tree .count { color:var(--dim); font-size:12px; margin:0 0 4px 2px; }
+  @media (orientation: landscape) and (min-width: 600px) {
+    #tree { right:auto; width:260px; top:0; bottom:0; max-height:none; padding-top:60px; border-bottom:none; border-right:1px solid var(--line); }
+  }
 </style>
 <script type="importmap">
 { "imports": {
@@ -43,6 +56,7 @@
 </head>
 <body>
 <div id="bar">
+  <button id="list" title="All objects">☰ List</button>
   <button id="play">▶ Play</button>
   <button id="mode" title="Gizmo mode">Move</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
@@ -51,6 +65,7 @@
   <span id="score">★ 0</span>
 </div>
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
+<div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="panel"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div>
 
 <script>
@@ -102,6 +117,7 @@ async function rebuild() {
   world.scene.add(gizmo.getHelper());
   gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]);
   if (selectedId && !playing) select(selectedId);
+  renderTree();
 }
 
 // ---- editor: write gizmo changes back into scene data
@@ -120,7 +136,48 @@ function select(id) {
   const ent = world.getEntity(id);
   if (ent && !ent.data.light && !playing) gizmo.attach(ent.object3d); else gizmo.detach();
   renderPanel();
+  renderTree();
 }
+
+// ---- hierarchy: every entity, searchable; tap to select and frame it
+function entityTags(e) {
+  const r = e.resolved || e.data;
+  const what = e.data.prefab ? `⧉ ${e.data.prefab}` : e.data.light ? `☀ ${e.data.light.type}` : typeof e.data.asset === 'string' ? e.data.asset : '';
+  return [what, ...(r.behaviors || []).map(b => b.type)].filter(Boolean);
+}
+function renderTree() {
+  if (!$('tree').classList.contains('open') || !world) return;
+  const wide = matchMedia('(orientation: landscape) and (min-width: 600px)').matches;
+  $('tree').style.top = wide ? '' : $('bar').getBoundingClientRect().bottom + 'px';   // sit under the toolbar
+  const q = $('treeSearch').value.trim().toLowerCase();
+  const all = [...world.entities.values()];
+  const shown = all.filter(e => !q || [e.id, ...entityTags(e)].some(t => t.toLowerCase().includes(q)));
+  $('treeCount').textContent = q ? `${shown.length} of ${all.length}` : `${all.length} objects`;
+  const ul = $('treeList'); ul.innerHTML = '';
+  for (const e of shown) {
+    const li = document.createElement('li');
+    li.className = e.id === selectedId ? 'sel' : '';
+    li.innerHTML = `<span></span><small></small>`;
+    li.firstChild.textContent = e.id;
+    li.lastChild.textContent = entityTags(e).join(' · ');
+    li.onclick = () => {
+      select(e.id); frame(e.id);
+      if (!wide) { $('tree').classList.remove('open'); $('list').classList.remove('on'); }   // phone portrait: give the view back
+    };
+    ul.append(li);
+  }
+  ul.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+}
+// Move the orbit target to the object, keeping the camera's angle and distance.
+function frame(id) {
+  const o = world.getEntity(id)?.object3d; if (!o || o.isLight) return;
+  const p = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+  if (!isFinite(p.x)) o.getWorldPosition(p);
+  camera.position.add(p.clone().sub(orbit.target));
+  orbit.target.copy(p);
+}
+$('list').onclick = () => { $('tree').classList.toggle('open'); $('list').classList.toggle('on', $('tree').classList.contains('open')); renderTree(); };
+$('treeSearch').oninput = renderTree;
 
 // ---- inspector generated from behavior schemas
 function control(def, value, onChange) {

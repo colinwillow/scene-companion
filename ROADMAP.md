@@ -25,7 +25,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Validator: catch hardcoded placement more robustly; check prefab references — set/assign/fromArray/copy literals in behaviors + game pages, comment-aware, camera exempt; prefab files (no id/position, asset, behavior params), unused prefabs, removeBehaviors typos, id style
 
 ## Stage 3 — Editor v1
-- [ ] [IN PROGRESS 23:18 UTC, build run] Hierarchy list (all entities, tap to select, search)
+- [x] Hierarchy list (all entities, tap to select, search) — ☰ List button: searchable by id/prefab/asset/behavior, tap selects + frames the camera; top sheet on phones (closes after a pick), left panel in landscape
 - [ ] Add / duplicate / delete entities; asset picker
 - [ ] Undo / redo
 - [ ] Mobile polish: bigger gizmo handles, two-finger orbit, bottom-sheet inspector snap points, landscape side panel
