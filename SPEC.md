@@ -31,7 +31,7 @@ A Claude skill makes every game "editor-ready from birth." Whenever Claude creat
 Same scene files, same behaviors; only renderer settings change.
 - **Mobile tier:** lean and fast, toon-friendly (how Colin's games run today).
 - **Desktop Ultra tier:** in the desktop app, Three.js WebGPU renderer with everything on: PBR, HDRI image-based lighting, soft shadows, SSAO, bloom, reflections, HDR tonemapping. One toggle, same project.
-- **Native backend (later, optional):** a C++/Vulkan runtime that reads the *same* scene files, for when the web ceiling is hit. **Decide now:** behaviors must be runnable by both runtimes. Either write behaviors in Lua (embeddable everywhere), or keep JS and embed a small JS runtime (e.g. QuickJS) in the native build. This is the rule that keeps "both" possible without a rewrite.
+- **Native backend (later, optional):** a C++/Vulkan runtime that reads the *same* scene files, for when the web ceiling is hit. **Decide now:** behaviors must be runnable by both runtimes. **Decided: JavaScript.** Behaviors stay "pure": no `three`, DOM or browser imports, only the entity/world API. A native build embeds a small JS engine (e.g. QuickJS) to run the same files. This is the rule that keeps "both" possible without a rewrite.
 
 ### Look profiles (style, separate from quality)
 A scene picks a **look**, and that look is independent of the tier:
@@ -72,7 +72,6 @@ Claude can see what you see. The tools include: list scene objects, get the sele
 - **Finish line for each stage:** Claude can build a small game (e.g. Tetris, a tiny platformer) entirely through the editor's MCP, with no human help.
 
 ## 9. Open questions
-- Behavior language for cross-runtime: Lua or JS + embedded runtime?
 - Product name and repo name
 - Editor UI in plain JS or React?
 - How to retrofit existing games (Weirdport and others), as a migration skill
