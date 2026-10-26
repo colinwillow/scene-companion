@@ -17,7 +17,16 @@
       "sunIntensity": 3.2,
       "envIntensity": 1.0
     },
-    "fogColor": "#c9d6e3"
+    "fogColor": "#c9d6e3",
+    "post": {
+      "ao": true,
+      "bloom": {
+        "strength": 0.35,
+        "radius": 0.5,
+        "threshold": 0.85
+      },
+      "vignette": 0.25
+    }
   },
   "assets": {
     "ground": {

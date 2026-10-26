@@ -67,6 +67,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
+import { createPost } from './runtime/post.js';
 import './behaviors/index.js';
 
 // ---- the single source of truth: scene data
@@ -81,7 +82,7 @@ const orbit = new OrbitControls(camera, renderer.domElement);
 orbit.target.set(0, 0.5, 0);
 orbit.enableDamping = true;
 
-let world, playing = false, selectedId = null, score = 0;
+let world, post, playing = false, selectedId = null, score = 0;
 let gizmo;
 const $ = id => document.getElementById(id);
 $('look').value = data.settings.look || 'toon';
@@ -92,6 +93,8 @@ async function rebuild() {
   world = new World(renderer, { tier: $('tier').value });
   await world.load(data);
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
+  post?.dispose();
+  post = createPost(renderer, world.scene, camera, data.settings.post, $('tier').value);
   gizmo = new TransformControls(camera, renderer.domElement);
   gizmo.addEventListener('dragging-changed', e => (orbit.enabled = !e.value));
   gizmo.addEventListener('objectChange', syncTransformToData);
@@ -232,7 +235,7 @@ $('save').onclick = async () => {
 };
 
 // ---- loop
-function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+function resize() { renderer.setSize(innerWidth, innerHeight); post?.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 // block double-tap / pinch page zoom on iOS
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -246,7 +249,7 @@ renderer.setAnimationLoop(() => {
   world.animate(dt);
   if (playing) world.update(dt);
   orbit.update();
-  renderer.render(world.scene, camera);
+  if (post) post.render(); else renderer.render(world.scene, camera);
 });
 </script>
 </body>
