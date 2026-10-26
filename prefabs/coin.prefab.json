@@ -1,14 +1,31 @@
 {
   "asset": {
     "variants": {
-      "web": { "primitive": "cylinder", "size": [0.6, 0.1, 0.6], "color": "#ffd23f", "emissive": "#553c00" },
-      "desktop": { "primitive": "cylinder", "size": [0.6, 0.1, 0.6], "color": "#ffd23f", "metalness": 1, "roughness": 0.2 }
+      "web": {
+        "glb": "./assets/models/kenney/platformer/coin.glb",
+        "scale": 1.5
+      }
     }
   },
-  "rotation": [90, 0, 0],
   "behaviors": [
-    { "type": "Spin", "params": { "speed": 3 } },
-    { "type": "Bob", "params": { "height": 0.2 } },
-    { "type": "Pickup", "params": { "radius": 1.2, "points": 1 } }
+    {
+      "type": "Spin",
+      "params": {
+        "speed": 3
+      }
+    },
+    {
+      "type": "Bob",
+      "params": {
+        "height": 0.2
+      }
+    },
+    {
+      "type": "Pickup",
+      "params": {
+        "radius": 1.2,
+        "points": 1
+      }
+    }
   ]
 }

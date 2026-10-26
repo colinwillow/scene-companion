@@ -1,0 +1,10 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/kenney/fps/wall-low.glb",
+        "scale": 1
+      }
+    }
+  }
+}

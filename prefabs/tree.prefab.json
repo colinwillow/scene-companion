@@ -1,0 +1,15 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/kenney/city/grass-trees-tall.glb",
+        "scale": 3.5,
+        "offset": [
+          0,
+          -0.22,
+          0
+        ]
+      }
+    }
+  }
+}

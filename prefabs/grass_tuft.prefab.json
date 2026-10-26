@@ -1,0 +1,10 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/kenney/platformer/grass.glb",
+        "scale": 1.6
+      }
+    }
+  }
+}

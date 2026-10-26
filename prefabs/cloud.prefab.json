@@ -1,0 +1,19 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/kenney/platformer/cloud.glb",
+        "scale": 4
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Bob",
+      "params": {
+        "height": 0.6,
+        "speed": 0.3
+      }
+    }
+  ]
+}

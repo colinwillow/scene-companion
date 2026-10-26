@@ -59,7 +59,13 @@ export class World {
         model.updateMatrixWorld(true);
         box.setFromObject(model, true);
         model.position.y -= box.min.y;
+      } else if (variant.scale) {
+        // Plain scale for props whose size is already known (e.g. Kenney tiles are ~1 unit).
+        const s = variant.scale;
+        Array.isArray(s) ? model.scale.multiply(new THREE.Vector3(...s)) : model.scale.multiplyScalar(s);
       }
+      // Optional nudge in metres, e.g. sink a tile's base plate into the ground.
+      if (variant.offset) model.position.add(new THREE.Vector3(...variant.offset));
       const root = new THREE.Group();
       root.add(model);
       root.userData.clips = gltf.animations;
