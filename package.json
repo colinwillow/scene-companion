@@ -4,6 +4,11 @@
   "type": "module",
   "scripts": {
     "validate": "node tools/validate.mjs",
-    "serve": "npx --yes serve ."
+    "serve": "npx --yes serve .",
+    "test": "node --test 'tests/*.test.mjs'",
+    "check": "npm run validate && npm test"
+  },
+  "devDependencies": {
+    "three": "^0.170.0"
   }
 }

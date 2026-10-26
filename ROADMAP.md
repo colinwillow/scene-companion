@@ -17,7 +17,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Scene format, Behavior base + schema, registry, World loader, look profiles, tier variants, validator, editor page v0
 - [x] GLB assets in scenes (with a sample character) + animation clips per entity
 - [x] Prefabs: reusable entity templates (`prefabs/*.prefab.json`) that scenes instance and override
-- [ ] [IN PROGRESS 23:09 UTC, build run] Unit tests for the runtime and every behavior (node test runner, no browser)
+- [x] Unit tests for the runtime and every behavior (node test runner, no browser) — `npm test`, 29 tests
 
 ## Stage 2 — Skill
 - [ ] Vibe-code a tiny game from scratch following SKILL.md (third-person, jump, a few enemies, pickups); fix the skill wherever it was unclear
