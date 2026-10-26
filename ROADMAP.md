@@ -9,7 +9,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Post-processing stack scaled by tier: ambient occlusion (GTAO/SAO), bloom, anti-aliasing, subtle vignette/colour grade. Web = light, desktop = full. Settings live in the scene file.
 - [x] Shadows + ground: tuned soft shadows that follow the camera, a good-looking ground (procedural texture or noise, not flat green), a bit of fog/atmosphere.
 - [ ] Real models: replace primitives with free CC0 models (e.g. Quaternius or Kenney packs from GitHub) — crates, coins, props, trees/rocks, enemies — and dress the kitchen-sink scene so it reads as a small game level.
-- [ ] [IN PROGRESS 15:44 live] Toon look upgrade: outlines + rim light so `toon` looks stylized and intentional, not flat.
+- [x] Toon look upgrade: outlines + rim light so `toon` looks stylized and intentional, not flat.
 
 ## Stage 1 — Format + runtime (v0 done)
 - [x] Scene format, Behavior base + schema, registry, World loader, look profiles, tier variants, validator, editor page v0

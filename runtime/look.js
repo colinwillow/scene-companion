@@ -15,19 +15,61 @@ function getToonRamp() {
   return toonRamp;
 }
 
+// Toon material with a rim light baked into the shader (bright edge facing away from the camera).
+function toonMaterial(base) {
+  const m = new THREE.MeshToonMaterial({ ...base, gradientMap: getToonRamp() });
+  m.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <opaque_fragment>',
+      `float rim = 1.0 - max(dot(normalize(vViewPosition), -normal), 0.0);
+       rim = smoothstep(0.62, 0.8, rim) * 0.35;
+       outgoingLight += vec3(rim);
+       #include <opaque_fragment>`);
+  };
+  return m;
+}
+
+const OUTLINE = new THREE.MeshBasicMaterial({ color: '#141821', side: THREE.BackSide });
+OUTLINE.onBeforeCompile = shader => {
+  shader.uniforms.outlineWidth = { value: 0.025 };
+  shader.vertexShader = 'uniform float outlineWidth;\n' + shader.vertexShader.replace(
+    '#include <project_vertex>',
+    'transformed += normalize(objectNormal) * outlineWidth;\n#include <project_vertex>');
+};
+
+// Inverted-hull outline: a slightly fattened back-facing copy drawn in dark ink.
+function addOutline(mesh) {
+  if (mesh.userData.outline || mesh.geometry.attributes.normal === undefined) return;
+  let hull;
+  if (mesh.isSkinnedMesh) {
+    hull = new THREE.SkinnedMesh(mesh.geometry, OUTLINE);
+    hull.bind(mesh.skeleton, mesh.bindMatrix);
+  } else hull = new THREE.Mesh(mesh.geometry, OUTLINE);
+  hull.name = '__outline';
+  hull.raycast = () => {};            // never selectable
+  hull.castShadow = false;
+  hull.frustumCulled = mesh.frustumCulled;
+  mesh.add(hull);
+  mesh.userData.outline = hull;
+}
+
 function convert(mat, look) {
   const base = { color: mat.color?.clone(), map: mat.map || null, transparent: mat.transparent, opacity: mat.opacity };
-  if (look === 'toon') return new THREE.MeshToonMaterial({ ...base, gradientMap: getToonRamp() });
+  if (look === 'toon') return toonMaterial(base);
   if (look === 'baked') return new THREE.MeshBasicMaterial(base);
   return mat; // pbr keeps the standard material
 }
 
 export function applyLook(world, look) {
   const { scene, renderer } = world;
-  scene.traverse(o => {
-    if (!o.isMesh || o.name === '__sky') return;
+  const meshes = [];
+  scene.traverse(o => { if (o.isMesh && o.name !== '__sky' && o.name !== '__outline') meshes.push(o); });
+  for (const o of meshes) {
     o.material = Array.isArray(o.material) ? o.material.map(m => convert(m, look)) : convert(o.material, look);
-  });
+    // Outlines on toon, except big flat floors (they'd draw a dark rim along the horizon).
+    const big = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
+    if (look === 'toon' && big.radius * Math.max(...o.getWorldScale(new THREE.Vector3()).toArray()) < 6) addOutline(o);
+  }
 
   const lights = [];
   scene.traverse(o => o.isLight && lights.push(o));
