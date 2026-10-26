@@ -23,6 +23,7 @@ export class World {
     this.gltfCache = new Map();   // path → Promise<gltf>, so many entities share one download
     this.mixers = [];
     this.t = 0;
+    this.input = { move: [0, 0], jump: false };   // filled by the game page; read by behaviors
   }
 
   // ---- events (score, etc.)

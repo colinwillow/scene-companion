@@ -20,7 +20,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Unit tests for the runtime and every behavior (node test runner, no browser) — `npm test`, 29 tests
 
 ## Stage 2 — Skill
-- [ ] [IN PROGRESS 23:11 UTC, build run] Vibe-code a tiny game from scratch following SKILL.md (third-person, jump, a few enemies, pickups); fix the skill wherever it was unclear
+- [x] Vibe-code a tiny game from scratch following SKILL.md — **Tiny Hop** (`play.html`): third-person, joystick + jump, chasers you stomp, 10 coins, platforms incl. a moving one. New behaviors Solid, PlayerController, Chase, Stompable; SKILL.md got a Game kit section (input, collision, events, game page vs editor).
+- [ ] Tiny Hop feel pass after Colin's playtest: jump/fall animation clips, carry the player on moving platforms, camera collision, sounds
 - [ ] Validator: catch hardcoded placement more robustly; check prefab references
 
 ## Stage 3 — Editor v1

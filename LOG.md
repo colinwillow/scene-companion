@@ -10,3 +10,4 @@
 - 2026-10-26 — Toon fix — rim sign bug, toonGain vs sky exposure, world-space outline width (no more shards on robot), morph-safe hulls, `castShadow:false` variant key (build run)
 - 2026-10-26 — More CC0 models — blocked: can't list asset repos from a build run (build run)
 - 2026-10-26 — Unit tests — 29 node tests: all behaviors, prefabs, validator catches bad scenes, purity check, World loads with real three (build run)
+- 2026-10-26 — Tiny game — Tiny Hop (play.html + scenes/tiny-hop): Solid collider, PlayerController, Chase, Stompable, 8 new tests, skill Game kit section (build run)

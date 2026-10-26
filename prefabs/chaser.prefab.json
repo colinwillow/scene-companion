@@ -1,0 +1,26 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/kenney/fps/enemy-flying.glb",
+        "scale": 1.6
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Chase",
+      "params": {
+        "radius": 6,
+        "speed": 2.2
+      }
+    },
+    {
+      "type": "Stompable",
+      "params": {
+        "height": 1.3,
+        "radius": 0.9
+      }
+    }
+  ]
+}

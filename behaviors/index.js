@@ -102,6 +102,164 @@ export class Animator extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator })) {
+// ---- Platformer kit: our own tiny collider (axis-aligned boxes), no physics library needed.
+
+// A box other things can stand on and bump into. Axis-aligned (rotation is ignored).
+// anchor "bottom" = the entity's origin is the box's bottom centre (Kenney models), "center" = primitives.
+export class Solid extends Behavior {
+  static schema = {
+    size:   { type: 'vec3', default: [1, 1, 1] },        // metres
+    anchor: { type: 'string', default: 'bottom' },        // bottom | center
+  };
+  start() { (this.world.solids ||= []).push(this); }
+  destroy() { const s = this.world.solids; if (s) s.splice(s.indexOf(this), 1); }
+  box() {
+    const p = this.entity.object3d.position, [sx, sy, sz] = this.params.size;
+    const y0 = this.params.anchor === 'center' ? p.y - sy / 2 : p.y;
+    return { minX: p.x - sx / 2, maxX: p.x + sx / 2, minY: y0, maxY: y0 + sy, minZ: p.z - sz / 2, maxZ: p.z + sz / 2 };
+  }
+}
+
+// Third-person platformer movement. Reads world.input = { move: [x, z] (world space, length ≤ 1), jump: bool }.
+// The game page fills world.input (joystick, keys); this behavior never touches the DOM.
+export class PlayerController extends Behavior {
+  static schema = {
+    speed:     { type: 'number', default: 5,  min: 0, max: 15, step: 0.5 },   // m/s
+    jumpSpeed: { type: 'number', default: 7.5, min: 0, max: 20, step: 0.5 },  // m/s up
+    gravity:   { type: 'number', default: 22, min: 1, max: 60, step: 1 },     // m/s²
+    radius:    { type: 'number', default: 0.35, min: 0.1, max: 2, step: 0.05 },
+    height:    { type: 'number', default: 1.75, min: 0.5, max: 4, step: 0.05 },
+    groundY:   { type: 'number', default: 0, min: -50, max: 50, step: 0.1 },  // flat floor height
+    killY:     { type: 'number', default: -15, min: -200, max: 0, step: 1 },  // fall below → respawn
+    coyote:    { type: 'number', default: 0.1, min: 0, max: 0.5, step: 0.02 }, // s of grace after leaving a ledge
+    invulnerable: { type: 'number', default: 1.2, min: 0, max: 5, step: 0.1 }, // s after a hit
+  };
+  start() {
+    const p = this.entity.object3d.position;
+    this.spawn = [p.x, p.y, p.z];        // runtime copy of the authored position
+    this.vy = 0; this.grounded = true; this.sinceGround = 0; this.hurtTimer = 0; this.jumpBuffer = 0;
+    this.health = this.entity.behaviors.find(b => b instanceof Health);
+    this.world.on('bounce', s => { this.vy = (s ?? 0.7) * this.params.jumpSpeed; this.grounded = false; });
+    this.world.on('hurt', dmg => this.hurt(dmg ?? 1));
+  }
+  hurt(dmg) {
+    if (this.hurtTimer > 0 || this.dead) return;
+    this.hurtTimer = this.params.invulnerable;
+    this.vy = this.params.jumpSpeed * 0.5; this.grounded = false;
+    if (this.health) {
+      this.health.current = Math.max(0, this.health.current - dmg);
+      this.world.emit('health', this.health.current, this.health.params.max);
+      if (this.health.current <= 0) { this.dead = true; this.world.emit('gameover'); }
+    }
+  }
+  respawn() {
+    const p = this.entity.object3d.position;
+    [p.x, p.y, p.z] = this.spawn; this.vy = 0;
+    this.world.emit('respawn');
+  }
+  overlapsXZ(b, x, z, r) {
+    const cx = Math.max(b.minX, Math.min(x, b.maxX)), cz = Math.max(b.minZ, Math.min(z, b.maxZ));
+    return (x - cx) ** 2 + (z - cz) ** 2 < r * r;
+  }
+  update(dt) {
+    if (this.dead || dt <= 0) return;
+    const P = this.params, p = this.entity.object3d.position, o = this.entity.object3d;
+    const input = this.world.input || {}, move = input.move || [0, 0];
+    const solids = (this.world.solids || []).map(s => s.box());
+    this.hurtTimer = Math.max(0, this.hurtTimer - dt);
+    o.visible = this.hurtTimer <= 0 || Math.floor(this.hurtTimer * 10) % 2 === 0;   // blink while invulnerable
+
+    // Horizontal move, then push out of any solid we're inside (side collision).
+    p.x += move[0] * P.speed * dt;
+    p.z += move[1] * P.speed * dt;
+    if (Math.hypot(move[0], move[1]) > 0.05) o.rotation.y = Math.atan2(move[0], move[1]);
+    for (const b of solids) {
+      if (p.y >= b.maxY - 0.05 || p.y + P.height <= b.minY) continue;      // above or below it
+      const cx = Math.max(b.minX, Math.min(p.x, b.maxX)), cz = Math.max(b.minZ, Math.min(p.z, b.maxZ));
+      const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
+      if (d >= P.radius) continue;
+      if (d > 1e-6) { p.x = cx + (dx / d) * P.radius; p.z = cz + (dz / d) * P.radius; }
+      else {                                                                // centre inside: shortest way out
+        const pushes = [[b.minX - P.radius - p.x, 0], [b.maxX + P.radius - p.x, 0], [0, b.minZ - P.radius - p.z], [0, b.maxZ + P.radius - p.z]];
+        const [ox, oz] = pushes.sort((a, c) => Math.hypot(...a) - Math.hypot(...c))[0];
+        p.x += ox; p.z += oz;
+      }
+    }
+
+    // Jump (buffered a little so an early tap still counts), with coyote time.
+    if (input.jump) { this.jumpBuffer = 0.12; input.jump = false; }
+    this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
+    this.sinceGround = this.grounded ? 0 : this.sinceGround + dt;
+    if (this.jumpBuffer > 0 && this.sinceGround <= P.coyote && this.vy <= 0) {
+      this.vy = P.jumpSpeed; this.grounded = false; this.jumpBuffer = 0; this.sinceGround = P.coyote + 1;
+      this.world.emit('jump');
+    }
+
+    // Vertical: gravity, land on the highest surface under us, bump heads on ceilings.
+    this.vy -= P.gravity * dt;
+    const ny = p.y + this.vy * dt;
+    let support = P.groundY;
+    for (const b of solids) if (b.maxY <= p.y + 0.05 && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) support = Math.max(support, b.maxY);
+    if (this.vy > 0) for (const b of solids) {
+      if (b.minY >= p.y + P.height - 0.01 && b.minY < ny + P.height && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { this.vy = 0; break; }
+    }
+    if (ny <= support && this.vy <= 0) { p.y = support; this.vy = 0; this.grounded = true; }
+    else { p.y = this.vy === 0 && !this.grounded ? p.y : ny; this.grounded = false; }
+
+    if (p.y < P.killY) { this.respawn(); this.hurt(1); }
+  }
+}
+
+// Moves toward a target when it comes within range; drifts back home otherwise.
+export class Chase extends Behavior {
+  static schema = {
+    targetId:   { type: 'string', default: 'player' },
+    radius:     { type: 'number', default: 7, min: 0, max: 50, step: 0.5 },   // starts chasing inside this
+    speed:      { type: 'number', default: 2.5, min: 0, max: 15, step: 0.1 },
+    returnHome: { type: 'boolean', default: true },
+  };
+  start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; }
+  update(dt) {
+    if (this.entity.object3d.visible === false) return;
+    const t = this.world.getEntity(this.params.targetId); if (!t) return;
+    const p = this.entity.object3d.position, q = t.object3d.position;
+    const near = Math.hypot(q.x - p.x, q.z - p.z) < this.params.radius;
+    const goal = near ? [q.x, q.z] : this.params.returnHome ? this.home : null;
+    if (!goal) return;
+    const dx = goal[0] - p.x, dz = goal[1] - p.z, d = Math.hypot(dx, dz), step = this.params.speed * dt;
+    if (d < 0.05) return;
+    const k = Math.min(step, d) / d;
+    p.x += dx * k; p.z += dz * k;
+    this.entity.object3d.rotation.y = Math.atan2(dx, dz);
+  }
+}
+
+// Touching it hurts the target, unless the target lands on top: then it's defeated (score + bounce).
+export class Stompable extends Behavior {
+  static schema = {
+    targetId: { type: 'string', default: 'player' },
+    radius:   { type: 'number', default: 0.9, min: 0.1, max: 5, step: 0.05 },  // horizontal reach
+    height:   { type: 'number', default: 1.2, min: 0.1, max: 5, step: 0.05 },  // body height from origin
+    points:   { type: 'number', default: 1, min: 0, max: 100, step: 1 },
+    damage:   { type: 'number', default: 1, min: 0, max: 10, step: 1 },
+  };
+  update() {
+    if (this.defeated) return;
+    const t = this.world.getEntity(this.params.targetId); if (!t) return;
+    const p = this.entity.object3d.position, q = t.object3d.position, P = this.params;
+    if (Math.hypot(q.x - p.x, q.z - p.z) > P.radius) return;
+    const feet = q.y, top = p.y + P.height, bodyH = t.behaviors?.find(b => b instanceof PlayerController)?.params.height ?? 1.75;
+    if (feet > top + 0.2 || feet + bodyH < p.y) return;                       // no vertical overlap
+    const falling = (t.behaviors?.find(b => b instanceof PlayerController)?.vy ?? 0) < 0;
+    if (falling && feet > p.y + P.height * 0.5) {
+      this.defeated = true;
+      this.entity.object3d.visible = false;
+      this.world.emit('score', P.points);
+      this.world.emit('bounce', 0.7);
+    } else this.world.emit('hurt', P.damage);
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable })) {
   registerBehavior(name, cls);
 }

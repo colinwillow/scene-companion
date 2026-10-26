@@ -1,0 +1,110 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Solid, PlayerController, Chase, Stompable, Health } from '../behaviors/index.js';
+import { fakeEntity, fakeWorld, attach, run } from './fakes.js';
+
+function setup({ solids = [], params = {} } = {}) {
+  const player = fakeEntity('player', [0, 0, 0]);
+  const ents = [player];
+  const w = fakeWorld(ents);
+  w.input = { move: [0, 0], jump: false };
+  for (const [id, pos, size] of solids) { const e = fakeEntity(id, pos); ents.push(e); attach(Solid, e, { size }, w); }
+  const health = new Health(player, { max: 3 }, w); player.behaviors.push(health); health.start();
+  const pc = attach(PlayerController, player, params, w);
+  return { w, player, pc, health, p: player.object3d.position };
+}
+
+test('Solid box honours anchor', () => {
+  const w = fakeWorld();
+  const a = attach(Solid, fakeEntity('a', [0, 1, 0]), { size: [2, 1, 2] }, w);
+  const b = attach(Solid, fakeEntity('b', [0, 1, 0]), { size: [2, 1, 2], anchor: 'center' }, w);
+  assert.deepEqual([a.box().minY, a.box().maxY], [1, 2]);
+  assert.deepEqual([b.box().minY, b.box().maxY], [0.5, 1.5]);
+  assert.equal(w.solids.length, 2);
+  b.destroy();
+  assert.equal(w.solids.length, 1);
+});
+
+test('player walks with input and stays on the ground', () => {
+  const { w, p } = setup();
+  w.input.move = [1, 0];
+  run(w.getEntity('player').behaviors[1], 60);
+  assert.ok(Math.abs(p.x - 5) < 1e-6, `x=${p.x}`);
+  assert.equal(p.y, 0);
+});
+
+test('jump goes up and lands back; jump input is consumed', () => {
+  const { w, pc, p } = setup();
+  w.input.jump = true;
+  pc.update(1 / 60);
+  assert.equal(w.input.jump, false);
+  assert.ok(pc.vy > 0);
+  let maxY = 0;
+  for (let i = 0; i < 120; i++) { pc.update(1 / 60); maxY = Math.max(maxY, p.y); }
+  assert.ok(maxY > 1 && maxY < 1.5, `apex ${maxY}`);       // v²/2g = 7.5²/44 ≈ 1.28
+  assert.equal(p.y, 0);
+  assert.equal(pc.grounded, true);
+});
+
+test('lands on top of a solid and is blocked by its side', () => {
+  const { w, pc, p } = setup({ solids: [['box', [2, 0, 0], [2, 1, 2]]] });   // box x 1..3, y 0..1
+  w.input.move = [1, 0];
+  run(pc, 60);
+  assert.ok(p.x <= 1 - 0.35 + 1e-6, `stopped at side, x=${p.x}`);
+  // jump onto it
+  w.input.jump = true;
+  let landedOnTop = false;
+  for (let i = 0; i < 90 && !landedOnTop; i++) { pc.update(1 / 60); landedOnTop = pc.grounded && p.y === 1; }
+  assert.ok(landedOnTop, `never stood on the box (x=${p.x}, y=${p.y})`);
+  assert.ok(p.x > 1);
+});
+
+test('falling below killY respawns and costs health', () => {
+  const { w, pc, p, health } = setup({ params: { groundY: -100, killY: -5 } });
+  const events = [];
+  w.on('respawn', () => events.push('respawn'));
+  run(pc, 50);                         // falls 5 m in ~0.67 s
+  assert.deepEqual(events, ['respawn']);
+  assert.equal(health.current, 2);
+});
+
+test('hurt is ignored while invulnerable; game over at zero', () => {
+  const { w, pc, health } = setup();
+  const over = [];
+  w.on('gameover', () => over.push(1));
+  w.emit('hurt', 1); w.emit('hurt', 1);
+  assert.equal(health.current, 2);
+  run(pc, 80);                         // 1.33 s > 1.2 s invulnerability
+  w.emit('hurt', 2);
+  assert.equal(health.current, 0);
+  assert.deepEqual(over, [1]);
+});
+
+test('Chase follows inside radius and returns home outside', () => {
+  const target = fakeEntity('player', [3, 0, 0]);
+  const e = fakeEntity('enemy', [0, 0, 0]);
+  const w = fakeWorld([target, e]);
+  const c = attach(Chase, e, { radius: 5, speed: 1 }, w);
+  run(c, 60);
+  assert.ok(Math.abs(e.object3d.position.x - 1) < 1e-6);
+  target.object3d.position.x = 50;
+  run(c, 120);
+  assert.ok(Math.abs(e.object3d.position.x) < 0.06, `home, x=${e.object3d.position.x}`);
+});
+
+test('Stompable: side touch hurts, landing on top defeats', () => {
+  const { w, pc, p, health } = setup();
+  const enemy = fakeEntity('enemy', [0.5, 0, 0]);
+  const st = attach(Stompable, enemy, { height: 1, points: 2 }, w);
+  const scores = []; w.on('score', s => scores.push(s));
+  st.update(0.016);
+  assert.equal(health.current, 2, 'side touch hurts');
+  pc.hurtTimer = 0;
+  p.y = 0.8; pc.vy = -3;               // coming down on its head
+  st.update(0.016);
+  assert.equal(enemy.object3d.visible, false);
+  assert.deepEqual(scores, [2]);
+  assert.ok(pc.vy > 0, 'bounced');
+  st.update(0.016);
+  assert.deepEqual(scores, [2], 'only once');
+});

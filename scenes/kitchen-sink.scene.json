@@ -290,6 +290,18 @@
         0,
         20,
         0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1,
+              1,
+              1
+            ]
+          }
+        }
       ]
     },
     {
@@ -304,6 +316,18 @@
         0,
         -10,
         0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1,
+              1,
+              1
+            ]
+          }
+        }
       ]
     },
     {
@@ -341,6 +365,16 @@
           "params": {
             "height": 1,
             "speed": 1
+          }
+        },
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              3,
+              0.55,
+              3
+            ]
           }
         }
       ]
@@ -850,6 +884,15 @@
         160,
         0
       ]
+    },
+    {
+      "id": "chaser_01",
+      "prefab": "chaser",
+      "position": [
+        -7,
+        0.35,
+        -6
+      ]
     }
   ],
   "prefabs": {
@@ -858,6 +901,7 @@
     "tree": "./prefabs/tree.prefab.json",
     "grass_tuft": "./prefabs/grass_tuft.prefab.json",
     "cloud": "./prefabs/cloud.prefab.json",
-    "wall": "./prefabs/wall.prefab.json"
+    "wall": "./prefabs/wall.prefab.json",
+    "chaser": "./prefabs/chaser.prefab.json"
   }
 }

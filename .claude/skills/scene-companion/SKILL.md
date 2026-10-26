@@ -15,6 +15,14 @@ description: Use whenever building or changing a Three.js game that uses Scene C
 7. **Keep IDs stable.** Never rename or regenerate IDs. Renaming breaks the editor, the Blender bridge and merges.
 8. **Validate.** After changes, run `npm run validate`. It checks that every behavior in a scene exists, that values match their schemas, that there are no duplicate IDs, and that no hardcoded placement exists in code.
 
+## Game kit (what exists already — reuse it)
+- **Input:** behaviors never read the DOM. The game page fills `world.input = { move: [x, z], jump }` (move is world-space, camera-relative, length ≤ 1) and behaviors read it. See `play.html` for a mobile joystick + jump button + WASD/space.
+- **Collision:** our own tiny collider, no library. Give anything you can stand on or bump into a `Solid` behavior (`size` in metres, `anchor` bottom|center; axis-aligned). `PlayerController` walks, jumps (coyote time + jump buffer), lands on solids, respawns below `killY`.
+- **Enemies/pickups:** `Chase` (follow inside a radius, go home), `Stompable` (touch hurts, land on top defeats + bounce), `Pickup`, `Health`. Events: `score`, `hurt`, `bounce`, `health`, `gameover`, `jump`, `respawn`.
+- **Game page vs editor:** `index.html?scene=…` edits a scene; a game page (like `play.html`) loads the same scene file, plays it from a copy, and owns only camera, input and HUD.
+- **Models:** `glb` variants take `height` (characters), or `scale` + optional `offset`/`castShadow:false` (props). Kenney models have their origin at the bottom, so `Solid` anchor stays `bottom`.
+- **Tests:** add a node test for every new behavior (`tests/`, fakes in `tests/fakes.js`); `npm run check` must pass.
+
 ## When asked for a feature
 Make a behavior and attach it in the scene. For "breakable buildings": create a `Breakable` behavior with `health`, `debrisCount` and `debrisModel` in its schema, then attach it to the building objects in the scene file.
 
