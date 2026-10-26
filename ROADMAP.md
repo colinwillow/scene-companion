@@ -32,7 +32,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Save scene back to the repo (GitHub API with a token) instead of Copy JSON — ⇪ Save commits the open scene file; asks once for repo/branch/fine-grained token (stored on the device); warns before overwriting a newer repo copy; `runtime/github.js` tested against a fake API
 
 ## Stage 4 — Play mode + live link
-- [ ] Dev server with WebSocket: editor edits hot-patch a running game in another tab/phone
+- [ ] [IN PROGRESS 23:29 UTC, build run] Dev server with WebSocket: editor edits hot-patch a running game in another tab/phone
 - [ ] Game reports state back (selection follows, errors, FPS)
 
 ## Stage 5 — MCP server
