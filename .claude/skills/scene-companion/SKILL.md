@@ -11,8 +11,9 @@ description: Use whenever building or changing a Three.js game that uses Scene C
 3. **One owner per fact.** Behavior code reads its settings from the scene file and never overwrites placement or settings that the scene file owns. Runtime state (current health, velocity) is fine to change; authored values are not.
 4. **Assets by reference.** Models, textures and sounds live in `assets/` and are referenced by path. Keep within the game's budget (textures 512–2K, GLB under ~20 MB, Draco).
 5. **Reuse first.** Before writing a new behavior, check `behaviors/` and the shared behavior library. Extend an existing one with a new schema field rather than forking it.
-6. **Keep IDs stable.** Never rename or regenerate IDs. Renaming breaks the editor, the Blender bridge and merges.
-7. **Validate.** After changes, run `npm run validate`. It checks that every behavior in a scene exists, that values match their schemas, that there are no duplicate IDs, and that no hardcoded placement exists in code.
+6. **Prefabs for anything repeated.** If an object appears more than once (enemies, coins, props), make `prefabs/<name>.prefab.json` and list it under `prefabs` in the scene. Each instance gives only its id, position and what differs: behavior params merge by type, and `removeBehaviors` drops one. Never copy-paste a full object definition.
+7. **Keep IDs stable.** Never rename or regenerate IDs. Renaming breaks the editor, the Blender bridge and merges.
+8. **Validate.** After changes, run `npm run validate`. It checks that every behavior in a scene exists, that values match their schemas, that there are no duplicate IDs, and that no hardcoded placement exists in code.
 
 ## When asked for a feature
 Make a behavior and attach it in the scene. For "breakable buildings": create a `Breakable` behavior with `health`, `debrisCount` and `debrisModel` in its schema, then attach it to the building objects in the scene file.

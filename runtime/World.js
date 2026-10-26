@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook } from './look.js';
+import { mergeEntity } from './prefabs.js';
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -100,15 +101,24 @@ export class World {
     this.scene.background = new THREE.Color(st.background || '#202833');
     if (st.fog) this.scene.fog = new THREE.Fog(st.background || '#202833', st.fog[0], st.fog[1]);
 
-    for (const e of sceneData.entities) {
-      const obj = e.light ? this.buildLight(e.light) : await this.buildObject(this.resolveVariant(sceneData.assets?.[e.asset]));
+    // Prefabs: { name: "./prefabs/name.prefab.json" } loaded once per World.
+    this.prefabs = {};
+    for (const [name, url] of Object.entries(sceneData.prefabs || {})) {
+      this.prefabs[name] = typeof url === 'string' ? await (await fetch(url)).json() : url;
+    }
+
+    for (const authored of sceneData.entities) {
+      const e = authored.prefab ? mergeEntity(this.prefabs[authored.prefab], authored) : authored;
+      // An asset can be a key into scene assets, or defined inline (prefabs do this).
+      const assetDef = typeof e.asset === 'object' ? e.asset : sceneData.assets?.[e.asset];
+      const obj = e.light ? this.buildLight(e.light) : await this.buildObject(this.resolveVariant(assetDef));
       obj.name = e.id;
       obj.userData.entityId = e.id;
       if (e.position) obj.position.fromArray(e.position);
       if (e.rotation) obj.rotation.set(...e.rotation.map(d => THREE.MathUtils.degToRad(d)));
       if (e.scale) obj.scale.fromArray(e.scale);
       this.scene.add(obj);
-      const ent = { id: e.id, object3d: obj, data: e, behaviors: [] };
+      const ent = { id: e.id, object3d: obj, data: authored, resolved: e, behaviors: [] };
       if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation);
       this.entities.set(e.id, ent);
     }
@@ -117,7 +127,7 @@ export class World {
 
     // Behaviors attach after every object exists, so they can find each other.
     for (const ent of this.entities.values()) {
-      for (const b of ent.data.behaviors || []) {
+      for (const b of ent.resolved.behaviors || []) {
         const Cls = getBehavior(b.type);
         if (!Cls) { console.warn(`Unknown behavior "${b.type}" on ${ent.id}`); continue; }
         ent.behaviors.push(new Cls(ent, b.params, this));

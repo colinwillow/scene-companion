@@ -19,6 +19,7 @@ function clipsOf(path) {
   return names;
 }
 import { getBehavior } from '../runtime/registry.js';
+import { mergeEntity } from '../runtime/prefabs.js';
 import '../behaviors/index.js';
 
 const files = process.argv.slice(2).length
@@ -39,11 +40,19 @@ const err = (f, msg) => { errors++; console.error(`✗ ${f}: ${msg}`); };
 for (const f of files) {
   const scene = JSON.parse(readFileSync(f, 'utf8'));
   const ids = new Set();
-  for (const e of scene.entities || []) {
+  const prefabs = {};
+  for (const [name, url] of Object.entries(scene.prefabs || {})) {
+    const path = url.replace(/^\.\//, '');
+    if (!existsSync(path)) { err(f, `prefab "${name}" file not found: ${url}`); continue; }
+    prefabs[name] = JSON.parse(readFileSync(path, 'utf8'));
+  }
+  for (const authored of scene.entities || []) {
+    if (authored.prefab && !prefabs[authored.prefab]) err(f, `${authored.id}: unknown prefab "${authored.prefab}"`);
+    const e = authored.prefab ? mergeEntity(prefabs[authored.prefab], authored) : authored;
     if (!e.id) err(f, 'entity without an id');
     else if (ids.has(e.id)) err(f, `duplicate id "${e.id}"`);
     ids.add(e.id);
-    const asset = scene.assets?.[e.asset];
+    const asset = typeof e.asset === 'object' ? e.asset : scene.assets?.[e.asset];
     if (!e.light && e.asset && !asset) err(f, `${e.id}: unknown asset "${e.asset}"`);
     for (const v of Object.values(asset?.variants || {})) {
       if (!v.glb) continue;

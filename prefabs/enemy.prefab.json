@@ -1,0 +1,12 @@
+{
+  "asset": {
+    "variants": {
+      "web": { "primitive": "capsule", "size": [0.7, 1.6, 0.7], "color": "#9b59ff" },
+      "desktop": { "primitive": "capsule", "size": [0.7, 1.6, 0.7], "color": "#9b59ff", "roughness": 0.3, "metalness": 0.4 }
+    }
+  },
+  "behaviors": [
+    { "type": "Patrol", "params": { "speed": 2 } },
+    { "type": "Health", "params": { "max": 50 } }
+  ]
+}

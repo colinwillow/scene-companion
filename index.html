@@ -58,6 +58,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
+import { setOverride } from './runtime/prefabs.js';
 import './behaviors/index.js';
 
 // ---- the single source of truth: scene data
@@ -140,7 +141,8 @@ function renderPanel() {
   const ent = world?.getEntity(selectedId);
   if (!ent) { panel.innerHTML = `<p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p>`; return; }
   const e = ent.data;
-  panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${e.asset ? 'asset: ' + e.asset : 'light'}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div>`;
+  const label = e.prefab ? `prefab: ${e.prefab} (edits here override only this one)` : e.asset ? 'asset: ' + (typeof e.asset === 'string' ? e.asset : 'inline') : 'light';
+  panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div>`;
   const pos = document.createElement('div'); pos.className = 'row';
   pos.innerHTML = `<label>position</label>`;
   pos.append(...control({ type: 'vec3' }, e.position || [0, 0, 0], v => { e.position = v; ent.object3d.position.fromArray(v); }).children);
@@ -153,7 +155,7 @@ function renderPanel() {
     panel.append(row);
   }
 
-  (e.behaviors ||= []).forEach((b, i) => {
+  (ent.resolved.behaviors || []).forEach((b, i) => {
     const Cls = getBehavior(b.type);
     const box = document.createElement('div'); box.className = 'beh';
     box.innerHTML = `<b>${b.type}</b>`;
@@ -161,7 +163,8 @@ function renderPanel() {
     const params = { ...Object.fromEntries(Object.entries(Cls.schema).map(([k, d]) => [k, d.default])), ...(b.params || {}) };
     for (const [key, def] of Object.entries(Cls.schema)) {
       const row = control(def, params[key], v => {
-        (b.params ||= {})[key] = v;                              // authored data
+        setOverride(e, b.type, key, v);                           // authored data (override if prefab)
+        (b.params ||= {})[key] = v;
         ent.behaviors[i]?.onParamChanged(key, v);                 // live runtime
       });
       const lab = document.createElement('label'); lab.textContent = key; row.prepend(lab);
@@ -173,7 +176,7 @@ function renderPanel() {
   if (!playing) {
     const add = document.createElement('select'); add.className = 'add';
     add.innerHTML = `<option value="">+ Add behavior…</option>` + behaviorNames().map(n => `<option>${n}</option>`).join('');
-    add.onchange = async () => { if (!add.value) return; e.behaviors.push({ type: add.value, params: {} }); await rebuild(); };
+    add.onchange = async () => { if (!add.value) return; (e.behaviors ||= []).push({ type: add.value, params: {} }); await rebuild(); };
     panel.append(add);
   }
 }
