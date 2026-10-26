@@ -247,6 +247,7 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   world.animate(dt);
+  world.followFocus(orbit.target);
   if (playing) world.update(dt);
   orbit.update();
   if (post) post.render(); else renderer.render(world.scene, camera);

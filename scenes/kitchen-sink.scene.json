@@ -4,8 +4,8 @@
     "look": "pbr",
     "background": "#1d2533",
     "fog": [
-      25,
-      90
+      30,
+      110
     ],
     "sky": {
       "elevation": 22,
@@ -34,20 +34,23 @@
         "web": {
           "primitive": "plane",
           "size": [
-            30,
+            120,
             1,
-            30
+            120
           ],
-          "color": "#4f7a4a"
+          "texture": "grass",
+          "repeat": 24,
+          "roughness": 0.95
         },
         "desktop": {
           "primitive": "plane",
           "size": [
-            30,
+            120,
             1,
-            30
+            120
           ],
-          "color": "#4f7a4a",
+          "texture": "grass",
+          "repeat": 40,
           "roughness": 0.95
         }
       }
@@ -93,6 +96,36 @@
           "height": 1.75
         }
       }
+    },
+    "path": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "size": [
+            2.4,
+            0.04,
+            16
+          ],
+          "texture": "dirt",
+          "repeat": 3,
+          "roughness": 1
+        }
+      }
+    },
+    "plaza": {
+      "variants": {
+        "web": {
+          "primitive": "cylinder",
+          "size": [
+            9,
+            0.06,
+            9
+          ],
+          "texture": "stone",
+          "repeat": 4,
+          "roughness": 0.85
+        }
+      }
     }
   },
   "entities": [
@@ -124,6 +157,24 @@
         0,
         0,
         0
+      ]
+    },
+    {
+      "id": "path_main",
+      "asset": "path",
+      "position": [
+        0,
+        0.02,
+        3
+      ]
+    },
+    {
+      "id": "plaza",
+      "asset": "plaza",
+      "position": [
+        0,
+        0.03,
+        -1
       ]
     },
     {

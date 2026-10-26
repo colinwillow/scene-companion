@@ -8,6 +8,7 @@ import { getBehavior } from './registry.js';
 import { applyLook } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
+import { proceduralTexture } from './textures.js';
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -73,7 +74,8 @@ export class World {
       plane: () => new THREE.PlaneGeometry(s[0], s[2]).rotateX(-Math.PI / 2),
     }[variant.primitive]?.() || new THREE.BoxGeometry(...s);
     const mat = new THREE.MeshStandardMaterial({
-      color: variant.color || '#cccccc',
+      map: variant.texture ? proceduralTexture(variant.texture, variant.repeat ?? 8) : null,
+      color: variant.color || (variant.texture ? '#ffffff' : '#cccccc'),
       roughness: variant.roughness ?? 0.8,
       metalness: variant.metalness ?? 0,
       emissive: variant.emissive || '#000000',
@@ -88,8 +90,15 @@ export class World {
     if (l.type === 'directional') {
       light = new THREE.DirectionalLight(l.color || '#ffffff', l.intensity ?? 2);
       light.castShadow = true;
-      light.shadow.mapSize.set(1024, 1024);
-      Object.assign(light.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15 });
+      const ultra = this.tier === 'desktop';
+      light.shadow.mapSize.set(ultra ? 2048 : 1024, ultra ? 2048 : 1024);
+      const r = l.shadowRadius ?? 14;   // metres covered around the camera focus
+      Object.assign(light.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 80 });
+      light.shadow.bias = -0.0004;
+      light.shadow.normalBias = 0.03;
+      light.shadow.radius = ultra ? 4 : 2;
+      this.scene.add(light.target);
+      this.shadowLights = [...(this.shadowLights || []), light];
     } else if (l.type === 'hemisphere') {
       light = new THREE.HemisphereLight(l.color || '#ffffff', l.groundColor || '#444444', l.intensity ?? 1);
     } else {
@@ -163,6 +172,15 @@ export class World {
     };
     anim.play(startClip || (anim.clips.includes('Idle') ? 'Idle' : anim.clips[0]), { fade: 0 });
     return anim;
+  }
+
+  // Keep the shadow box centred on what the camera is looking at, so shadows stay crisp anywhere.
+  followFocus(focus) {
+    const dir = this.sunDirection || new THREE.Vector3(0.4, 1, 0.3).normalize();
+    for (const l of this.shadowLights || []) {
+      l.target.position.copy(focus);
+      l.position.copy(focus).addScaledVector(dir, 30);
+    }
   }
 
   // Runs in edit mode too, so authored animations preview while placing things.
