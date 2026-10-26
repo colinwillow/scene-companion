@@ -56,7 +56,7 @@ test('validator checks prefab files and removeBehaviors', () => {
 });
 
 test('behaviors and the pure runtime files import nothing from three or the DOM', () => {
-  const files = ['runtime/Behavior.js', 'runtime/registry.js', 'runtime/prefabs.js',
+  const files = ['runtime/Behavior.js', 'runtime/registry.js', 'runtime/prefabs.js', 'runtime/editing.js',
     ...readdirSync(join(root, 'behaviors')).filter(f => f.endsWith('.js')).map(f => `behaviors/${f}`)];
   for (const f of files) {
     const src = readFileSync(join(root, f), 'utf8');

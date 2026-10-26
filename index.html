@@ -33,6 +33,8 @@
     border:1px solid var(--line); border-radius:6px; padding:4px; font:inherit; }
   .row output { width:44px; text-align:right; }
   select.add { width:100%; margin-top:6px; padding:8px; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; }
+  .acts { display:flex; gap:8px; margin:8px 0; }
+  .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
   #tree { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:38vh; display:none; flex-direction:column;
     background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; }
   #tree.open { display:flex; }
@@ -61,6 +63,7 @@
   <button id="mode" title="Gizmo mode">Move</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
   <select id="tier" title="Quality tier"><option>web</option><option>desktop</option></select>
+  <select id="add" title="Add an object"></select>
   <button id="save">Copy JSON</button>
   <span id="score">★ 0</span>
 </div>
@@ -82,6 +85,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset } from './runtime/editing.js';
 import { createPost } from './runtime/post.js';
 import './behaviors/index.js';
 
@@ -212,6 +216,23 @@ function renderPanel() {
   const e = ent.data;
   const label = e.prefab ? `prefab: ${e.prefab} (edits here override only this one)` : e.asset ? 'asset: ' + (typeof e.asset === 'string' ? e.asset : 'inline') : 'light';
   panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div>`;
+  if (!playing) {
+    const acts = document.createElement('div'); acts.className = 'acts';
+    acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>`;
+    acts.onclick = async ev => {
+      const a = ev.target.dataset.a; if (!a) return;
+      if (a === 'dup') { const c = duplicateEntity(data, e.id); await rebuild(); select(c.id); }
+      if (a === 'del' && confirm(`Delete ${e.id}?`)) { deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }
+    };
+    panel.append(acts);
+    if (!e.light && data.assets && Object.keys(data.assets).length) {
+      const row = document.createElement('div'); row.className = 'row';
+      const cur = typeof e.asset === 'string' ? e.asset : '';
+      row.innerHTML = `<label>model</label><select class="add" style="margin:0">${cur ? '' : `<option value="">${e.prefab ? 'from prefab' : 'inline'}</option>`}${Object.keys(data.assets).map(k => `<option ${k === cur ? 'selected' : ''}>${k}</option>`).join('')}</select>`;
+      row.querySelector('select').onchange = async ev => { if (setAsset(data, e.id, ev.target.value)) { await rebuild(); select(e.id); } };
+      panel.append(row);
+    }
+  }
   const pos = document.createElement('div'); pos.className = 'row';
   pos.innerHTML = `<label>position</label>`;
   pos.append(...control({ type: 'vec3' }, e.position || [0, 0, 0], v => { e.position = v; ent.object3d.position.fromArray(v); }).children);
@@ -275,6 +296,7 @@ $('play').onclick = async () => {
   playing = !playing;
   $('play').textContent = playing ? '■ Stop' : '▶ Play';
   $('play').classList.toggle('on', playing);
+  $('add').disabled = playing;
   score = 0; $('score').textContent = '★ 0';
   await rebuild();                       // Play and Stop both rebuild from authored data
   renderPanel();
@@ -283,6 +305,22 @@ let modeIdx = 0;
 $('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; $('mode').textContent = ['Move', 'Rotate', 'Scale'][modeIdx]; gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
 $('look').onchange = async () => { data.settings.look = $('look').value; await rebuild(); };
 $('tier').onchange = rebuild;
+// Add: any prefab or scene asset, dropped where the camera is looking (on the floor).
+function fillAdd() {
+  const pf = Object.keys(data.prefabs || {}), as = Object.keys(data.assets || {});
+  $('add').innerHTML = `<option value="">＋ Add</option>` +
+    (pf.length ? `<optgroup label="Prefabs">${pf.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
+    (as.length ? `<optgroup label="Models">${as.map(n => `<option value="asset:${n}">${n}</option>`).join('')}</optgroup>` : '');
+}
+fillAdd();
+$('add').onchange = async () => {
+  const [kind, name] = $('add').value.split(':'); $('add').value = '';
+  if (!name) return;
+  if (playing) return;                                 // adding is an edit-mode thing
+  const t = orbit.target;
+  const e = addEntity(data, { [kind]: name }, [t.x, 0, t.z]);
+  await rebuild(); select(e.id);
+};
 $('save').onclick = async () => {
   const json = JSON.stringify(data, null, 2);
   try { await navigator.clipboard.writeText(json); $('save').textContent = 'Copied ✓'; }
