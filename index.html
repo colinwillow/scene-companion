@@ -202,7 +202,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   ray.setFromCamera(ptr, camera);
   const hits = ray.intersectObjects(world.scene.children, true).filter(h => h.object.visible && !isGizmo(h.object));
   if (playing) {
-    const g = hits.find(h => entityIdOf(h.object) === 'ground');
+    const g = hits.find(h => h.point.y < 0.3 && entityIdOf(h.object) !== 'player');   // any floor surface
     if (g) world.emit('moveTo', g.point.toArray());
     return;
   }
