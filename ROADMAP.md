@@ -3,6 +3,14 @@
 Top unchecked item = next run. Colin can reorder, add or delete freely.
 Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` passing and the kitchen-sink scene working.
 
+## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
+Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.
+- [ ] Sky + environment lighting: procedural sky (three's Sky addon) or gradient sky, PMREM environment from it, sun direction/colour from scene settings, filmic tone mapping. Make `pbr` look great by default.
+- [ ] Post-processing stack scaled by tier: ambient occlusion (GTAO/SAO), bloom, anti-aliasing, subtle vignette/colour grade. Web = light, desktop = full. Settings live in the scene file.
+- [ ] Shadows + ground: tuned soft shadows that follow the camera, a good-looking ground (procedural texture or noise, not flat green), a bit of fog/atmosphere.
+- [ ] Real models: replace primitives with free CC0 models (e.g. Quaternius or Kenney packs from GitHub) — crates, coins, props, trees/rocks, enemies — and dress the kitchen-sink scene so it reads as a small game level.
+- [ ] Toon look upgrade: outlines + rim light so `toon` looks stylized and intentional, not flat.
+
 ## Stage 1 — Format + runtime (v0 done)
 - [x] Scene format, Behavior base + schema, registry, World loader, look profiles, tier variants, validator, editor page v0
 - [x] GLB assets in scenes (with a sample character) + animation clips per entity
