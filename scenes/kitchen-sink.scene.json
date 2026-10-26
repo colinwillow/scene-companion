@@ -1,12 +1,23 @@
 {
   "version": 1,
   "settings": {
-    "look": "toon",
+    "look": "pbr",
     "background": "#1d2533",
     "fog": [
-      18,
-      45
-    ]
+      25,
+      90
+    ],
+    "sky": {
+      "elevation": 22,
+      "azimuth": 135,
+      "turbidity": 5,
+      "rayleigh": 1.4,
+      "exposure": 0.55,
+      "sunColor": "#ffeedd",
+      "sunIntensity": 3.2,
+      "envIntensity": 1.0
+    },
+    "fogColor": "#c9d6e3"
   },
   "assets": {
     "ground": {

@@ -75,7 +75,7 @@ const data = await (await fetch(SCENE_URL)).json();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 document.body.prepend(renderer.domElement);
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 3000);
 camera.position.set(10, 11, 14);
 const orbit = new OrbitControls(camera, renderer.domElement);
 orbit.target.set(0, 0.5, 0);

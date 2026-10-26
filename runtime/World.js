@@ -7,6 +7,7 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook } from './look.js';
 import { mergeEntity } from './prefabs.js';
+import { applySky } from './sky.js';
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -101,7 +102,7 @@ export class World {
     this.data = sceneData;
     const st = sceneData.settings || {};
     this.scene.background = new THREE.Color(st.background || '#202833');
-    if (st.fog) this.scene.fog = new THREE.Fog(st.background || '#202833', st.fog[0], st.fog[1]);
+    if (st.fog) this.scene.fog = new THREE.Fog(st.fogColor || st.background || '#202833', st.fog[0], st.fog[1]);
 
     // Prefabs: { name: "./prefabs/name.prefab.json" } loaded once per World.
     this.prefabs = {};
@@ -125,6 +126,7 @@ export class World {
       this.entities.set(e.id, ent);
     }
 
+    if (st.sky) applySky(this, st.sky);
     applyLook(this, st.look || 'toon');
 
     // Behaviors attach after every object exists, so they can find each other.
