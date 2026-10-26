@@ -37,6 +37,24 @@ test('validator catches duplicate ids, unknown behaviors, bad params, missing pr
     assert.ok(r.stderr.includes(msg), `expected: ${msg}\n${r.stderr}`);
 });
 
+test('validator checks prefab files and removeBehaviors', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sc-pf-'));
+  writeFileSync(join(dir, 'bad.prefab.json'), JSON.stringify({ id: 'x', position: [0, 0, 0], behaviors: [{ type: 'Spin', params: { speed: 99 } }] }));
+  writeFileSync(join(dir, 'unused.prefab.json'), JSON.stringify({ asset: { variants: { web: { primitive: 'box' } } } }));
+  const r = validate(tmpScene({
+    prefabs: { bad: join(dir, 'bad.prefab.json'), unused: join(dir, 'unused.prefab.json') },
+    entities: [
+      { id: 'a', prefab: 'bad', removeBehaviors: ['Bob'] },
+      { id: 'b', removeBehaviors: ['Spin'] },
+      { id: 'Bad-Id' },
+    ],
+  }));
+  assert.equal(r.status, 1);
+  for (const msg of ['"id" belongs on instances', '"position" belongs on instances', 'prefab "bad": no asset', 'prefab bad.Spin.speed',
+                     'removeBehaviors "Bob"', 'b: removeBehaviors only works on prefab instances', 'prefab "unused" is listed but never used', 'lowercase_with_underscores'])
+    assert.ok(r.stderr.includes(msg), `expected: ${msg}\n${r.stderr}`);
+});
+
 test('behaviors and the pure runtime files import nothing from three or the DOM', () => {
   const files = ['runtime/Behavior.js', 'runtime/registry.js', 'runtime/prefabs.js',
     ...readdirSync(join(root, 'behaviors')).filter(f => f.endsWith('.js')).map(f => `behaviors/${f}`)];

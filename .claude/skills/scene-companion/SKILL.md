@@ -13,7 +13,7 @@ description: Use whenever building or changing a Three.js game that uses Scene C
 5. **Reuse first.** Before writing a new behavior, check `behaviors/` and the shared behavior library. Extend an existing one with a new schema field rather than forking it.
 6. **Prefabs for anything repeated.** If an object appears more than once (enemies, coins, props), make `prefabs/<name>.prefab.json` and list it under `prefabs` in the scene. Each instance gives only its id, position and what differs: behavior params merge by type, and `removeBehaviors` drops one. Never copy-paste a full object definition.
 7. **Keep IDs stable.** Never rename or regenerate IDs. Renaming breaks the editor, the Blender bridge and merges.
-8. **Validate.** After changes, run `npm run validate`. It checks that every behavior in a scene exists, that values match their schemas, that there are no duplicate IDs, and that no hardcoded placement exists in code.
+8. **Validate.** After changes, run `npm run validate`. It checks that every behavior in a scene exists, that values match their schemas, that there are no duplicate IDs, prefab files and `removeBehaviors`, and that no hardcoded placement (literal `position`/`scale` set, assign, fromArray, copy) exists in behaviors or game pages. Behaviors may not create meshes. Warnings (⚠) don't fail but are worth fixing.
 
 ## Game kit (what exists already — reuse it)
 - **Input:** behaviors never read the DOM. The game page fills `world.input = { move: [x, z], jump }` (move is world-space, camera-relative, length ≤ 1) and behaviors read it. See `play.html` for a mobile joystick + jump button + WASD/space.

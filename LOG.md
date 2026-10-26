@@ -11,3 +11,4 @@
 - 2026-10-26 — More CC0 models — blocked: can't list asset repos from a build run (build run)
 - 2026-10-26 — Unit tests — 29 node tests: all behaviors, prefabs, validator catches bad scenes, purity check, World loads with real three (build run)
 - 2026-10-26 — Tiny game — Tiny Hop (play.html + scenes/tiny-hop): Solid collider, PlayerController, Chase, Stompable, 8 new tests, skill Game kit section (build run)
+- 2026-10-26 — Validator — tools/codecheck.mjs placement scanner, prefab + removeBehaviors checks, warnings, per-file ✓ fix; 42 tests (build run)

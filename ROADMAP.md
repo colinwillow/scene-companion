@@ -22,7 +22,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 ## Stage 2 — Skill
 - [x] Vibe-code a tiny game from scratch following SKILL.md — **Tiny Hop** (`play.html`): third-person, joystick + jump, chasers you stomp, 10 coins, platforms incl. a moving one. New behaviors Solid, PlayerController, Chase, Stompable; SKILL.md got a Game kit section (input, collision, events, game page vs editor).
 - [ ] Tiny Hop feel pass after Colin's playtest: jump/fall animation clips, carry the player on moving platforms, camera collision, sounds
-- [ ] [IN PROGRESS 23:17 UTC, build run] Validator: catch hardcoded placement more robustly; check prefab references
+- [x] Validator: catch hardcoded placement more robustly; check prefab references — set/assign/fromArray/copy literals in behaviors + game pages, comment-aware, camera exempt; prefab files (no id/position, asset, behavior params), unused prefabs, removeBehaviors typos, id style
 
 ## Stage 3 — Editor v1
 - [ ] Hierarchy list (all entities, tap to select, search)

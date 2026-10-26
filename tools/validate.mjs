@@ -4,6 +4,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
+import { findHardcoded, findSpawnedMeshes } from './codecheck.mjs';
 
 // Read clip names straight out of a .glb's JSON chunk (no three needed).
 const glbClips = new Map();
@@ -34,20 +35,49 @@ const typeOk = (def, v) => ({
   vec3: Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number'),
 }[def.type] ?? true);
 
-let errors = 0;
+let errors = 0, warnings = 0;
 const err = (f, msg) => { errors++; console.error(`✗ ${f}: ${msg}`); };
+const warn = (f, msg) => { warnings++; console.error(`⚠ ${f}: ${msg}`); };
+
+// Behavior params must exist in the schema and fit their type/range.
+function checkBehaviors(f, who, behaviors) {
+  for (const b of behaviors || []) {
+    const Cls = getBehavior(b.type);
+    if (!Cls) { err(f, `${who}: unknown behavior "${b.type}"`); continue; }
+    for (const [k, v] of Object.entries(b.params || {})) {
+      const def = Cls.schema[k];
+      if (!def) err(f, `${who}.${b.type}: "${k}" is not in the schema`);
+      else if (!typeOk(def, v)) err(f, `${who}.${b.type}.${k}: ${JSON.stringify(v)} doesn't fit ${def.type}${def.min !== undefined ? ` [${def.min}..${def.max}]` : ''}`);
+    }
+  }
+}
 
 for (const f of files) {
+  const errorsBefore = errors;
   const scene = JSON.parse(readFileSync(f, 'utf8'));
   const ids = new Set();
   const prefabs = {};
   for (const [name, url] of Object.entries(scene.prefabs || {})) {
     const path = url.replace(/^\.\//, '');
     if (!existsSync(path)) { err(f, `prefab "${name}" file not found: ${url}`); continue; }
-    prefabs[name] = JSON.parse(readFileSync(path, 'utf8'));
+    try { prefabs[name] = JSON.parse(readFileSync(path, 'utf8')); }
+    catch (e) { err(f, `prefab "${name}" isn't valid JSON: ${e.message}`); continue; }
+    const p = prefabs[name];
+    for (const k of ['id', 'position', 'prefab']) if (k in p) err(f, `prefab "${name}": "${k}" belongs on instances, not in the prefab`);
+    if (!p.asset && !p.light) err(f, `prefab "${name}": no asset`);
+    checkBehaviors(f, `prefab ${name}`, p.behaviors);
   }
+  const used = new Set((scene.entities || []).map(e => e.prefab).filter(Boolean));
+  for (const name of Object.keys(prefabs)) if (!used.has(name)) warn(f, `prefab "${name}" is listed but never used`);
   for (const authored of scene.entities || []) {
     if (authored.prefab && !prefabs[authored.prefab]) err(f, `${authored.id}: unknown prefab "${authored.prefab}"`);
+    if (authored.removeBehaviors) {
+      if (!authored.prefab) err(f, `${authored.id}: removeBehaviors only works on prefab instances`);
+      else for (const t of authored.removeBehaviors)
+        if (prefabs[authored.prefab] && !(prefabs[authored.prefab].behaviors || []).some(b => b.type === t))
+          err(f, `${authored.id}: removeBehaviors "${t}" — prefab "${authored.prefab}" has no such behavior`);
+    }
+    if (authored.id && !/^[a-z0-9_]+$/.test(authored.id)) warn(f, `${authored.id}: ids should be lowercase_with_underscores`);
     const e = authored.prefab ? mergeEntity(prefabs[authored.prefab], authored) : authored;
     if (!e.id) err(f, 'entity without an id');
     else if (ids.has(e.id)) err(f, `duplicate id "${e.id}"`);
@@ -60,22 +90,23 @@ for (const f of files) {
       if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
       else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
     }
-    for (const b of e.behaviors || []) {
-      const Cls = getBehavior(b.type);
-      if (!Cls) { err(f, `${e.id}: unknown behavior "${b.type}"`); continue; }
-      for (const [k, v] of Object.entries(b.params || {})) {
-        const def = Cls.schema[k];
-        if (!def) err(f, `${e.id}.${b.type}: "${k}" is not in the schema`);
-        else if (!typeOk(def, v)) err(f, `${e.id}.${b.type}.${k}: ${JSON.stringify(v)} doesn't fit ${def.type}${def.min !== undefined ? ` [${def.min}..${def.max}]` : ''}`);
-      }
-    }
+    checkBehaviors(f, e.id, e.behaviors);
   }
-  if (!errors) console.log(`✓ ${f} — ${ids.size} entities`);
+  if (errors === errorsBefore) console.log(`✓ ${f} — ${ids.size} entities`);
 }
 
-// No hardcoded placement in behavior code: flag literal position assignments.
-const src = readFileSync('behaviors/index.js', 'utf8');
-const bad = src.match(/position\.set\(\s*-?\d/g);
-if (bad) err('behaviors/index.js', `hardcoded placement (${bad.length}× position.set with literals) — put it in the scene file`);
+// No hardcoded placement in code: behaviors, plus game pages/scripts at the root and in games/.
+const codeFiles = [
+  ...readdirSync('behaviors').filter(n => n.endsWith('.js')).map(n => join('behaviors', n)),
+  ...readdirSync('.').filter(n => /\.(html|js|mjs)$/.test(n)),
+  ...(existsSync('games') ? readdirSync('games', { recursive: true }).filter(n => /\.(html|js|mjs)$/.test(n)).map(n => join('games', n)) : []),
+];
+for (const cf of codeFiles) {
+  const src = readFileSync(cf, 'utf8');
+  for (const h of findHardcoded(src)) err(cf, `line ${h.line}: hardcoded placement (${h.why}) — put it in the scene file: ${h.text}`);
+  if (cf.startsWith('behaviors')) for (const h of findSpawnedMeshes(src)) err(cf, `line ${h.line}: behaviors must not create meshes: ${h.text}`);
+  else for (const h of findSpawnedMeshes(src)) warn(cf, `line ${h.line}: creates a mesh in code — if it's a placed object, it belongs in the scene file`);
+}
+if (warnings) console.log(`${warnings} warning(s)`);
 
 process.exit(errors ? 1 : 0);
