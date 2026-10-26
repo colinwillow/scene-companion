@@ -3,7 +3,8 @@
     "variants": {
       "web": {
         "glb": "./assets/models/kenney/platformer/cloud.glb",
-        "scale": 4
+        "scale": 4,
+        "castShadow": false
       }
     }
   },

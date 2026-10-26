@@ -10,7 +10,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Shadows + ground: tuned soft shadows that follow the camera, a good-looking ground (procedural texture or noise, not flat green), a bit of fog/atmosphere.
 - [x] Real models: replace primitives with free CC0 models (e.g. Quaternius or Kenney packs from GitHub) — crates, coins, props, trees/rocks, enemies — and dress the kitchen-sink scene so it reads as a small game level.
 - [x] Toon look upgrade: outlines + rim light so `toon` looks stylized and intentional, not flat.
-- [ ] [IN PROGRESS 23:04 UTC, build run] Fix toon look: in headless Chromium, switching to `toon` makes everything washed-out grey (ground texture lost) and the robot gets black shard artifacts around it (outline hull on the skinned mesh?). Happened before the real-models change too. Check on a phone first — may be a SwiftShader-only artifact.
+- [x] Fix toon look: rim light was inverted (lit every pixel → washed grey); toon now cancels the sky's low exposure; outline width is in world metres (rigged robot sits under ×39 bones, which blew its hull into black shards); outline hulls share morph weights; clouds don't cast shadows.
 - [ ] More CC0 models: rocks, crates, a ground enemy. Only found Kenney starter-kit GLBs by guessing paths (raw.githubusercontent works, GitHub API/jsDelivr are blocked from build runs). Ask Colin to add a pack to the repo, or allow a Kenney repo for read.
 
 ## Stage 1 — Format + runtime (v0 done)

@@ -66,6 +66,7 @@ export class World {
       }
       // Optional nudge in metres, e.g. sink a tile's base plate into the ground.
       if (variant.offset) model.position.add(new THREE.Vector3(...variant.offset));
+      if (variant.castShadow === false) model.traverse(o => { if (o.isMesh) o.castShadow = false; });
       const root = new THREE.Group();
       root.add(model);
       root.userData.clips = gltf.animations;

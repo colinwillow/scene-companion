@@ -15,15 +15,20 @@ function getToonRamp() {
   return toonRamp;
 }
 
-// Toon material with a rim light baked into the shader (bright edge facing away from the camera).
+// Toon material with a rim light baked into the shader (bright edge where the surface turns away from the camera).
+// vViewPosition points from the surface to the camera; `normal` faces the camera on front faces.
+// toonGain undoes the sky's low exposure on toon surfaces, so flat toon colours read at full strength
+// while the sky (tuned for pbr) keeps its look.
+const toonGain = { value: 1 };
 function toonMaterial(base) {
   const m = new THREE.MeshToonMaterial({ ...base, gradientMap: getToonRamp() });
   m.onBeforeCompile = shader => {
-    shader.fragmentShader = shader.fragmentShader.replace(
+    shader.uniforms.toonGain = toonGain;
+    shader.fragmentShader = 'uniform float toonGain;\n' + shader.fragmentShader.replace(
       '#include <opaque_fragment>',
-      `float rim = 1.0 - max(dot(normalize(vViewPosition), -normal), 0.0);
+      `float rim = 1.0 - max(dot(normalize(vViewPosition), normal), 0.0);
        rim = smoothstep(0.62, 0.8, rim) * 0.35;
-       outgoingLight += vec3(rim);
+       outgoingLight = outgoingLight * toonGain + vec3(rim);
        #include <opaque_fragment>`);
   };
   return m;
@@ -34,7 +39,9 @@ OUTLINE.onBeforeCompile = shader => {
   shader.uniforms.outlineWidth = { value: 0.025 };
   shader.vertexShader = 'uniform float outlineWidth;\n' + shader.vertexShader.replace(
     '#include <project_vertex>',
-    'transformed += normalize(normal) * outlineWidth;\n#include <project_vertex>');
+    // Width is in world metres: divide out the mesh's world scale (rigged models often sit under x39-scaled bones,
+    // which blew flat-shaded hulls apart into shards).
+    'transformed += normalize(normal) * outlineWidth / max(length(modelMatrix[0].xyz), 1e-4);\n#include <project_vertex>');
 };
 
 // Inverted-hull outline: a slightly fattened back-facing copy drawn in dark ink.
@@ -45,6 +52,11 @@ function addOutline(mesh) {
     hull = new THREE.SkinnedMesh(mesh.geometry, OUTLINE);
     hull.bind(mesh.skeleton, mesh.bindMatrix);
   } else hull = new THREE.Mesh(mesh.geometry, OUTLINE);
+  // Share morph weights (face expressions etc.); without them the hull's morphs read garbage and explode.
+  if (mesh.morphTargetInfluences) {
+    hull.morphTargetInfluences = mesh.morphTargetInfluences;
+    hull.morphTargetDictionary = mesh.morphTargetDictionary;
+  }
   hull.name = '__outline';
   hull.raycast = () => {};            // never selectable
   hull.castShadow = false;
@@ -92,5 +104,6 @@ export function applyLook(world, look) {
   // Filmic tone mapping for lit looks (AgX keeps saturated colours from blowing out).
   renderer.toneMapping = look === 'baked' ? THREE.NoToneMapping : THREE.AgXToneMapping;
   if (!world.skyEnv) renderer.toneMappingExposure = 1;
+  toonGain.value = 1 / Math.max(renderer.toneMappingExposure, 0.1);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, ultra ? 2 : 1.5));
 }
