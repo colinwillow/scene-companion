@@ -73,6 +73,7 @@
   <button id="undo" title="Undo (Ctrl+Z)" disabled>↶</button>
   <button id="redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
   <button id="save" title="Copy the scene JSON">Copy</button>
+  <button id="push" title="Commit this scene to GitHub">⇪ Save</button>
   <span id="score">★ 0</span>
 </div>
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
@@ -95,6 +96,7 @@ import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset } from './runtime/editing.js';
 import { History } from './runtime/history.js';
+import { saveFile } from './runtime/github.js';
 import { createPost } from './runtime/post.js';
 import './behaviors/index.js';
 
@@ -102,7 +104,8 @@ const $ = id => document.getElementById(id);
 
 // ---- the single source of truth: scene data
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/kitchen-sink.scene.json';
-const data = await (await fetch(SCENE_URL)).json();
+let loadedText = await (await fetch(SCENE_URL)).text();   // what the repo had when we opened it
+const data = JSON.parse(loadedText);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 document.body.prepend(renderer.domElement);
@@ -346,6 +349,38 @@ let modeIdx = 0;
 $('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; $('mode').textContent = ['Move', 'Rotate', 'Scale'][modeIdx]; gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
 $('look').onchange = async () => { record(); data.settings.look = $('look').value; await rebuild(); };
 $('tier').onchange = rebuild;
+// ---- save to GitHub (fine-grained token with Contents read/write, kept on this device only)
+function ghSettings(reset) {
+  let cfg = null;
+  try { cfg = reset ? null : JSON.parse(localStorage.getItem('sc.github') || 'null'); } catch {}
+  if (cfg?.token && cfg?.repo) return cfg;
+  const repo = prompt('GitHub repo (owner/name):', cfg?.repo || 'colinwillow/scene-companion'); if (!repo) return null;
+  const branch = prompt('Branch:', cfg?.branch || 'main') || 'main';
+  const token = prompt('Fine-grained GitHub token (Contents: read & write on that repo). Stored only on this device.'); if (!token) return null;
+  cfg = { repo: repo.trim(), branch: branch.trim(), token: token.trim() };
+  try { localStorage.setItem('sc.github', JSON.stringify(cfg)); } catch {}
+  return cfg;
+}
+$('push').onclick = async () => {
+  const cfg = ghSettings(); if (!cfg) return;
+  const path = new URL(SCENE_URL, location.href).pathname.replace(/^.*?(scenes\/)/, '$1');
+  const text = JSON.stringify(data, null, 2) + '\n';
+  const btn = $('push'); btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    let r = await saveFile({ ...cfg, path, text, expectText: loadedText, message: `Edit ${path.split('/').pop()} in Scene Companion` });
+    if (r.conflict && confirm(`${path} changed on GitHub since you opened it (maybe Claude pushed). Overwrite it with your version?`))
+      r = await saveFile({ ...cfg, path, text, force: true, message: `Edit ${path.split('/').pop()} in Scene Companion` });
+    if (r.saved || r.unchanged) { loadedText = text; btn.textContent = r.saved ? 'Saved ✓' : 'No changes'; }
+    else btn.textContent = 'Not saved';
+  } catch (e) {
+    btn.textContent = 'Save failed';
+    showErr(e.message);
+    if (/\b(401|403)\b/.test(e.message)) try { localStorage.removeItem('sc.github'); } catch {}   // ask for a new token next time
+  }
+  btn.disabled = false;
+  setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
+};
+
 // ---- undo / redo (whole-scene snapshots; sliders coalesce into one step)
 const hist = new History();
 function record(key) { hist.record(data, key); updateUndo(); }

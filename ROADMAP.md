@@ -29,7 +29,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Add / duplicate / delete entities; asset picker — ＋ Add menu (prefabs + models, dropped at the camera focus), Duplicate / Delete in the inspector, model picker swaps the asset; logic in pure `runtime/editing.js` (tested, ready for the MCP server)
 - [x] Undo / redo — ↶ ↷ buttons + Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y; covers gizmo drags, sliders (one step per drag), position, animation, add/dup/delete, model swap, add behavior, look; pure `runtime/history.js` (tested)
 - [x] Mobile polish: bigger gizmo handles, two-finger orbit, bottom-sheet inspector snap points, landscape side panel — on touch: gizmo ×1.6, one finger pans/taps, two fingers orbit + pinch; inspector sheet with a handle (drag or tap: peek / half / full; selecting opens it); landscape keeps the side panel; tighter toolbar
-- [ ] [IN PROGRESS 23:28 UTC, build run] Save scene back to the repo (GitHub API with a token) instead of Copy JSON
+- [x] Save scene back to the repo (GitHub API with a token) instead of Copy JSON — ⇪ Save commits the open scene file; asks once for repo/branch/fine-grained token (stored on the device); warns before overwriting a newer repo copy; `runtime/github.js` tested against a fake API
 
 ## Stage 4 — Play mode + live link
 - [ ] Dev server with WebSocket: editor edits hot-patch a running game in another tab/phone
