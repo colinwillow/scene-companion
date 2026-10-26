@@ -5,7 +5,7 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 
 ## Stage 1 — Format + runtime (v0 done)
 - [x] Scene format, Behavior base + schema, registry, World loader, look profiles, tier variants, validator, editor page v0
-- [ ] GLB assets in scenes (with a sample character) + animation clips per entity [IN PROGRESS — live session with Colin, skip this item]
+- [x] GLB assets in scenes (with a sample character) + animation clips per entity
 - [ ] Prefabs: reusable entity templates (`prefabs/*.prefab.json`) that scenes instance and override
 - [ ] Unit tests for the runtime and every behavior (node test runner, no browser)
 

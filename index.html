@@ -146,6 +146,13 @@ function renderPanel() {
   pos.append(...control({ type: 'vec3' }, e.position || [0, 0, 0], v => { e.position = v; ent.object3d.position.fromArray(v); }).children);
   panel.append(pos);
 
+  if (ent.anim) {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<label>animation</label><select class="add" style="margin:0">${ent.anim.clips.map(c => `<option ${c === (e.animation || ent.anim.current) ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
+    row.querySelector('select').onchange = ev => { e.animation = ev.target.value; ent.anim.play(ev.target.value); };
+    panel.append(row);
+  }
+
   (e.behaviors ||= []).forEach((b, i) => {
     const Cls = getBehavior(b.type);
     const box = document.createElement('div'); box.className = 'beh';
@@ -225,6 +232,7 @@ await rebuild();
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
+  world.animate(dt);
   if (playing) world.update(dt);
   orbit.update();
   renderer.render(world.scene, camera);

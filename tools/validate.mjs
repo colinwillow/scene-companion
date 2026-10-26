@@ -2,7 +2,22 @@
 // Checks scene files against the rules in SKILL.md.
 // Usage: node tools/validate.mjs [scenes/*.scene.json ...]   (defaults to every scene in scenes/)
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { existsSync } from 'node:fs';
+
+// Read clip names straight out of a .glb's JSON chunk (no three needed).
+const glbClips = new Map();
+function clipsOf(path) {
+  if (glbClips.has(path)) return glbClips.get(path);
+  let names = null;
+  if (existsSync(path)) {
+    const b = readFileSync(path);
+    const len = b.readUInt32LE(12);
+    names = (JSON.parse(b.subarray(20, 20 + len).toString()).animations || []).map(a => a.name);
+  }
+  glbClips.set(path, names);
+  return names;
+}
 import { getBehavior } from '../runtime/registry.js';
 import '../behaviors/index.js';
 
@@ -28,7 +43,14 @@ for (const f of files) {
     if (!e.id) err(f, 'entity without an id');
     else if (ids.has(e.id)) err(f, `duplicate id "${e.id}"`);
     ids.add(e.id);
-    if (!e.light && e.asset && !scene.assets?.[e.asset]) err(f, `${e.id}: unknown asset "${e.asset}"`);
+    const asset = scene.assets?.[e.asset];
+    if (!e.light && e.asset && !asset) err(f, `${e.id}: unknown asset "${e.asset}"`);
+    for (const v of Object.values(asset?.variants || {})) {
+      if (!v.glb) continue;
+      const clips = clipsOf(v.glb.replace(/^\.\//, ''));
+      if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
+      else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
+    }
     for (const b of e.behaviors || []) {
       const Cls = getBehavior(b.type);
       if (!Cls) { err(f, `${e.id}: unknown behavior "${b.type}"`); continue; }

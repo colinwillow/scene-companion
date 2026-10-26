@@ -35,13 +35,8 @@
     "player": {
       "variants": {
         "web": {
-          "primitive": "capsule",
-          "size": [
-            0.6,
-            1.75,
-            0.6
-          ],
-          "color": "#ff8a3d"
+          "glb": "./assets/models/robot.glb",
+          "height": 1.75
         }
       }
     },
@@ -119,6 +114,14 @@
           "color": "#5b8fb9"
         }
       }
+    },
+    "robot_npc": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/robot.glb",
+          "height": 1.75
+        }
+      }
     }
   },
   "entities": [
@@ -157,7 +160,7 @@
       "asset": "player",
       "position": [
         0,
-        0.875,
+        0,
         4
       ],
       "behaviors": [
@@ -172,8 +175,15 @@
           "params": {
             "speed": 5
           }
+        },
+        {
+          "type": "Animator",
+          "params": {
+            "runSpeed": 4.5
+          }
         }
-      ]
+      ],
+      "animation": "Idle"
     },
     {
       "id": "enemy_01",
@@ -340,6 +350,21 @@
           }
         }
       ]
+    },
+    {
+      "id": "npc_waver",
+      "asset": "robot_npc",
+      "position": [
+        -5,
+        0,
+        4
+      ],
+      "rotation": [
+        0,
+        60,
+        0
+      ],
+      "animation": "Wave"
     }
   ]
 }

@@ -3,6 +3,7 @@
 // Play builds a fresh runtime from it, Stop throws the runtime away.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook } from './look.js';
 
@@ -16,6 +17,8 @@ export class World {
     this.entities = new Map();
     this.listeners = {};
     this.loader = new GLTFLoader();
+    this.gltfCache = new Map();   // path → Promise<gltf>, so many entities share one download
+    this.mixers = [];
     this.t = 0;
   }
 
@@ -40,8 +43,22 @@ export class World {
   async buildObject(variant) {
     if (!variant) return new THREE.Group();
     if (variant.glb) {
-      const gltf = await this.loader.loadAsync(variant.glb);
-      return gltf.scene;
+      if (!this.gltfCache.has(variant.glb)) this.gltfCache.set(variant.glb, this.loader.loadAsync(variant.glb));
+      const gltf = await this.gltfCache.get(variant.glb);
+      const model = cloneSkinned(gltf.scene);
+      model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+      // Normalize: scale to `height` metres and put the feet on the entity's origin.
+      if (variant.height) {
+        const box = new THREE.Box3().setFromObject(model);
+        const h = box.max.y - box.min.y || 1;
+        model.scale.multiplyScalar(variant.height / h);
+        box.setFromObject(model);
+        model.position.y -= box.min.y;
+      }
+      const root = new THREE.Group();
+      root.add(model);
+      root.userData.clips = gltf.animations;
+      return root;
     }
     const s = variant.size || [1, 1, 1];
     const geo = {
@@ -91,7 +108,9 @@ export class World {
       if (e.rotation) obj.rotation.set(...e.rotation.map(d => THREE.MathUtils.degToRad(d)));
       if (e.scale) obj.scale.fromArray(e.scale);
       this.scene.add(obj);
-      this.entities.set(e.id, { id: e.id, object3d: obj, data: e, behaviors: [] });
+      const ent = { id: e.id, object3d: obj, data: e, behaviors: [] };
+      if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation);
+      this.entities.set(e.id, ent);
     }
 
     applyLook(this, st.look || 'toon');
@@ -107,6 +126,34 @@ export class World {
     for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.start());
   }
 
+  // Animation API handed to behaviors as entity.anim — keeps behaviors free of three.
+  makeAnimator(root, clips, startClip) {
+    const mixer = new THREE.AnimationMixer(root);
+    this.mixers.push(mixer);
+    let current = null, currentName = null;
+    const anim = {
+      clips: clips.map(c => c.name),
+      get current() { return currentName; },
+      play(name, { fade = 0.2, once = false } = {}) {
+        if (name === currentName) return;
+        const clip = THREE.AnimationClip.findByName(clips, name);
+        if (!clip) return;
+        const action = mixer.clipAction(clip);
+        action.reset();
+        action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat);
+        action.clampWhenFinished = once;
+        action.fadeIn(fade).play();
+        if (current) current.fadeOut(fade);
+        current = action; currentName = name;
+      },
+    };
+    anim.play(startClip || (anim.clips.includes('Idle') ? 'Idle' : anim.clips[0]), { fade: 0 });
+    return anim;
+  }
+
+  // Runs in edit mode too, so authored animations preview while placing things.
+  animate(dt) { this.mixers.forEach(m => m.update(dt)); }
+
   update(dt) {
     this.t += dt;
     for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.update(dt, this.t));
@@ -116,5 +163,7 @@ export class World {
     for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.destroy());
     this.scene.traverse(o => { o.geometry?.dispose(); [].concat(o.material || []).forEach(m => m.dispose()); });
     this.entities.clear();
+    this.mixers.forEach(m => m.stopAllAction());
+    this.mixers = [];
   }
 }
