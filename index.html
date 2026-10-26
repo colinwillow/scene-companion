@@ -91,6 +91,7 @@ async function rebuild() {
   gizmo?.detach();
   world?.dispose();
   world = new World(renderer, { tier: $('tier').value });
+  window.__sc = { world, data }; // debug/test hook (headless checks, future MCP)
   await world.load(data);
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
