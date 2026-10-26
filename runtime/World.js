@@ -50,10 +50,12 @@ export class World {
       model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
       // Normalize: scale to `height` metres and put the feet on the entity's origin.
       if (variant.height) {
-        const box = new THREE.Box3().setFromObject(model);
+        model.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(model, true);
         const h = box.max.y - box.min.y || 1;
         model.scale.multiplyScalar(variant.height / h);
-        box.setFromObject(model);
+        model.updateMatrixWorld(true);
+        box.setFromObject(model, true);
         model.position.y -= box.min.y;
       }
       const root = new THREE.Group();

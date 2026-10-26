@@ -50,8 +50,16 @@
   <button id="save">Copy JSON</button>
   <span id="score">★ 0</span>
 </div>
+<div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="panel"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div>
 
+<script>
+// Show errors on screen so problems are visible on a phone.
+function showErr(m){const e=document.getElementById('err');if(!e)return;e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;}
+addEventListener('error',e=>showErr(e.message));
+addEventListener('unhandledrejection',e=>showErr(String(e.reason?.message||e.reason)));
+const _warn=console.warn;console.warn=(...a)=>{_warn(...a);showErr(a.join(' '));};
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
