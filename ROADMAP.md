@@ -26,7 +26,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 
 ## Stage 3 — Editor v1
 - [x] Hierarchy list (all entities, tap to select, search) — ☰ List button: searchable by id/prefab/asset/behavior, tap selects + frames the camera; top sheet on phones (closes after a pick), left panel in landscape
-- [ ] Add / duplicate / delete entities; asset picker
+- [ ] [IN PROGRESS 23:20 UTC, build run] Add / duplicate / delete entities; asset picker
 - [ ] Undo / redo
 - [ ] Mobile polish: bigger gizmo handles, two-finger orbit, bottom-sheet inspector snap points, landscape side panel
 - [ ] Save scene back to the repo (GitHub API with a token) instead of Copy JSON
