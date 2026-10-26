@@ -34,7 +34,7 @@ OUTLINE.onBeforeCompile = shader => {
   shader.uniforms.outlineWidth = { value: 0.025 };
   shader.vertexShader = 'uniform float outlineWidth;\n' + shader.vertexShader.replace(
     '#include <project_vertex>',
-    'transformed += normalize(objectNormal) * outlineWidth;\n#include <project_vertex>');
+    'transformed += normalize(normal) * outlineWidth;\n#include <project_vertex>');
 };
 
 // Inverted-hull outline: a slightly fattened back-facing copy drawn in dark ink.
