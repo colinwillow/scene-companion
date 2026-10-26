@@ -28,7 +28,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Hierarchy list (all entities, tap to select, search) — ☰ List button: searchable by id/prefab/asset/behavior, tap selects + frames the camera; top sheet on phones (closes after a pick), left panel in landscape
 - [x] Add / duplicate / delete entities; asset picker — ＋ Add menu (prefabs + models, dropped at the camera focus), Duplicate / Delete in the inspector, model picker swaps the asset; logic in pure `runtime/editing.js` (tested, ready for the MCP server)
 - [x] Undo / redo — ↶ ↷ buttons + Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y; covers gizmo drags, sliders (one step per drag), position, animation, add/dup/delete, model swap, add behavior, look; pure `runtime/history.js` (tested)
-- [ ] Mobile polish: bigger gizmo handles, two-finger orbit, bottom-sheet inspector snap points, landscape side panel
+- [ ] [IN PROGRESS 23:23 UTC, build run] Mobile polish: bigger gizmo handles, two-finger orbit, bottom-sheet inspector snap points, landscape side panel
 - [ ] Save scene back to the repo (GitHub API with a token) instead of Copy JSON
 
 ## Stage 4 — Play mode + live link
