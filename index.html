@@ -14,13 +14,19 @@
   #bar { position:fixed; top:env(safe-area-inset-top); left:env(safe-area-inset-left); right:env(safe-area-inset-right); display:flex; gap:6px; padding:8px; flex-wrap:wrap; z-index:2; }
   #bar button, #bar select { background:var(--panel); color:var(--text); border:1px solid var(--line);
     border-radius:10px; padding:8px 11px; font:inherit; }
+  #bar select { max-width:88px; }
   #bar button.on { background:var(--accent); color:#111; border-color:var(--accent); }
   #score { margin-left:auto; padding:8px 11px; background:var(--panel); border-radius:10px; }
-  #panel { position:fixed; left:0; right:0; bottom:0; max-height:42vh; overflow:auto; z-index:2;
-    background:var(--panel); border-top:1px solid var(--line); padding:12px 14px calc(14px + env(safe-area-inset-bottom));
-    touch-action: pan-y; -webkit-user-select:text; user-select:text; }
+  #panel { position:fixed; left:0; right:0; bottom:0; height:var(--sheet, 42vh); z-index:2; display:flex; flex-direction:column;
+    background:var(--panel); border-top:1px solid var(--line); border-radius:16px 16px 0 0; transition:height .22s ease; }
+  #panel.dragging { transition:none; }
+  #grab { flex:none; height:26px; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:grab; }
+  #grab::before { content:''; width:44px; height:5px; border-radius:3px; background:var(--dim); opacity:.7; }
+  #panelBody { flex:1; overflow:auto; padding:0 14px calc(14px + env(safe-area-inset-bottom));
+    touch-action: pan-y; -webkit-user-select:text; user-select:text; overscroll-behavior:contain; }
   @media (orientation: landscape) and (min-width: 600px) {
-    #panel { left:auto; top:0; width:320px; max-height:none; border-top:none; border-left:1px solid var(--line); padding-top:60px; }
+    #panel { left:auto; top:0; height:auto; width:320px; border-top:none; border-radius:0; border-left:1px solid var(--line); padding-top:60px; }
+    #grab { display:none; }
   }
   #panel h3 { margin:0 0 6px; font-size:15px; }
   #panel .hint { color:var(--dim); }
@@ -66,12 +72,12 @@
   <select id="add" title="Add an object"></select>
   <button id="undo" title="Undo (Ctrl+Z)" disabled>↶</button>
   <button id="redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
-  <button id="save">Copy JSON</button>
+  <button id="save" title="Copy the scene JSON">Copy</button>
   <span id="score">★ 0</span>
 </div>
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="panel"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div>
+<div id="panel"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
 
 <script>
 // Show errors on screen so problems are visible on a phone.
@@ -92,6 +98,8 @@ import { History } from './runtime/history.js';
 import { createPost } from './runtime/post.js';
 import './behaviors/index.js';
 
+const $ = id => document.getElementById(id);
+
 // ---- the single source of truth: scene data
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/kitchen-sink.scene.json';
 const data = await (await fetch(SCENE_URL)).json();
@@ -103,10 +111,36 @@ camera.position.set(10, 11, 14);
 const orbit = new OrbitControls(camera, renderer.domElement);
 orbit.target.set(0, 0.5, 0);
 orbit.enableDamping = true;
+// Touch: one finger pans (and taps select / drag the gizmo), two fingers orbit + pinch zoom.
+const coarse = matchMedia('(pointer: coarse)').matches;
+if (coarse) orbit.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+
+// ---- bottom-sheet inspector (portrait): drag the handle, it snaps to peek / half / full; tap cycles.
+const SNAPS = [0.11, 0.42, 0.85];          // fractions of the screen height
+let sheet = 1;
+function setSheet(i) { sheet = Math.max(0, Math.min(SNAPS.length - 1, i)); $('panel').style.setProperty('--sheet', SNAPS[sheet] * 100 + 'vh'); }
+{
+  const grab = $('grab'); let y0 = null, h0 = 0, cur = 0, moved = false;
+  grab.addEventListener('pointerdown', e => { y0 = e.clientY; h0 = cur = SNAPS[sheet] * innerHeight; moved = false; grab.setPointerCapture(e.pointerId); $('panel').classList.add('dragging'); });
+  grab.addEventListener('pointermove', e => {
+    if (y0 === null) return;
+    if (Math.abs(e.clientY - y0) > 6) moved = true;
+    cur = Math.max(60, Math.min(innerHeight * 0.9, h0 + y0 - e.clientY));
+    $('panel').style.setProperty('--sheet', cur + 'px');
+  });
+  const up = e => {
+    if (y0 === null) return;
+    $('panel').classList.remove('dragging');
+    if (!moved) setSheet((sheet + 1) % SNAPS.length);
+    else { const f = cur / innerHeight;
+      setSheet(SNAPS.reduce((best, s, i) => Math.abs(s - f) < Math.abs(SNAPS[best] - f) ? i : best, 0)); }
+    y0 = null;
+  };
+  grab.addEventListener('pointerup', up); grab.addEventListener('pointercancel', up);
+}
 
 let world, post, playing = false, selectedId = null, score = 0;
 let gizmo;
-const $ = id => document.getElementById(id);
 $('look').value = data.settings.look || 'toon';
 
 async function rebuild() {
@@ -119,6 +153,7 @@ async function rebuild() {
   post?.dispose();
   post = createPost(renderer, world.scene, camera, data.settings.post, $('tier').value);
   gizmo = new TransformControls(camera, renderer.domElement);
+  if (coarse) gizmo.setSize(1.6);                 // fatter handles for fingers
   gizmo.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; if (e.value) record(); });
   gizmo.addEventListener('objectChange', syncTransformToData);
   world.scene.add(gizmo.getHelper());
@@ -140,6 +175,7 @@ function syncTransformToData() {
 
 function select(id) {
   selectedId = id;
+  if (id && sheet === 0) setSheet(1);              // peeking sheet opens to show the inspector
   const ent = world.getEntity(id);
   if (ent && !ent.data.light && !playing) gizmo.attach(ent.object3d); else gizmo.detach();
   renderPanel();
@@ -213,7 +249,7 @@ function control(def, value, onChange) {
 }
 
 function renderPanel() {
-  const panel = $('panel');
+  const panel = $('panelBody');
   const ent = world?.getEntity(selectedId);
   if (!ent) { panel.innerHTML = `<p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p>`; return; }
   const e = ent.data;
@@ -353,7 +389,7 @@ $('save').onclick = async () => {
   catch { const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = SCENE_URL.split('/').pop(); a.click(); $('save').textContent = 'Saved ✓'; }
-  setTimeout(() => ($('save').textContent = 'Copy JSON'), 1500);
+  setTimeout(() => ($('save').textContent = 'Copy'), 1500);
 };
 
 // ---- loop

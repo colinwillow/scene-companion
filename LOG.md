@@ -15,3 +15,4 @@
 - 2026-10-26 — Hierarchy list — ☰ List panel with search, tap to select + frame, portrait sheet / landscape side panel (build run)
 - 2026-10-26 — Add/duplicate/delete — editing.js (nextId, add, duplicate, delete, setAsset) + editor UI; 46 tests (build run)
 - 2026-10-26 — Undo/redo — snapshot history with slider coalescing, toolbar + shortcuts; 50 tests (build run)
+- 2026-10-26 — Mobile polish — touch gizmo size, two-finger orbit, snap-point bottom sheet, compact toolbar (build run)
