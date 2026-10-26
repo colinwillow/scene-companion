@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Scene Companion</title>
+<style>
+  :root { --bg:#12161d; --panel:#1b212bee; --line:#2c3542; --text:#e8edf3; --dim:#8b97a6; --accent:#ff8a3d; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font: 14px/1.35 system-ui, -apple-system, sans-serif; overflow:hidden;
+    touch-action: none; -webkit-user-select:none; user-select:none; overscroll-behavior:none; }
+  canvas { display:block; position:fixed; inset:0; width:100%; height:100%; touch-action:none; }
+  #bar { position:fixed; top:env(safe-area-inset-top); left:0; right:0; display:flex; gap:6px; padding:8px; flex-wrap:wrap; z-index:2; }
+  #bar button, #bar select { background:var(--panel); color:var(--text); border:1px solid var(--line);
+    border-radius:10px; padding:8px 11px; font:inherit; }
+  #bar button.on { background:var(--accent); color:#111; border-color:var(--accent); }
+  #score { margin-left:auto; padding:8px 11px; background:var(--panel); border-radius:10px; }
+  #panel { position:fixed; left:0; right:0; bottom:0; max-height:42vh; overflow:auto; z-index:2;
+    background:var(--panel); border-top:1px solid var(--line); padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+    touch-action: pan-y; -webkit-user-select:text; user-select:text; }
+  @media (orientation: landscape) and (min-width: 600px) {
+    #panel { left:auto; top:0; width:320px; max-height:none; border-top:none; border-left:1px solid var(--line); padding-top:60px; }
+  }
+  #panel h3 { margin:0 0 6px; font-size:15px; }
+  #panel .hint { color:var(--dim); }
+  .beh { border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin:8px 0; }
+  .beh b { display:block; margin-bottom:4px; color:var(--accent); }
+  .row { display:flex; align-items:center; gap:8px; margin:5px 0; }
+  .row label { width:92px; color:var(--dim); flex:none; }
+  .row input[type=range] { flex:1; }
+  .row input[type=number], .row input[type=text] { width:64px; background:#0e1218; color:var(--text);
+    border:1px solid var(--line); border-radius:6px; padding:4px; font:inherit; }
+  .row output { width:44px; text-align:right; }
+  select.add { width:100%; margin-top:6px; padding:8px; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="bar">
+  <button id="play">▶ Play</button>
+  <button id="mode" title="Gizmo mode">Move</button>
+  <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
+  <select id="tier" title="Quality tier"><option>web</option><option>desktop</option></select>
+  <button id="save">Save JSON</button>
+  <span id="score">★ 0</span>
+</div>
+<div id="panel"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { World } from './runtime/World.js';
+import { getBehavior, behaviorNames } from './runtime/registry.js';
+import './behaviors/index.js';
+
+// ---- the single source of truth: scene data
+const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/kitchen-sink.scene.json';
+const data = await (await fetch(SCENE_URL)).json();
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+document.body.prepend(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
+camera.position.set(10, 11, 14);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(0, 0.5, 0);
+orbit.enableDamping = true;
+
+let world, playing = false, selectedId = null, score = 0;
+let gizmo;
+const $ = id => document.getElementById(id);
+$('look').value = data.settings.look || 'toon';
+
+async function rebuild() {
+  gizmo?.detach();
+  world?.dispose();
+  world = new World(renderer, { tier: $('tier').value });
+  await world.load(data);
+  world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
+  gizmo = new TransformControls(camera, renderer.domElement);
+  gizmo.addEventListener('dragging-changed', e => (orbit.enabled = !e.value));
+  gizmo.addEventListener('objectChange', syncTransformToData);
+  world.scene.add(gizmo.getHelper());
+  gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]);
+  if (selectedId && !playing) select(selectedId);
+}
+
+// ---- editor: write gizmo changes back into scene data
+const r3 = v => Math.round(v * 1000) / 1000;
+function syncTransformToData() {
+  const ent = world.getEntity(selectedId); if (!ent) return;
+  const o = ent.object3d, e = ent.data;
+  e.position = o.position.toArray().map(r3);
+  e.rotation = [o.rotation.x, o.rotation.y, o.rotation.z].map(r => r3(THREE.MathUtils.radToDeg(r)));
+  e.scale = o.scale.toArray().map(r3);
+  renderPanel();
+}
+
+function select(id) {
+  selectedId = id;
+  const ent = world.getEntity(id);
+  if (ent && !ent.data.light && !playing) gizmo.attach(ent.object3d); else gizmo.detach();
+  renderPanel();
+}
+
+// ---- inspector generated from behavior schemas
+function control(def, value, onChange) {
+  const row = document.createElement('div'); row.className = 'row';
+  if (def.type === 'number') {
+    row.innerHTML = `<input type="range" min="${def.min ?? 0}" max="${def.max ?? 10}" step="${def.step ?? 0.1}" value="${value}"><output>${value}</output>`;
+    const [inp, out] = row.children;
+    inp.oninput = () => { out.textContent = inp.value; onChange(+inp.value); };
+  } else if (def.type === 'boolean') {
+    row.innerHTML = `<input type="checkbox" ${value ? 'checked' : ''}>`;
+    row.firstChild.onchange = e => onChange(e.target.checked);
+  } else if (def.type === 'vec3') {
+    value.forEach((v, i) => {
+      const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = v;
+      inp.onchange = () => { const nv = [...value]; nv[i] = +inp.value; value = nv; onChange(nv); };
+      row.append(inp);
+    });
+  } else if (def.type === 'color') {
+    row.innerHTML = `<input type="color" value="${value}">`;
+    row.firstChild.oninput = e => onChange(e.target.value);
+  } else {
+    row.innerHTML = `<input type="text" value="${value}">`;
+    row.firstChild.onchange = e => onChange(e.target.value);
+  }
+  return row;
+}
+
+function renderPanel() {
+  const panel = $('panel');
+  const ent = world?.getEntity(selectedId);
+  if (!ent) { panel.innerHTML = `<p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p>`; return; }
+  const e = ent.data;
+  panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${e.asset ? 'asset: ' + e.asset : 'light'}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div>`;
+  const pos = document.createElement('div'); pos.className = 'row';
+  pos.innerHTML = `<label>position</label>`;
+  pos.append(...control({ type: 'vec3' }, e.position || [0, 0, 0], v => { e.position = v; ent.object3d.position.fromArray(v); }).children);
+  panel.append(pos);
+
+  (e.behaviors ||= []).forEach((b, i) => {
+    const Cls = getBehavior(b.type);
+    const box = document.createElement('div'); box.className = 'beh';
+    box.innerHTML = `<b>${b.type}</b>`;
+    if (!Cls) { box.innerHTML += `<div class="hint">unknown behavior</div>`; panel.append(box); return; }
+    const params = { ...Object.fromEntries(Object.entries(Cls.schema).map(([k, d]) => [k, d.default])), ...(b.params || {}) };
+    for (const [key, def] of Object.entries(Cls.schema)) {
+      const row = control(def, params[key], v => {
+        (b.params ||= {})[key] = v;                              // authored data
+        ent.behaviors[i]?.onParamChanged(key, v);                 // live runtime
+      });
+      const lab = document.createElement('label'); lab.textContent = key; row.prepend(lab);
+      box.append(row);
+    }
+    panel.append(box);
+  });
+
+  if (!playing) {
+    const add = document.createElement('select'); add.className = 'add';
+    add.innerHTML = `<option value="">+ Add behavior…</option>` + behaviorNames().map(n => `<option>${n}</option>`).join('');
+    add.onchange = async () => { if (!add.value) return; e.behaviors.push({ type: add.value, params: {} }); await rebuild(); };
+    panel.append(add);
+  }
+}
+
+// ---- tapping: select in edit mode, move the player in play mode
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => (downAt = [e.clientX, e.clientY]));
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8 || gizmo.dragging) return;
+  ptr.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hits = ray.intersectObjects(world.scene.children, true).filter(h => h.object.visible && !isGizmo(h.object));
+  if (playing) {
+    const g = hits.find(h => entityIdOf(h.object) === 'ground');
+    if (g) world.emit('moveTo', g.point.toArray());
+    return;
+  }
+  const id = hits.length ? entityIdOf(hits[0].object) : null;
+  select(id);
+});
+const isGizmo = o => { while (o) { if (o.isTransformControlsRoot || o.type === 'TransformControlsGizmo' || o.type === 'TransformControlsPlane') return true; o = o.parent; } return false; };
+const entityIdOf = o => { while (o) { if (o.userData.entityId) return o.userData.entityId; o = o.parent; } return null; };
+
+// ---- toolbar
+$('play').onclick = async () => {
+  playing = !playing;
+  $('play').textContent = playing ? '■ Stop' : '▶ Play';
+  $('play').classList.toggle('on', playing);
+  score = 0; $('score').textContent = '★ 0';
+  await rebuild();                       // Play and Stop both rebuild from authored data
+  renderPanel();
+};
+let modeIdx = 0;
+$('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; $('mode').textContent = ['Move', 'Rotate', 'Scale'][modeIdx]; gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
+$('look').onchange = async () => { data.settings.look = $('look').value; await rebuild(); };
+$('tier').onchange = rebuild;
+$('save').onclick = () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = SCENE_URL.split('/').pop(); a.click();
+};
+
+// ---- loop
+function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+// block double-tap / pinch page zoom on iOS
+document.addEventListener('gesturestart', e => e.preventDefault());
+let lastTouch = 0;
+document.addEventListener('touchend', e => { const n = Date.now(); if (n - lastTouch < 300) e.preventDefault(); lastTouch = n; }, { passive: false });
+
+await rebuild();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (playing) world.update(dt);
+  orbit.update();
+  renderer.render(world.scene, camera);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "scene-companion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "node tools/validate.mjs",
+    "serve": "npx --yes serve ."
+  }
+}

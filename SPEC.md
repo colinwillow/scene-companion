@@ -33,6 +33,19 @@ Same scene files, same behaviors; only renderer settings change.
 - **Desktop Ultra tier:** in the desktop app, Three.js WebGPU renderer with everything on: PBR, HDRI image-based lighting, soft shadows, SSAO, bloom, reflections, HDR tonemapping. One toggle, same project.
 - **Native backend (later, optional):** a C++/Vulkan runtime that reads the *same* scene files, for when the web ceiling is hit. **Decide now:** behaviors must be runnable by both runtimes. Either write behaviors in Lua (embeddable everywhere), or keep JS and embed a small JS runtime (e.g. QuickJS) in the native build. This is the rule that keeps "both" possible without a rewrite.
 
+### Look profiles (style, separate from quality)
+A scene picks a **look**, and that look is independent of the tier:
+- **Toon:** toon shading and outlines
+- **Baked:** lighting baked into the textures (e.g. Tripo textures with their lighting left in), drawn unlit. Cheapest, and very consistent on phones.
+- **PBR:** full physically based materials and lighting, the AAA path
+
+The look and the tier combine freely: toon on desktop ultra, baked on mobile, and so on.
+
+### Web → desktop as LOD
+Every asset in a scene is a *logical asset* with **per-tier variants**: a web variant (baked 1K texture, lighter mesh) and an optional desktop variant (PBR maps, 2–4K, heavier mesh). The runtime picks the richest variant the current tier allows and falls back to the web variant when no desktop one exists. The game logic, behaviors and scene layout are 100% shared.
+
+The result: iterate fast on mobile and web. Then open the same project in the desktop app, which already runs as-is, and upgrade only what you care about by dropping in PBR maps or hi-res meshes for the desktop variants. The two versions run in tandem and stay in sync because they are the same game.
+
 ## 6. MCP server
 Claude can see what you see. The tools include: list scene objects, get the selection, move/spawn/delete, attach a behavior, set a value, play/stop, take a screenshot, and read errors. So you can select a guy and say "make him patrol between these two points."
 
@@ -42,7 +55,7 @@ Claude can see what you see. The tools include: list scene objects, get the sele
 - **Libraries** as side panels: characters, motions (from the mocap app), sounds, props, and behaviors. Everything is drag-and-drop, and everything is pre-optimized for mobile (texture sizes, Draco, and so on). Free and unlockable tiers later.
 
 ## 8. Build stages
-1. **Format + runtime:** the scene file format, behavior base class and schema, and a loader that builds a Three.js scene from them. Prove it on one small demo game.
+1. **Format + runtime:** the scene file format, behavior base class and schema, and a loader that builds a Three.js scene from them. Prove it on one small demo game. *(v0 built: runtime/, behaviors/, scenes/kitchen-sink, index.html, tools/validate.mjs)*
 2. **Skill:** Claude follows the rules on a fresh vibe-coded game, and a validator checks them.
 3. **Editor v1:** view, select, move, inspector, save, on desktop + phone.
 4. **Play mode + live link.**
