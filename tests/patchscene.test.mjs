@@ -42,3 +42,13 @@ test('patchScene: re-parents in place; still rebuilds for settings and lights', 
   assert.equal(await patchScene(w2, prev, lamp), 'rebuild', 'lights');
   assert.equal(await patchScene(w2, prev, structuredClone(prev)), 'none');
 });
+
+test('patchScene: an object whose clips/events change is rebuilt alone (others untouched)', async () => {
+  const prev = scene(), w = await loaded(structuredClone(prev));
+  const bObj = w.getEntity('b').object3d, aObj = w.getEntity('a').object3d;
+  const next = structuredClone(prev); next.entities[0].events = { idle: [{ t: 0.1, name: 'hit' }] };
+  assert.equal(await patchScene(w, prev, next), 'patched');
+  assert.notEqual(w.getEntity('a').object3d, aObj, 'a was rebuilt');
+  assert.ok(w.getEntity('a_hat'), 'with its child');
+  assert.equal(w.getEntity('b').object3d, bObj, 'b untouched');
+});

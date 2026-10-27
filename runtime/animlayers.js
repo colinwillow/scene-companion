@@ -36,3 +36,29 @@ export function checkLayers(ch, clips) {
     out.push('masks must be { upper: ["boneName", …] }');
   return out;
 }
+
+// Clip variants (the timeline's "Save variant"): a new named clip cut from an existing one, without touching the file.
+//   { from: 'run_fwd', start: 0.1, end: 0.9, rate: 1.2, mask: 'upper' }   (all but `from` optional)
+// They live on the entity (`clips` in the scene file) or on the character (`clips` in character.json). A masked
+// variant only carries that part's bones — play it on the upper layer (a base clip missing bones T-poses them).
+export function mergeClipVariants(character, entity) { return { ...(character?.clips || {}), ...(entity?.clips || {}) }; }
+export function mergeEvents(character, entity) {
+  const out = {};
+  for (const src of [character?.events, entity?.events]) for (const [clip, list] of Object.entries(src || {})) out[clip] = [...(out[clip] || []), ...list].sort((a, b) => a.t - b.t);
+  return out;
+}
+export function checkClipVariants(clips, available) {
+  if (clips === undefined) return [];
+  if (!clips || typeof clips !== 'object' || Array.isArray(clips)) return ['clips must be { name: { from, start, end, rate, mask } }'];
+  const out = [];
+  for (const [name, v] of Object.entries(clips)) {
+    if (!/^[A-Za-z0-9_ -]+$/.test(name)) out.push(`clip variant "${name}": use letters, digits, _ - or spaces`);
+    if (!v || typeof v.from !== 'string') { out.push(`clip variant "${name}" needs "from"`); continue; }
+    if (available && !available.includes(v.from)) out.push(`clip variant "${name}": "${v.from}" isn't a clip of this model`);
+    if (v.start !== undefined && !(v.start >= 0)) out.push(`clip variant "${name}": start is seconds ≥ 0`);
+    if (v.end !== undefined && !(v.end > (v.start || 0))) out.push(`clip variant "${name}": end must be after start`);
+    if (v.rate !== undefined && !(v.rate > 0)) out.push(`clip variant "${name}": rate must be > 0`);
+    if (v.mask !== undefined && v.mask !== null && !['upper', 'lower'].includes(v.mask)) out.push(`clip variant "${name}": mask is upper or lower`);
+  }
+  return out;
+}

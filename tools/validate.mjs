@@ -6,6 +6,7 @@ import { characterVariant, checkCharacter } from '../runtime/character.js';
 import { checkPack, checkScenePacks } from '../runtime/packs.js';
 import { checkMotions, entityMotions } from '../runtime/motions.js';
 import { checkRules } from '../runtime/reactions.js';
+import { checkClipVariants, mergeClipVariants } from '../runtime/animlayers.js';
 import { allEntities, walkEntities } from '../runtime/tree.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -137,6 +138,7 @@ for (const f of files) {
       if (!v.glb) continue;
       const baked = clipsOf(v.glb.replace(/^\.\//, ''));
       const clips = baked && [...baked, ...entityMotions(ch, e)];   // motion-library clips are retargeted on at load
+      if (clips) { for (const m of checkClipVariants(mergeClipVariants(ch, e), clips)) err(f, `${e.id}: ${m}`); clips.push(...Object.keys(mergeClipVariants(ch, e))); }
       if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
       else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
       else for (const b of e.behaviors || []) for (const [k, val] of Object.entries(b.params || {}))

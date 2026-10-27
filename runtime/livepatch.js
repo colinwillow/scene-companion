@@ -53,8 +53,13 @@ export async function patchScene(world, prev, next) {
   if (!prev || !world.add) return 'rebuild';
   const withParent = d => { const m = new Map(); walkEntities(d.entities, (e, { parent }) => m.set(e.id, { e, parent: parent?.id ?? null })); return m; };
   const P = withParent(prev), N = withParent(next);
-  const removed = [...P.keys()].filter(id => !N.has(id)), added = [...N.keys()].filter(id => !P.has(id));
-  const moved = [...N.keys()].filter(id => P.has(id) && P.get(id).parent !== N.get(id).parent);
+  // Objects whose clips / events / motions changed (timeline variants, frame events, the motion library) are rebuilt on
+  // their own — destroyed and re-added — since their animator is made once, at build.
+  const ANIM = ['clips', 'events', 'motions'];
+  const redo = [...N.keys()].filter(id => P.has(id) && P.get(id).parent === N.get(id).parent && ANIM.some(k => !same(P.get(id).e[k], N.get(id).e[k])));
+  const redoAll = new Set(redo); for (const id of redo) walkEntities(N.get(id).e.children || [], x => redoAll.add(x.id));
+  const removed = [...P.keys()].filter(id => !N.has(id) || redoAll.has(id)), added = [...N.keys()].filter(id => !P.has(id) || redoAll.has(id));
+  const moved = [...N.keys()].filter(id => P.has(id) && !redoAll.has(id) && P.get(id).parent !== N.get(id).parent);
   if (!removed.length && !added.length && !moved.length) return applyScene(world, prev, next);
   if (!same(prev.assets, next.assets) || !same(prev.settings, next.settings)) return 'rebuild';
   const prefabsOk = Object.entries(prev.prefabs || {}).every(([k, v]) => same(next.prefabs?.[k], v));     // only new prefabs listed
@@ -84,7 +89,7 @@ export async function patchScene(world, prev, next) {
   // so the structure matches and only real edits show (new entities compare equal to themselves).
   const keep = structuredClone(next);
   walkEntities(keep.entities, x => {
-    const old = P.get(x.id)?.e; if (!old) return;
+    const old = !redoAll.has(x.id) && P.get(x.id)?.e; if (!old) return;
     for (const k of Object.keys(x)) if (k !== 'children') delete x[k];
     for (const [k, v] of Object.entries(old)) if (k !== 'children') x[k] = structuredClone(v);
   });

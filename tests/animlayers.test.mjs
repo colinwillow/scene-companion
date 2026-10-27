@@ -54,3 +54,27 @@ test('animator: an upper-layer clip owns the arms while the legs keep walking; e
   assert.equal(deg(arm), 30);
   assert.equal(anim.current, 'walk');
 });
+
+test('clip variants: trim + re-zero, rate, mask; validation; MCP commands', async () => {
+  const { checkClipVariants, mergeEvents } = await import('../runtime/animlayers.js');
+  const { runCommand } = await import('../runtime/commands.js');
+  const B = n => Object.assign(new THREE.Bone(), { name: n });
+  const hips = B('mixamorig_Hips'), spine = B('mixamorig_Spine'), leg = B('mixamorig_LeftUpLeg'); hips.add(spine, leg);
+  const root = new THREE.Group(); root.add(hips);
+  const pos = n => new THREE.VectorKeyframeTrack(`${n}.position`, [0, 0.5, 1, 1.5, 2], [0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0]);
+  const run = new THREE.AnimationClip('run', 2, [pos('mixamorig_Hips'), pos('mixamorig_Spine'), pos('mixamorig_LeftUpLeg')]);
+  globalThis.window ??= { devicePixelRatio: 1 };
+  const w = new World({ shadowMap: {}, setPixelRatio() {}, toneMappingExposure: 1 });
+  const [cut, arms] = w.clipVariants(root, [run], { cut: { from: 'run', start: 0.5, end: 1.5, rate: 2 }, arms: { from: 'run', mask: 'upper' } });
+  assert.equal(cut.name, 'cut'); assert.equal(cut.duration, 0.5, '1 s of clip at 2× = 0.5 s');
+  assert.deepEqual([...cut.tracks[0].times], [0, 0.25, 0.5]); assert.equal(cut.tracks[0].values[0], 1, 're-zeroed at the trim start');
+  assert.deepEqual(arms.tracks.map(t => t.name), ['mixamorig_Spine.position']);
+  assert.deepEqual(checkClipVariants({ a: { from: 'run', start: 1, end: 0.5 } }, ['run']).length, 1);
+  assert.deepEqual(checkClipVariants({ a: { from: 'nope' } }, ['run']).length, 1);
+  assert.deepEqual(mergeEvents({ events: { run: [{ t: 0.5, name: 'foot' }] } }, { events: { run: [{ t: 0.2, name: 'hit' }] } }).run.map(e => e.name), ['hit', 'foot']);
+  const data = { entities: [{ id: 'hero' }] };
+  runCommand(data, 'add_clip_variant', { id: 'hero', name: 'fast_run', from: 'run', rate: 1.5, play: true }, {});
+  runCommand(data, 'add_frame_event', { id: 'hero', clip: 'fast_run', t: 0.3, name: 'hit' }, {});
+  assert.deepEqual(data.entities[0], { id: 'hero', clips: { fast_run: { from: 'run', rate: 1.5 } }, animation: 'fast_run', events: { fast_run: [{ t: 0.3, name: 'hit' }] } });
+  assert.throws(() => runCommand(data, 'add_clip_variant', { id: 'hero', name: 'x', from: 'run', rate: -1 }, {}), /rate/);
+});

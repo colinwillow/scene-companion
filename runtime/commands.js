@@ -9,6 +9,7 @@ import { libraryPacks, setInstalled } from './packs.js';
 import { allEntities, findEntity, walkEntities, reparent } from './tree.js';
 import { searchMotions, addMotion, MOTION_STEM } from './motions.js';
 import { checkRules, describeRule } from './reactions.js';
+import { checkClipVariants } from './animlayers.js';
 import { setOverride as setParamOverride } from './prefabs.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
@@ -189,6 +190,26 @@ export const COMMANDS = {
       else if (typeof clip !== 'string') throw new Error('clip must be a clip name (see get_entity / the model) or null');
       else e.animation = clip;
       return { id, animation: e.animation ?? null };
+    },
+  },
+  add_clip_variant: {
+    mutates: true,
+    run(data, { id, name, from, start, end, rate, mask, play = false }) {
+      const e = need(data, id);
+      const spec = { from, ...(start !== undefined ? { start } : {}), ...(end !== undefined ? { end } : {}), ...(rate !== undefined ? { rate } : {}), ...(mask ? { mask } : {}) };
+      const bad = checkClipVariants({ [name]: spec }); if (bad.length || typeof name !== 'string' || !name) throw new Error(bad.join('; ') || 'name is required');
+      (e.clips ||= {})[name] = spec;
+      if (play) e.animation = name;
+      return { id, clip: name, spec };
+    },
+  },
+  add_frame_event: {
+    mutates: true,
+    run(data, { id, clip, t, name }) {
+      const e = need(data, id);
+      if (typeof clip !== 'string' || !(t >= 0) || !/^[A-Za-z][A-Za-z0-9_]*$/.test(name || '')) throw new Error('needs clip, t (seconds ≥ 0) and a name (letters/digits/_)');
+      const list = ((e.events ||= {})[clip] ||= []); list.push({ t, name }); list.sort((a, b) => a.t - b.t);
+      return { id, clip, events: list };
     },
   },
   add_reaction: {

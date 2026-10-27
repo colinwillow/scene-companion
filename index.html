@@ -143,6 +143,9 @@
     <button id="tlX" title="Close the timeline">✕</button></div>
   <input id="tlScrub" type="range" min="0" max="1" step="0.001" value="0">
   <div class="tlRow"><span id="tlRead"></span><span class="tlViews"><button data-v="front">Front</button><button data-v="side">Side</button><button data-v="top">Top</button></span></div>
+  <div class="tlRow"><button id="tlIn" title="Trim: start here">[ start</button><button id="tlOut" title="Trim: end here">end ]</button>
+    <select id="tlMask" title="Which part of the body the new clip moves"><option value="">whole body</option><option value="upper">upper body</option><option value="lower">lower body</option></select>
+    <button id="tlEvent" title="Add a frame event here (e.g. hit, foot)">＋ event</button><button id="tlSave" title="Save these settings as a new clip on this object">Save variant</button><span id="tlTrim"></span></div>
 </div>
 <div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
@@ -1077,7 +1080,7 @@ async function renderLib() {
         if (playing || ent.inherited) return;
         $('libCount').textContent = `Retargeting ${m.name} onto ${selectedId}…`;
         record(); addMotion(ent.data, m.stem); ent.data.animation = m.stem;
-        await rebuild(); select(selectedId); renderLib();
+        await refresh(); select(selectedId); renderLib();
         const errs = world.motionErrors || []; if (errs.length) showErr('Motion library: ' + errs.join('; '));
       } });
     } else items.push({ name: '🎞 Motion library not connected', sub: 'run `npm run dev` next to a retarget-anims checkout (or set SC_MOTIONS)', header: true });
@@ -1132,7 +1135,7 @@ const tl = { id: null, clip: null, playing: true, loop: true, speed: 1, fps: 30 
 function tlEnt() { return tl.id && world.getEntity(tl.id); }
 function tlStart(clip) {
   const ent = tlEnt(); if (!ent?.anim) return;
-  tl.clip = clip;
+  tl.clip = clip; tl.in = null; tl.out = null; tlTrimLabel();
   ent.anim.play(clip, { fade: 0, restart: true });
   const a = ent.anim.action(); if (!a) return;
   a.setLoop(tl.loop ? THREE.LoopRepeat : THREE.LoopOnce); a.clampWhenFinished = true;
@@ -1172,6 +1175,31 @@ $('tlScrub').oninput = () => {
   a.paused = true; a.enabled = true; a.time = +$('tlScrub').value; ent.anim.mixer.update(0);
 };
 $('tlX').onclick = closeTimeline;
+// Edits: trim markers, body mask and the speed above become a clip VARIANT saved on this object (scene file `clips`),
+// so it can be picked as its animation / a role / by Reactions. Events at the playhead go in the object's `events`.
+function tlTrimLabel() { $('tlTrim').textContent = tl.in !== null || tl.out !== null ? `trim ${(tl.in ?? 0).toFixed(2)}–${tl.out !== null ? tl.out.toFixed(2) : 'end'} s` : ''; }
+const tlNow = () => tlEnt()?.anim?.action()?.time ?? 0;
+$('tlIn').onclick = () => { tl.in = +tlNow().toFixed(3); if (tl.out !== null && tl.out <= tl.in) tl.out = null; tlTrimLabel(); };
+$('tlOut').onclick = () => { const t = +tlNow().toFixed(3); if (t > (tl.in ?? 0)) { tl.out = t; tlTrimLabel(); } };
+$('tlEvent').onclick = async () => {
+  const ent = tlEnt(); if (!ent || playing) return;
+  const name = (prompt(`Event at ${tlNow().toFixed(2)} s in ${tl.clip} (e.g. hit, foot, spark):`) || '').trim();
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) return;
+  record(); const ev = (ent.data.events ||= {}); (ev[tl.clip] ||= []).push({ t: +tlNow().toFixed(3), name });
+  ev[tl.clip].sort((a, b) => a.t - b.t);
+  { const id = tl.id, clip = tl.clip, t = tlNow(); closeTimeline(); await refresh(); select(id); openTimeline(id); $('tlClip').value = clip; tlStart(clip); }
+  $('tlTrim').textContent = `+ ${name} @ ${tlNow().toFixed(2)} s (Reactions: When frame ${name})`;
+};
+$('tlSave').onclick = async () => {
+  const ent = tlEnt(); if (!ent || playing) return;
+  const base = ent.data.clips?.[tl.clip]?.from || tl.clip;   // a variant of a variant cuts from the original
+  const name = (prompt('Name for the new clip:', `${base}_cut`) || '').trim();
+  if (!name || ent.anim.clips.includes(name) && !ent.data.clips?.[name]) return;
+  const spec = { from: base, ...(tl.in !== null ? { start: tl.in } : {}), ...(tl.out !== null ? { end: tl.out } : {}),
+    ...(tl.speed !== 1 ? { rate: tl.speed } : {}), ...($('tlMask').value ? { mask: $('tlMask').value } : {}) };
+  record(); (ent.data.clips ||= {})[name] = spec;
+  const id = tl.id; closeTimeline(); await refresh(); select(id); openTimeline(id); $('tlClip').value = name; tlStart(name);
+};
 for (const b of document.querySelectorAll('#tl .tlViews button')) b.onclick = () => tlView(b.dataset.v);
 function tlTick() {
   if (!tl.id) return;

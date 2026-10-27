@@ -7,7 +7,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { retargetClip } from './retarget.js';
 import { entityMotions, motionsBase, motionUrl } from './motions.js';
 import { raycast, sweep, overlap, lineClear } from './collide.js';
-import { bodyMasks, eventsCrossed, DEFAULT_MASK_ROOTS } from './animlayers.js';
+import { bodyMasks, eventsCrossed, DEFAULT_MASK_ROOTS, mergeClipVariants, mergeEvents } from './animlayers.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook, applyLookTo } from './look.js';
@@ -250,8 +250,10 @@ export class World {
     const baked = new Set((obj.userData.clips || []).map(c => c.name));   // tools/bake-motions.mjs puts them in the GLB
     const stems = entityMotions(character, e).filter(m => !baked.has(m));
     if (stems.length && obj.userData.clips && variant?.glb) obj.userData.clips = [...obj.userData.clips, ...await this.loadMotions(obj.children[0], variant, stems)];
+    const variants = mergeClipVariants(character, e);
+    if (Object.keys(variants).length && obj.userData.clips?.length) obj.userData.clips = [...obj.userData.clips, ...this.clipVariants(obj, obj.userData.clips, variants, character?.masks)];
     if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle,
-      { masks: character?.masks, events: character?.events, emit: (name, info) => this.emit(name, id, info) });
+      { masks: character?.masks, events: mergeEvents(character, e), emit: (name, info) => this.emit(name, id, info) });
     this.entities.set(id, ent);
     parentEnt?.children.push(id);
     // The instance's own children (authored) plus the prefab's children (renamed per instance; both, so adding a hat keeps the sword).
@@ -354,6 +356,31 @@ export class World {
   }
 
   // Animation API handed to behaviors as entity.anim — keeps behaviors free of three.
+  // Clip variants (runtime/animlayers.js): new clips cut from existing ones — trim (start/end, re-zeroed), rate (times
+  // scaled) and a body mask (only that part's tracks). Built once per entity at load; a bad variant is skipped.
+  clipVariants(root, clips, variants, masks) {
+    const bones = []; root.traverse(o => { if (o.isBone) bones.push({ name: o.name, parent: o.parent?.isBone ? o.parent.name : null }); });
+    const split = bodyMasks(bones, masks?.upper || DEFAULT_MASK_ROOTS.upper), out = [];
+    for (const [name, v] of Object.entries(variants)) {
+      const src = THREE.AnimationClip.findByName(clips, v.from); if (!src) continue;
+      const start = Math.max(0, v.start ?? 0), end = Math.min(src.duration, v.end ?? src.duration), rate = v.rate > 0 ? v.rate : 1;
+      if (!(end > start)) continue;
+      const tracks = [];
+      for (const t of src.tracks) {
+        if (v.mask && !split[v.mask]?.has(t.name.split('.')[0])) continue;
+        const tr = t.clone(); tr.trim(start, end); tr.shift(-start);
+        if (tr.times.length < 2) {   // too short to hold keys: sample the pose at start and end
+          const I = t.createInterpolant(), a = Array.from(I.evaluate(start)), b = Array.from(I.evaluate(end));
+          tr.times = new Float32Array([0, end - start]); tr.values = new Float32Array([...a, ...b]);
+        }
+        if (rate !== 1) tr.scale(1 / rate);
+        tracks.push(tr);
+      }
+      out.push(new THREE.AnimationClip(name, (end - start) / rate, tracks));
+    }
+    return out;
+  }
+
   // Two layers. BASE plays on the whole body; UPPER (spine and up, see runtime/animlayers.js) plays on top — and while it
   // does, the base switches to its legs-only copy, so no bone is ever shared by two clips (weights stay summed to 1;
   // averaging two full-body clips is a shrug). Frame events from character.json fire as world events with the entity id.
