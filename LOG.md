@@ -88,3 +88,4 @@
 - 2026-10-27 — Goblin step 3e — lateUpdate hook + Dynamics (hair/cape springs) + Korajin in the stadium; 208 tests; checked headless (live session)
 - 2026-10-27 — Goblin step 3f — ik2 + HandGrip (two hands on the katana); 210 tests; checked headless (live session)
 - 2026-10-27 — Goblin step 3g — Melee combo / lock-on / air slam; yawOf read fix; 214 tests; checked headless (live session)
+- 2026-10-27 — Goblin step 3h — Bar + HighBar (catch, pump, giant swings, release flip); stadium bar; 217 tests; checked headless (live session)

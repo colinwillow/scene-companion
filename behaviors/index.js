@@ -13,11 +13,12 @@ export { topAt };
 // Face a heading. Writing rotation.y alone is wrong once the rotation has been through a quaternion (interpolation,
 // slerp): a yaw past 90° reads back as (π, π − yaw, π), and setting only .y under that x/z turns him to π − yaw (mirrored).
 // So a flipped Euler is normalised first; a small authored tilt is kept.
-export function setYaw(o, yaw, roll) {
+export function setYaw(o, yaw, roll, pitch) {
   const r = o.rotation;
   if (Math.abs(r.x) > Math.PI / 2 || Math.abs(r.z) > Math.PI / 2) { r.x = 0; r.z = 0; }
   r.y = yaw;
   if (roll !== undefined) r.z = roll;
+  if (pitch !== undefined) r.x = pitch;
 }
 
 export class Spin extends Behavior {
@@ -388,6 +389,85 @@ export class Vault extends Behavior {
       const pc = this.pc; pc.grounded = false; pc.sinceGround = 1; pc.vy = -2; pc.airTime = 0.2;
       pc.carry = [A.dx * P.out, A.dz * P.out];
     }
+  }
+}
+
+// A high bar (zap's HBAR): marks this entity as a bar to swing on — its centre is the entity's position, its axis the entity's
+// local X (turn the entity to turn the bar). The HighBar behavior on the player does the swinging.
+export class Bar extends Behavior {
+  static schema = { length: { type: 'number', default: 2.6, min: 0.5, max: 10, step: 0.1 } };
+  start() { (this.world.bars ||= []).push(this); }
+  destroy() { const l = this.world.bars; if (l) { const i = l.indexOf(this); if (i >= 0) l.splice(i, 1); } }
+  frame() {   // { c: [x,y,z], ax, az (along the bar), nx, nz (across it) }
+    const o = this.entity.object3d, y = yawOf(o), ax = Math.cos(y), az = -Math.sin(y);
+    return { c: [o.position.x, o.position.y, o.position.z], ax, az, nx: -az, nz: ax };
+  }
+}
+
+// Swing on high bars (zap's HBAR): falling with his hands at a Bar catches it — he hangs (`hangClip`), a pendulum about the bar.
+// The LEFT STICK pushed along the swing pumps it (a bit more each pass, then over the top: giant swings, capped at `maxW`).
+// TAP lets go: he leaves along the swing's own tangent at its speed × `boost`, plus `lift`, front-flipping (`flipClip`).
+export class HighBar extends Behavior {
+  static schema = {
+    hangClip: { type: 'string', default: 'bar_hang' },
+    flipClip: { type: 'string', default: 'front_flip' },
+    grabY:    { type: 'number', default: 0.45, min: 0.05, max: 2, step: 0.05 },   // m his hands may be off the bar and still catch
+    grabR:    { type: 'number', default: 0.6, min: 0.05, max: 2, step: 0.05 },    // m off the bar across it
+    reach:    { type: 'number', default: 1.2, min: 0.5, max: 2, step: 0.05 },     // × height: bar to feet while hanging
+    gravity:  { type: 'number', default: 22, min: 1, max: 60, step: 1 },
+    damp:     { type: 'number', default: 0.18, min: 0, max: 3, step: 0.01 },
+    pump:     { type: 'number', default: 6, min: 0, max: 30, step: 0.5 },        // rad/s² while the stick pushes with the swing
+    kick:     { type: 'number', default: 2.2, min: 0, max: 10, step: 0.1 },      // rad/s on the catch (in the way he was going)
+    maxW:     { type: 'number', default: 12.5, min: 1, max: 30, step: 0.5 },     // rad/s
+    boost:    { type: 'number', default: 1.5, min: 0.5, max: 3, step: 0.05 },
+    lift:     { type: 'number', default: 2.5, min: 0, max: 10, step: 0.1 },
+    cool:     { type: 'number', default: 0.45, min: 0, max: 3, step: 0.05 },
+  };
+  start() { this.pc = this.entity.behaviors.find(b => b instanceof PlayerController); this.hang = null; this.coolT = 0; this.clip = this.params.hangClip; }
+  destroy() { if (this.entity.mover === this) this.entity.mover = null; if (this.hang) { const o = this.entity.object3d; setYaw(o, yawOf(o), 0, 0); o.rotation.order = 'XYZ'; this.hang = null; } }
+  H() { return this.pc?.params.height ?? 1.75; }
+  update(dt) {
+    this.coolT = Math.max(0, this.coolT - dt);
+    const pc = this.pc; if (!pc || dt <= 0 || this.entity.defeated) return;
+    const P = this.params, o = this.entity.object3d, p = o.position, input = this.world.input || {}, S = this.hang;
+    if (!S) {
+      if (this.entity.mover || pc.grounded || pc.vy > 4 || this.coolT > 0) return;
+      const hands = p.y + this.H() * 1.15;
+      for (const bar of this.world.bars || []) {
+        const F = bar.frame(), dx = p.x - F.c[0], dz = p.z - F.c[2], u = dx * F.ax + dz * F.az, w = dx * F.nx + dz * F.nz;
+        if (Math.abs(u) > bar.params.length / 2 - 0.2 || Math.abs(w) > P.grabR || Math.abs(hands - F.c[1]) > P.grabY) continue;
+        // which way he faces across the bar: the way he was moving across it, else the way he faces
+        const vx = pc.carry?.[0] || 0, vz = pc.carry?.[1] || 0, vw = vx * F.nx + vz * F.nz, yaw = yawOf(o);
+        const face = Math.abs(vw) > 0.4 ? Math.sign(vw) : (Math.sin(yaw) * F.nx + Math.cos(yaw) * F.nz >= 0 ? 1 : -1);
+        this.hang = { bar, F, u: Math.max(-bar.params.length / 2 + 0.3, Math.min(bar.params.length / 2 - 0.3, u)), face, th: Math.asin(Math.max(-1, Math.min(1, w * face / (P.reach * this.H())))), w: P.kick };
+        this.clip = P.hangClip; this.entity.mover = this; pc.vy = 0; pc.carry = null;
+        o.rotation.order = 'YXZ'; setYaw(o, Math.atan2(F.nx * face, F.nz * face), 0);
+        this.world.emit('barcatch', this.entity.id);
+        break;
+      }
+      if (!this.hang) return;
+    }
+    const H = this.hang, F = H.F, R = P.reach * this.H(), Rm = R * 0.6;   // the swing's radius: bar to his middle
+    if (input.jump) { input.jump = false; this.release(); return; }
+    const move = input.move || [0, 0], fx = F.nx * H.face, fz = F.nz * H.face, along = move[0] * fx + move[1] * fz;
+    let a = -(P.gravity / Rm) * Math.sin(H.th) - P.damp * H.w;
+    if (Math.abs(along) > 0.2 && Math.sign(along) === Math.sign(H.w || along)) a += P.pump * along;
+    H.w = Math.max(-P.maxW, Math.min(P.maxW, H.w + a * dt)); H.th += H.w * dt;
+    if (H.th > Math.PI) H.th -= 2 * Math.PI; else if (H.th < -Math.PI) H.th += 2 * Math.PI;
+    // feet = bar + R along (sin th forward, -cos th down); the body turns about the bar (pitch about his own X: YXZ order)
+    p.x = F.c[0] + F.ax * H.u + fx * Math.sin(H.th) * R; p.z = F.c[2] + F.az * H.u + fz * Math.sin(H.th) * R; p.y = F.c[1] - Math.cos(H.th) * R;
+    o.rotation.x = -H.th;
+  }
+  release() {
+    const H = this.hang, P = this.params, o = this.entity.object3d, pc = this.pc, Rm = P.reach * this.H() * 0.6;
+    const fx = H.F.nx * H.face, fz = H.F.nz * H.face, v = H.w * Rm * P.boost;    // tangent of the swing: (cos th forward, sin th up)
+    this.hang = null; this.coolT = P.cool; if (this.entity.mover === this) this.entity.mover = null;
+    const yaw = Math.atan2(fx, fz) + (H.w * Math.cos(H.th) < 0 ? Math.PI : 0);
+    setYaw(o, yaw, 0, 0); o.rotation.order = 'XYZ';
+    pc.grounded = false; pc.sinceGround = 1; pc.airTime = 0.2; pc.airJumpCount = 0;
+    pc.vy = v * Math.sin(H.th) + P.lift; pc.carry = [fx * v * Math.cos(H.th), fz * v * Math.cos(H.th)];
+    if (P.flipClip && this.entity.anim?.clips.includes(P.flipClip)) { this.entity.anim.play(P.flipClip, { once: true, fade: 0.05, restart: true }); this.entity.animHold = 0.7; }
+    this.world.emit('jump'); this.world.emit('barrelease', this.entity.id);
   }
 }
 
@@ -1109,6 +1189,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

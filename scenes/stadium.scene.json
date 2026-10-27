@@ -297,6 +297,36 @@
           "character": "./assets/models/colin/characters/agoblin.character.json"
         }
       }
+    },
+    "high_bar": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "size": [
+            2.8,
+            0.07,
+            0.07
+          ],
+          "color": "#d8dde4",
+          "roughness": 0.25,
+          "metalness": 0.85
+        }
+      }
+    },
+    "bar_post": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            0.12,
+            2.65,
+            0.12
+          ],
+          "color": "#34383e",
+          "roughness": 0.5
+        }
+      }
     }
   },
   "entities": [
@@ -373,6 +403,9 @@
         },
         {
           "type": "Vault"
+        },
+        {
+          "type": "HighBar"
         },
         {
           "type": "Animator",
@@ -968,6 +1001,65 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "high_bar",
+      "asset": "high_bar",
+      "position": [
+        3,
+        2.55,
+        11
+      ],
+      "behaviors": [
+        {
+          "type": "Bar",
+          "params": {
+            "length": 2.6
+          }
+        }
+      ]
+    },
+    {
+      "id": "bar_post_l",
+      "asset": "bar_post",
+      "position": [
+        1.55,
+        0,
+        11
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              0.12,
+              2.65,
+              0.12
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bar_post_r",
+      "asset": "bar_post",
+      "position": [
+        4.45,
+        0,
+        11
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              0.12,
+              2.65,
+              0.12
+            ]
+          }
         }
       ]
     }
