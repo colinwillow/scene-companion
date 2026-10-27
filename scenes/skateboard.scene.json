@@ -181,6 +181,22 @@
         },
         {
           "type": "TrickScore"
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "sparks",
+            "on": "grind"
+          }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "dust",
+            "on": "land",
+            "mine": false,
+            "count": 6
+          }
         }
       ],
       "children": [

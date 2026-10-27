@@ -1268,6 +1268,43 @@ export class Batch extends Behavior {
   }
 }
 
+// Where a world event happened, from its arguments: events that are a position (blast: x, y, z, r, dmg) start with it, events
+// about something (chunk: id, wall, n, loud, x, y, z) end with it. null when there is no position.
+export function eventPos(args) {
+  const num = v => typeof v === 'number';
+  if (args.length >= 3 && args.slice(0, 3).every(num)) return args.slice(0, 3);
+  if (args.length >= 3 && args.slice(-3).every(num)) return args.slice(-3);
+  return null;
+}
+
+// Particles on an entity (pure: it emits `fx` requests; the page draws them with runtime/particles.js): a burst every time a world
+// event fires (`on`: 'chunk' → dust, 'shatter' → glass, 'blast' → sparks …; `mine` keeps it to events about this entity), placed
+// where the event happened; or, with `on` '' and a `rate`, a steady stream from the entity (smoke from a chimney). Presets are in
+// runtime/fxpresets.js (sparks, dust, smoke, glow, glass).
+export class Emitter extends Behavior {
+  static schema = {
+    preset: { type: 'string', default: 'sparks' },
+    on:     { type: 'string', default: '' },
+    mine:   { type: 'boolean', default: true },
+    count:  { type: 'number', default: 0, min: 0, max: 200, step: 1 },           // 0 = the preset's own
+    scale:  { type: 'number', default: 1, min: 0.1, max: 10, step: 0.1 },         // size and speed
+    rate:   { type: 'number', default: 0, min: 0, max: 200, step: 1 },           // per second, for a stream (`on` '')
+    height: { type: 'number', default: 0, min: -5, max: 20, step: 0.1 },          // m up from the entity, when it is the source
+    color:  { type: 'string', default: '' },                                       // '' = the preset's
+  };
+  start() {
+    const P = this.params; this.acc = 0;
+    if (P.on) this.world.on?.(P.on, (...a) => { if (!P.mine || a[0] === this.entity.id || typeof a[0] !== 'string') this.emit(eventPos(a), P.count || undefined); });
+  }
+  here() { const p = this.entity.object3d?.position; if (!p) return null; const v = this.entity.object3d.getWorldPosition ? this.entity.object3d.getWorldPosition(new p.constructor()) : p; return [v.x, v.y + this.params.height, v.z]; }
+  emit(at, count) { const P = this.params; at = at || this.here(); if (at) this.world.emit('fx', { preset: P.preset, at, count, scale: P.scale, color: P.color || null }); }
+  update(dt) {
+    const P = this.params; if (P.on || !P.rate) return;
+    this.acc += P.rate * dt; const n = Math.floor(this.acc);
+    if (n > 0) { this.acc -= n; this.emit(null, n); }
+  }
+}
+
 // A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
 // fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
 // its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
@@ -1292,7 +1329,7 @@ export class AudioSource extends Behavior {
     this.world.on?.(P.on, (...a) => { if (!P.mine || a[0] === this.entity.id || typeof a[0] !== 'string') this.play(a); });
   }
   play(args) {
-    const P = this.params, n = args.length, tail = n >= 3 && args.slice(-3).every(v => typeof v === 'number') ? args.slice(-3) : null;
+    const P = this.params, tail = eventPos(args);
     const p = this.entity.object3d?.position, r = (this.world.rng?.() ?? Math.random()) * 2 - 1;
     this.world.emit('audio', { url: P.clip, volume: P.volume, pitch: P.pitch * (1 + P.pitchVar * r), loop: P.loop, bus: P.bus, ref: P.ref, key: this.key,
       at: P.spatial ? (tail || (p ? [p.x, p.y, p.z] : null)) : null, follow: P.spatial && !tail && P.loop ? this.entity.id : null });
@@ -2409,6 +2446,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

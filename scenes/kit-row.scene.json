@@ -148,6 +148,14 @@
             "on": "shoot",
             "volume": 0.8
           }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "sparks",
+            "on": "blast",
+            "mine": false
+          }
         }
       ],
       "children": [
@@ -208,6 +216,20 @@
             "clip": "./assets/audio/colin/metal_clang_01.mp3",
             "on": "broken"
           }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "dust",
+            "on": "chunk"
+          }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "glass",
+            "on": "shatter"
+          }
         }
       ]
     },
@@ -248,6 +270,20 @@
             "on": "shatter",
             "volume": 0.7,
             "pitch": 1.4
+          }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "dust",
+            "on": "chunk"
+          }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "glass",
+            "on": "shatter"
           }
         }
       ]

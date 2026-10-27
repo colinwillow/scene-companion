@@ -143,6 +143,15 @@
             "clip": "./assets/audio/colin/powerup_01.mp3",
             "on": "disguise"
           }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "glow",
+            "on": "disguise",
+            "height": 1,
+            "count": 30
+          }
         }
       ],
       "children": [

@@ -37,3 +37,15 @@ test('audio runtime: buses carry the volumes (kept per device), mute silences ma
   a.muted = true; a.setVolume(); assert.equal(gains[0].gain.value, 0);
   delete globalThis.AudioContext;
 });
+
+test('Emitter: a burst where the event happened (a blast starts with its position, a chunk ends with it); a stream at its rate', async () => {
+  const { Emitter, eventPos } = await import('../behaviors/index.js');
+  assert.deepEqual(eventPos([1, 2, 3, 0.5, 9]), [1, 2, 3]); assert.deepEqual(eventPos(['h', 'w', 0, 1, 4, 5, 6]), [4, 5, 6]); assert.equal(eventPos(['h', 'left']), null);
+  const handlers = {}, sent = [], world = { on: (n, f) => { handlers[n] = f; }, emit: (n, r) => sent.push(r) };
+  const p = { x: 0, y: 0, z: 0 }, ent = { id: 'p', object3d: { position: p } };
+  new Emitter(ent, { preset: 'sparks', on: 'blast', mine: false }, world).start();
+  handlers.blast(1, 2, 3, 1, 2); assert.deepEqual(sent[0], { preset: 'sparks', at: [1, 2, 3], count: undefined, scale: 1, color: null });
+  const s = new Emitter({ id: 'chimney', object3d: { position: { x: 5, y: 0, z: 0 } } }, { preset: 'smoke', rate: 10, height: 4 }, world); s.start();
+  for (let i = 0; i < 61; i++) s.update(1 / 60);
+  const stream = sent.slice(1); assert.equal(stream.reduce((n, r) => n + r.count, 0), 10); assert.deepEqual(stream[0].at, [5, 4, 0]);
+});
