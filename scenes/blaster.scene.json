@@ -148,6 +148,17 @@
             "on": "blast",
             "mine": false
           }
+        },
+        {
+          "type": "HudBar",
+          "params": {
+            "value": "Blaster.chg",
+            "max": "1",
+            "label": "CHARGE",
+            "corner": "bottom",
+            "color": "#7fe9ff",
+            "width": 180
+          }
         }
       ],
       "children": [

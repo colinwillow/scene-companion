@@ -76,3 +76,15 @@ test('VFX workspace: a saved preset is clean (known fields, ordered pairs, in ra
   const out = cleanPreset({ add: 1, count: 500, speed: [5, 2], life: [0.3, 0.6], size: [0.1, 0.2], grow: 1.23456, grav: 3, drag: 1, up: 1, spread: 1, color: ['#fff', '#f00'], junk: 1 });
   assert.equal(out.count, 80); assert.deepEqual(out.speed, [2, 5]); assert.equal(out.grow, 1.235); assert.equal(out.junk, undefined); assert.equal(out.add, true);
 });
+
+test('HudLabel / HudBar: text from world variables and behavior properties, sent only when it changes', async () => {
+  const { HudLabel, HudBar } = await import('../behaviors/index.js');
+  class Health { constructor() { this.current = 3; this.params = { max: 5 }; } }
+  const me = { id: 'player', behaviors: [new Health()] }, sent = [];
+  const world = { vars: { score: 120 }, emit: (n, h) => sent.push(h), getEntity: id => (id === 'player' ? me : null) };
+  const l = new HudLabel({ id: 'hud' }, { text: '{score} pts · ♥ {player:Health.current}' }, world); l.start(); l.update();
+  assert.equal(sent.length, 1); assert.equal(sent[0].text, '120 pts · ♥ 3');
+  world.vars.score = 150; l.update(); assert.equal(sent[1].text, '150 pts · ♥ 3');
+  const b = new HudBar(me, {}, world); b.start(); assert.equal(sent[2].value, 0.6);
+  me.behaviors[0].current = 5; b.update(); assert.equal(sent[3].value, 1);
+});

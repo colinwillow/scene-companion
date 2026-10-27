@@ -1344,6 +1344,57 @@ export class Trail extends Behavior {
   }
 }
 
+// Read a HUD value: a world variable by name ("score"), or a behavior property on an entity ("player:Health.current",
+// "Health.current" = this entity). Pure.
+export function hudValue(world, self, ref) {
+  if (!ref) return '';
+  if (!ref.includes('.')) return world.vars?.[ref] ?? '';
+  const [eid, path] = ref.includes(':') ? ref.split(':') : [null, ref], [cls, prop] = path.split('.');
+  const b = (eid ? world.getEntity?.(eid) : self)?.behaviors?.find(x => x.constructor.name === cls);
+  return b?.[prop] ?? b?.params?.[prop] ?? '';
+}
+
+// Text on the screen, authored in the scene (pure: it sends `hudset` when the text changes; the page draws it): a `text` with
+// {names} filled from world variables or behavior properties — "{score} pts", "♥ {player:Health.current}". `corner`:
+// top-left | top | top-right | bottom-left | bottom | bottom-right | center.
+export class HudLabel extends Behavior {
+  static schema = {
+    text:   { type: 'string', default: '{score}' },
+    corner: { type: 'string', default: 'top-right' },
+    size:   { type: 'number', default: 22, min: 8, max: 96, step: 1 },
+    color:  { type: 'string', default: '#ffffff' },
+  };
+  hid() { return `${this.entity.id}:label${this.entity.behaviors?.indexOf(this) ?? 0}`; }
+  start() { this.last = null; this.update(0); this.world.on?.('hudrefresh', () => { this.last = null; }); }   // the page asks again once it listens
+  update() {
+    const P = this.params, text = P.text.replace(/\{([^}]+)\}/g, (_, r) => { const v = hudValue(this.world, this.entity, r.trim()); return typeof v === 'number' ? String(Math.round(v * 100) / 100) : String(v); });
+    if (text === this.last) return; this.last = text;
+    this.world.emit('hudset', { id: this.hid(), kind: 'label', text, corner: P.corner, size: P.size, color: P.color });
+  }
+  destroy() { this.world.emit?.('hudset', { id: this.hid(), remove: true }); }
+}
+
+// A bar on the screen (health, boost, a timer): `value` over `max` (each a number, or a reference like HudLabel's).
+export class HudBar extends Behavior {
+  static schema = {
+    value:  { type: 'string', default: 'Health.current' },
+    max:    { type: 'string', default: 'Health.max' },
+    label:  { type: 'string', default: '' },
+    corner: { type: 'string', default: 'top-left' },
+    color:  { type: 'string', default: '#3ddc84' },
+    width:  { type: 'number', default: 160, min: 40, max: 600, step: 10 },
+  };
+  hid() { return `${this.entity.id}:bar${this.entity.behaviors?.indexOf(this) ?? 0}`; }
+  start() { this.last = null; this.update(0); this.world.on?.('hudrefresh', () => { this.last = null; }); }   // the page asks again once it listens
+  update() {
+    const P = this.params, num = r => { const n = +r; return Number.isFinite(n) && String(r).trim() !== '' ? n : +hudValue(this.world, this.entity, r) || 0; };
+    const k = Math.max(0, Math.min(1, num(P.value) / (num(P.max) || 1))), key = k.toFixed(3);
+    if (key === this.last) return; this.last = key;
+    this.world.emit('hudset', { id: this.hid(), kind: 'bar', value: k, label: P.label, corner: P.corner, color: P.color, width: P.width });
+  }
+  destroy() { this.world.emit?.('hudset', { id: this.hid(), remove: true }); }
+}
+
 // A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
 // fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
 // its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
@@ -2485,6 +2536,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

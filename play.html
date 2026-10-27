@@ -216,6 +216,29 @@ function showStats(dt) {
   }
   renderer.info.reset();
 }
+// HUD authored in the scene (HudLabel, HudBar): one element per id, stacked in its corner.
+function hudCorner(c) {
+  let box = document.getElementById('hudc-' + c);
+  if (!box) {
+    box = document.createElement('div'); box.id = 'hudc-' + c; box.className = 'hudCorner';
+    const v = c.startsWith('top') ? 'top:calc(54px + env(safe-area-inset-top))' : c.startsWith('bottom') ? 'bottom:calc(150px + env(safe-area-inset-bottom))' : 'top:40%';
+    const h = c.endsWith('left') ? 'left:calc(12px + env(safe-area-inset-left));align-items:flex-start' : c.endsWith('right') ? 'right:calc(12px + env(safe-area-inset-right));align-items:flex-end' : 'left:50%;transform:translateX(-50%);align-items:center';
+    box.style.cssText = `position:fixed;${v};${h};display:flex;flex-direction:column;gap:6px;z-index:4;pointer-events:none;`;
+    document.body.append(box);
+  }
+  return box;
+}
+function hudSet(h) {
+  let el = document.getElementById('hud-' + h.id);
+  if (h.remove) { el?.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'hud-' + h.id; el.className = 'hudItem'; hudCorner(h.corner || 'top-right').append(el); }
+  if (h.kind === 'bar') {
+    el.style.cssText = `width:${h.width}px;font:700 12px system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000a`;
+    el.innerHTML = `${h.label ? `<div>${h.label.replace(/[<&]/g, '')}</div>` : ''}<div style="height:10px;border-radius:6px;background:#0007;overflow:hidden"><div style="height:100%;width:${(h.value * 100).toFixed(1)}%;background:${h.color}"></div></div>`;
+  } else {
+    el.textContent = h.text; el.style.cssText = `font:800 ${h.size}px/1.1 system-ui,sans-serif;color:${h.color};text-shadow:0 2px 6px #000a`;
+  }
+}
 // Speech bubbles (Reactions' "say"): a small label that follows the speaker's head for a few seconds. HUD only (sc:overlay-free).
 const bubbles = new Map();
 function say(id, text) {
@@ -267,7 +290,10 @@ async function start() {
   world.on('swing', () => sfx.play('jump', { pitch: 1.6 }));   // a quick whoosh until there's a real sound
   world.on('sound', name => sfx.play(name));                                   // Reactions → sound
   world.on('say', (id, text) => say(id, text));                                // Reactions → speech bubble
-  world.on('hud', (text, secs) => hudMsg(text, secs));                         // Reactions → on-screen message
+  world.on('hud', (text, secs) => hudMsg(text, secs));
+  for (const el of document.querySelectorAll('.hudItem')) el.remove();
+  world.on('hudset', h => hudSet(h));                                          // HudLabel / HudBar → screen
+  world.emit('hudrefresh');                         // Reactions → on-screen message
   world.on('shake', (amount, secs) => { shake = { amp: amount, t: secs, dur: secs }; });
   world.on('zoom', (_id, power) => { fovKick = Math.max(fovKick, 14 * (power ?? 1)); });   // a Zoom dash widens the lens
   world.on('boost', () => { fovKick = Math.max(fovKick, 9); });                         // so does a skater's boost

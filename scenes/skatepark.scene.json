@@ -307,6 +307,23 @@
             "while": "Skater.grind",
             "scale": 0.7
           }
+        },
+        {
+          "type": "HudLabel",
+          "params": {
+            "text": "\u2605 {score}",
+            "corner": "top-right",
+            "size": 26,
+            "color": "#ffe27a"
+          }
+        },
+        {
+          "type": "HudLabel",
+          "params": {
+            "text": "combo {combo}",
+            "corner": "top-right",
+            "size": 15
+          }
         }
       ]
     },
