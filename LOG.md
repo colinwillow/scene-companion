@@ -48,3 +48,4 @@
 - 2026-10-27 — Art direction 3/3: scatter brush — 🖌 Scatter bar, stroke preview, one undo per stroke; 106 tests; headless ✓ (build run)
 - 2026-10-27 — Level kit ramps — Solid slope + topAt, ramp primitive, kit_ramp prefab, PlayerController walks ramps; 107 tests; headless ✓ (build run)
 - 2026-10-27 — Library Level kit tab — kit_* + trigger_zone; 108 tests; headless ✓ (build run)
+- 2026-10-27 — MCP add_light / set_light + validator light checks; 109 tests; headless mcp-replay ✓ (build run)

@@ -121,3 +121,16 @@ test('spawn adds a prefab from prefabs/ (ctx.library) to the scene; later batch 
   assert.throws(() => runCommand(data, 'batch', { calls: [{ tool: 'spawn', args: { prefab: 'stone' } }, { tool: 'spawn', args: {} }] }, { library: {} }));
   assert.deepEqual(data, before, 'failed batch leaves the scene untouched');
 });
+
+test('add_light / set_light: lights through commands, validated', () => {
+  const data = { entities: [{ id: 'crate_01', asset: 'crate' }], assets: { crate: {} } };
+  const { result } = runCommand(data, 'add_light', { type: 'spot', position: [1, 0, 1], intensity: 80, angle: 20 });
+  assert.equal(result.id, 'spot_light_01'); assert.deepEqual(result.position, [1, 4, 1]);
+  assert.equal(result.light.intensity, 80); assert.equal(result.light.angle, 20);
+  assert.throws(() => runCommand(data, 'add_light', { type: 'laser' }), /type must be/);
+  assert.throws(() => runCommand(data, 'add_light', { type: 'point', angle: 3 }), /no "angle"/);
+  runCommand(data, 'set_light', { id: 'spot_light_01', values: { color: '#ff0000', shadows: true } });
+  assert.equal(data.entities.at(-1).light.color, '#ff0000'); assert.equal(data.entities.at(-1).light.shadows, true);
+  assert.throws(() => runCommand(data, 'set_light', { id: 'spot_light_01', values: { color: 'red' } }), /colour/);
+  assert.throws(() => runCommand(data, 'set_light', { id: 'crate_01', values: { intensity: 1 } }), /isn't a light/);
+});

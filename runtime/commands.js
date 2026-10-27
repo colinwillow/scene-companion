@@ -3,7 +3,7 @@
 //
 //   runCommand(data, op, args, { schemas, prefabs }) → { result, changed }
 //   schemas: { BehaviorName: schema }   prefabs: { name: prefabJson }   (both supplied by the host)
-import { addEntity, deleteEntity } from './editing.js';
+import { addEntity, deleteEntity, addLight, setLightValue, LIGHT_FIELDS } from './editing.js';
 import { mergeEntity, setOverride } from './prefabs.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
@@ -140,6 +140,35 @@ export const COMMANDS = {
       if (e.behaviors && !e.behaviors.length) delete e.behaviors;
       if (fromPrefab && !e.removeBehaviors?.includes(type)) (e.removeBehaviors ||= []).push(type);
       return { id, removed: type };
+    },
+  },
+  add_light: {
+    mutates: true,
+    run(data, { type, position = [0, 0, 0], id, ...values }) {
+      if (!LIGHT_FIELDS[type]) throw new Error(`type must be one of ${Object.keys(LIGHT_FIELDS).join(', ')}`);
+      if (!isVec3(position)) throw new Error('position must be [x, y, z] in metres (point lights go 2.5 m above it, spots 4 m)');
+      for (const k of Object.keys(values)) if (!LIGHT_FIELDS[type][k]) throw new Error(`${type} lights have no "${k}" (fields: ${Object.keys(LIGHT_FIELDS[type]).join(', ')})`);
+      if (id !== undefined && (!/^[a-z0-9_]+$/.test(id) || data.entities.some(e => e.id === id))) throw new Error(`id "${id}" is taken or not lowercase_with_underscores`);
+      const e = addLight(data, type, position);
+      if (id) e.id = id;
+      for (const [k, v] of Object.entries(values)) setLightValue(data, e.id, k, v);
+      return { id: e.id, light: e.light, position: e.position };
+    },
+  },
+  set_light: {
+    mutates: true,
+    run(data, { id, values }) {
+      const e = need(data, id);
+      if (!e.light) throw new Error(`${id} isn't a light`);
+      const fields = LIGHT_FIELDS[e.light.type] || {};
+      if (!values || typeof values !== 'object' || !Object.keys(values).length) throw new Error(`values: { ${Object.keys(fields).join(', ')} }`);
+      for (const [k, v] of Object.entries(values)) {
+        if (!fields[k]) throw new Error(`${e.light.type} lights have no "${k}" (fields: ${Object.keys(fields).join(', ')})`);
+        if (fields[k].type === 'color' && !/^#[0-9a-f]{6}$/i.test(v)) throw new Error(`${k} must be a #rrggbb colour`);
+        if (fields[k].type === 'number' && !Number.isFinite(+v)) throw new Error(`${k} must be a number (${fields[k].min}–${fields[k].max})`);
+      }
+      for (const [k, v] of Object.entries(values)) setLightValue(data, id, k, v);
+      return { id, light: e.light };
     },
   },
   set_animation: {

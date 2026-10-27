@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Checks scene files against the rules in SKILL.md.
 // Usage: node tools/validate.mjs [scenes/*.scene.json ...]   (defaults to every scene in scenes/)
+import { LIGHT_FIELDS } from '../runtime/editing.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -84,6 +85,11 @@ for (const f of files) {
     ids.add(e.id);
     const asset = typeof e.asset === 'object' ? e.asset : scene.assets?.[e.asset];
     if (!e.light && e.asset && !asset) err(f, `${e.id}: unknown asset "${e.asset}"`);
+    if (e.light) {
+      const fields = LIGHT_FIELDS[e.light.type];
+      if (!fields) err(f, `${e.id}: light type "${e.light.type}" (use ${Object.keys(LIGHT_FIELDS).join(', ')})`);
+      else for (const k of Object.keys(e.light)) if (k !== 'type' && k !== 'shadowRadius' && !fields[k]) warn(f, `${e.id}: ${e.light.type} lights have no "${k}"`);
+    }
     for (const v of Object.values(asset?.variants || {})) {
       if (!v.glb) continue;
       const clips = clipsOf(v.glb.replace(/^\.\//, ''));

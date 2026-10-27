@@ -207,7 +207,8 @@ async function rebuild() {
   for (const ent of world.entities.values()) {
     const t = ent.data.light?.type;
     if (!['point', 'spot'].includes(t)) continue;           // the sun follows the camera focus (shadows), so it isn't draggable
-    const m = new THREE.Mesh(t === 'spot' ? new THREE.ConeGeometry(0.22, 0.4, 12).translate(0, -0.1, 0) : new THREE.SphereGeometry(0.2, 12, 8),
+    const m = new THREE.Mesh(   // sc:overlay (editor-only light marker)
+      t === 'spot' ? new THREE.ConeGeometry(0.22, 0.4, 12).translate(0, -0.1, 0) : new THREE.SphereGeometry(0.2, 12, 8),
       new THREE.MeshBasicMaterial({ color: ent.data.light.color || '#ffffff', toneMapped: false, fog: false }));
     m.castShadow = false; ent.object3d.add(m); ent.object3d.userData.marker = m;   // sc:overlay (editor only)
   }
@@ -629,7 +630,8 @@ async function editorCommand(op, args) {
   if (COMMANDS[op]) {
     const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs, library: {} };
     // spawning a prefab the scene doesn't list yet: fetch it from prefabs/ (commands.js adds it to the scene)
-    const spawns = op === 'spawn' ? [args] : op === 'batch' ? (args.calls || []).filter(c => c?.tool === 'spawn').map(c => c.args || {}) : [];
+    const placing = t => t === 'spawn' || t === 'add_light';
+    const spawns = placing(op) ? [args] : op === 'batch' ? (args.calls || []).filter(c => placing(c?.tool)).map(c => c.args || {}) : [];
     for (const name of new Set(spawns.map(a => a.prefab).filter(n => typeof n === 'string' && /^[a-z0-9_]+$/.test(n) && !data.prefabs?.[n])))
       try { const r = await fetch(`./prefabs/${name}.prefab.json`); if (r.ok) ctx.library[name] = await r.json(); } catch {}
     // spawn with no position: drop it where the editor is looking (screen centre on the ground / a solid)
