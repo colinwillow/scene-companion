@@ -307,6 +307,43 @@ export class World {
     return ent;
   }
 
+  // Instance repeated STATIC props (Play only): entities sharing one asset, with no behaviors that move or change them (only
+  // Solid / Surface / CollisionMesh), no children and no animation, become one InstancedMesh per mesh of the model — eleven trees
+  // are a handful of draws instead of eleven times as many. The entities stay (their colliders, picking by id); only their meshes
+  // are hidden. Call again after a live edit: it undoes the last pass first. → how many entities were instanced.
+  instanceStatic(min = 4) {
+    this.unInstance();
+    const STATIC = new Set(['Solid', 'Surface', 'CollisionMesh']), groups = new Map();
+    for (const e of this.entities.values()) {
+      if (e.parent || e.children.length || e.anim || e.data?.light || e.object3d.visible === false) continue;
+      if (!e.behaviors.every(b => STATIC.has(b.constructor.name))) continue;
+      const key = typeof e.resolved?.asset === 'string' ? e.resolved.asset : e.prefab || (e.resolved?.asset ? JSON.stringify(e.resolved.asset) : null);
+      if (!key) continue;
+      (groups.get(key) || groups.set(key, []).get(key)).push(e);
+    }
+    this.instanced = []; let n = 0;
+    for (const list of groups.values()) {
+      if (list.length < min) continue;
+      const per = list.map(e => { const m = []; e.object3d.updateMatrixWorld(true); e.object3d.traverse(o => { if (o.isMesh) m.push(o); }); return m; });
+      const k = per[0].length;
+      if (!k || per.some(m => m.length !== k || m.some(o => o.isSkinnedMesh || o.isInstancedMesh || !o.visible))) continue;
+      for (let j = 0; j < k; j++) {
+        const src = per[0][j], im = new THREE.InstancedMesh(src.geometry, src.material, list.length);
+        per.forEach((m, i) => im.setMatrixAt(i, m[j].matrixWorld));
+        im.castShadow = src.castShadow; im.receiveShadow = src.receiveShadow; im.name = `instanced:${src.name}`; im.userData.noLook = !!src.userData.noLook;
+        im.computeBoundingSphere(); this.scene.add(im); this.instanced.push(im);
+      }
+      for (const m of per) for (const o of m) { o.visible = false; o.userData.instancedAway = true; }
+      n += list.length;
+    }
+    return n;
+  }
+  unInstance() {
+    for (const im of this.instanced || []) { im.removeFromParent(); im.dispose?.(); }
+    this.instanced = [];
+    for (const e of this.entities.values()) e.object3d.traverse(o => { if (o.userData.instancedAway) { o.visible = true; delete o.userData.instancedAway; } });
+  }
+
   // Wear another asset's body (zap's DNA gun, `Disguise`): `asset` is a scene asset key (or a prefab id whose asset is used).
   // The entity keeps its object, position, behaviors and collider; its model, clips and roles become the asset's. The old model
   // is kept aside (with anything mounted on its bones) and `wear(id, null)` puts it back. → true when worn.

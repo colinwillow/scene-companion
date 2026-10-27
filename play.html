@@ -233,6 +233,7 @@ async function start() {
   over = false; $('msg').style.display = 'none';
   world = new World(renderer, { tier: TIER });
   await world.load(structuredClone(data));    // the authored data is never touched by play
+  world.instanceStatic();                     // repeated static props → one InstancedMesh per part (draw calls)
   window.__sc = { world, data, get live() { return liveStatus; } };
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
@@ -348,7 +349,7 @@ let liveStatus = '', liveWs = null;
       if (msg.type !== 'scene' || !msg.data || !SCENE_URL.endsWith(msg.url.replace(/^\.\//, ''))) return;
       const result = world ? applyScene(world, data, msg.data) : 'rebuild';
       data = msg.data;
-      if (result === 'rebuild') await start();
+      if (result === 'rebuild') await start(); else if (result !== 'none') world.instanceStatic();   // a moved tree moves its instance too
       liveStatus = result;
       if (result !== 'none') { const b = $('liveBadge'); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 300); }
     };

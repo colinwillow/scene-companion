@@ -121,3 +121,4 @@
 - 2026-10-27 — Performance part 3 — mergeMeshes + Batch + batched Breakables; kit row 3,221 → 716 draws; 263 tests; checked headless (live session)
 - 2026-10-27 — Performance part 4 — culling back on for non-skinned meshes; kit row 716 → 209 draws (live session)
 - 2026-10-27 — Performance part 5 — budgets in live state / LIVE badge / stats chip; 264 tests (live session)
+- 2026-10-27 — Performance part 6 — instanceStatic for repeated static props; 265 tests (live session)
