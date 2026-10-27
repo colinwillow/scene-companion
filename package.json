@@ -14,7 +14,8 @@
     "thumbs": "node tools/thumbs.mjs",
     "inventory": "node tools/inventory.mjs",
     "bake-motions": "node tools/bake-motions.mjs",
-    "footsteps": "node tools/footsteps.mjs"
+    "footsteps": "node tools/footsteps.mjs",
+    "assets": "node tools/assetids.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",

@@ -1,0 +1,230 @@
+{
+ "1323b415-3f6d": {
+  "path": "assets/audio/colin/blaster_sound_01.mp3",
+  "sha": "40d99583f171e766"
+ },
+ "7b3f931b-53a8": {
+  "path": "assets/audio/colin/blaster_sound_02.mp3",
+  "sha": "4bd7bb7c9ceedc9f"
+ },
+ "c4117e3a-0343": {
+  "path": "assets/audio/colin/box_break_01.mp3",
+  "sha": "e41279805a2efdb8"
+ },
+ "58a1dddb-478d": {
+  "path": "assets/audio/colin/explosion_small.mp3",
+  "sha": "f154a537220ebd22"
+ },
+ "bb951cd3-33c2": {
+  "path": "assets/audio/colin/hit_sound_01.mp3",
+  "sha": "befaa2bee69885e4"
+ },
+ "5b8fc07a-7c99": {
+  "path": "assets/audio/colin/metal_clang_01.mp3",
+  "sha": "a333bd270898838d"
+ },
+ "4de20630-12e4": {
+  "path": "assets/audio/colin/metal_ping_01.mp3",
+  "sha": "8ffca1a0bbc533d6"
+ },
+ "12b95c6e-e5af": {
+  "path": "assets/audio/colin/powerup_01.mp3",
+  "sha": "48fbbe08aab4ccc2"
+ },
+ "8369e844-499e": {
+  "path": "assets/audio/colin/swoosh_01.mp3",
+  "sha": "193db18575d4ca2b"
+ },
+ "da0ae730-78d9": {
+  "path": "assets/audio/colin/swoosh_02.mp3",
+  "sha": "19145e7052b892d5"
+ },
+ "5f3a3eb6-2d7a": {
+  "path": "assets/models/colin/buildings/building_kit_collision.glb",
+  "sha": "cb0ddd7e167e2cc9"
+ },
+ "5b7a0404-072c": {
+  "path": "assets/models/colin/buildings/building_kit_generated_visual.glb",
+  "sha": "97cbdd9db4adbd06"
+ },
+ "3abae790-2dff": {
+  "path": "assets/models/colin/buildings/building_kit_test_collision.glb",
+  "sha": "98145534f704c680"
+ },
+ "11d04650-5aa7": {
+  "path": "assets/models/colin/buildings/building_kit_test_visual.glb",
+  "sha": "8458991d0b502f03"
+ },
+ "ecf80add-c463": {
+  "path": "assets/models/colin/characters/agoblin.glb",
+  "sha": "cfabd9260fbf1575"
+ },
+ "83685a28-e95a": {
+  "path": "assets/models/colin/characters/clancy.glb",
+  "sha": "4b9d271f06b09608"
+ },
+ "a6c56f41-2e0e": {
+  "path": "assets/models/colin/characters/colin.glb",
+  "sha": "99d38b7dc54bc329"
+ },
+ "60f1515c-1f68": {
+  "path": "assets/models/colin/characters/goblin.glb",
+  "sha": "db1cf0e0ffb97dfe"
+ },
+ "5379b8af-b489": {
+  "path": "assets/models/colin/characters/skater.glb",
+  "sha": "6e98dd0a692a6be6"
+ },
+ "a8dc5908-e6f1": {
+  "path": "assets/models/colin/characters/xray_skeleton.glb",
+  "sha": "464803179072d0eb"
+ },
+ "81993606-4262": {
+  "path": "assets/models/colin/characters/zap.glb",
+  "sha": "5e5cca54019b749d"
+ },
+ "439e8674-4b63": {
+  "path": "assets/models/colin/props/alien_mushroom_01.glb",
+  "sha": "c56932831ac9ffcc"
+ },
+ "d7341166-baa4": {
+  "path": "assets/models/colin/props/alien_rock_01.glb",
+  "sha": "e743b08ce0accfd2"
+ },
+ "e814505f-8f7b": {
+  "path": "assets/models/colin/props/blaster.glb",
+  "sha": "54083b44922a11df"
+ },
+ "81188786-f2f0": {
+  "path": "assets/models/colin/props/c_bench.glb",
+  "sha": "fa06cc24c301bf40"
+ },
+ "81ac38fd-f6d2": {
+  "path": "assets/models/colin/props/c_dumpster.glb",
+  "sha": "44be776fa894aa33"
+ },
+ "15126265-b8f1": {
+  "path": "assets/models/colin/props/c_hydrant.glb",
+  "sha": "c647afa2638379c5"
+ },
+ "12b8d3e1-e756": {
+  "path": "assets/models/colin/props/c_lamp.glb",
+  "sha": "570bf095488f8a72"
+ },
+ "9a917086-168c": {
+  "path": "assets/models/colin/props/e_crates.glb",
+  "sha": "8a05c78d6238a4a2"
+ },
+ "850ae226-5e28": {
+  "path": "assets/models/colin/props/e_rock_a.glb",
+  "sha": "6f7d638deeac2346"
+ },
+ "ba26efdb-65c7": {
+  "path": "assets/models/colin/props/fun_boxes.glb",
+  "sha": "f977f546298813d0"
+ },
+ "5848bffb-04ae": {
+  "path": "assets/models/colin/props/katana.glb",
+  "sha": "2b32066b87e8bddf"
+ },
+ "f643b540-9c7c": {
+  "path": "assets/models/colin/props/skateboard.glb",
+  "sha": "5ba9379671610d9f"
+ },
+ "35d1a509-5c0b": {
+  "path": "assets/models/colin/props/sp_rock01.glb",
+  "sha": "4a96d84597684eec"
+ },
+ "4440d8ca-957b": {
+  "path": "assets/models/colin/props/sp_rock02.glb",
+  "sha": "357d45c8b7fc1771"
+ },
+ "2664fb9d-0304": {
+  "path": "assets/models/colin/props/sp_rock03.glb",
+  "sha": "6ffca8b7b7817630"
+ },
+ "3812e85a-e577": {
+  "path": "assets/models/colin/props/sp_stone01.glb",
+  "sha": "0fa24a7738fbdbd0"
+ },
+ "43d52379-aa34": {
+  "path": "assets/models/kenney/city/grass-trees-tall.glb",
+  "sha": "0b844f8afdc0d367"
+ },
+ "345f4cf9-a180": {
+  "path": "assets/models/kenney/city/grass-trees.glb",
+  "sha": "8d8bc7a55c8ca6a0"
+ },
+ "e6dfceb8-ac15": {
+  "path": "assets/models/kenney/city/Textures/colormap.png",
+  "sha": "e61cb42bcad8f48a"
+ },
+ "a409c783-4379": {
+  "path": "assets/models/kenney/fps/enemy-flying.glb",
+  "sha": "30ed7d6c8f0f2fb6"
+ },
+ "731cd301-8da5": {
+  "path": "assets/models/kenney/fps/grass-small.glb",
+  "sha": "c65a98a3bce5e2a8"
+ },
+ "cc4a4d75-d8ec": {
+  "path": "assets/models/kenney/fps/Textures/colormap.png",
+  "sha": "f79c69bb3ee1afca"
+ },
+ "14b5ba05-3133": {
+  "path": "assets/models/kenney/fps/wall-high.glb",
+  "sha": "9be8e35366fd2222"
+ },
+ "a64f5c6a-4d37": {
+  "path": "assets/models/kenney/fps/wall-low.glb",
+  "sha": "90d3041c1db1e429"
+ },
+ "7c114e47-0212": {
+  "path": "assets/models/kenney/platformer/brick.glb",
+  "sha": "2fee1738d9c4efcf"
+ },
+ "b5ae0c18-7250": {
+  "path": "assets/models/kenney/platformer/cloud.glb",
+  "sha": "e64b9ce74991aefd"
+ },
+ "23c789e4-52ac": {
+  "path": "assets/models/kenney/platformer/coin.glb",
+  "sha": "be5ca0ec0883ef18"
+ },
+ "5fb1a044-5594": {
+  "path": "assets/models/kenney/platformer/flag.glb",
+  "sha": "4b64938b26a0ef90"
+ },
+ "51cc69f6-b077": {
+  "path": "assets/models/kenney/platformer/grass.glb",
+  "sha": "5fa262fc3583f4d8"
+ },
+ "73cb0c2f-6c08": {
+  "path": "assets/models/kenney/platformer/platform-falling.glb",
+  "sha": "22a3009696fb115d"
+ },
+ "3d13229a-37ea": {
+  "path": "assets/models/kenney/platformer/platform-grass-large-round.glb",
+  "sha": "c78019b7f9ed4bdc"
+ },
+ "e9122423-2b34": {
+  "path": "assets/models/kenney/platformer/platform-large.glb",
+  "sha": "cd0e129967aa0cae"
+ },
+ "d923e1bf-5939": {
+  "path": "assets/models/kenney/platformer/platform-medium.glb",
+  "sha": "375728399a7d3984"
+ },
+ "072037b2-79ab": {
+  "path": "assets/models/kenney/platformer/platform.glb",
+  "sha": "529c8181112a3850"
+ },
+ "e3bb0c4b-94d5": {
+  "path": "assets/models/kenney/platformer/Textures/colormap.png",
+  "sha": "e61cb42bcad8f48a"
+ },
+ "449e3e5c-b990": {
+  "path": "assets/models/robot.glb",
+  "sha": "0dc0053469e23ef8"
+ }
+}

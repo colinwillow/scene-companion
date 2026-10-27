@@ -155,7 +155,7 @@ for (const f of files) {
       const baked = clipsOf(v.glb.replace(/^\.\//, ''));
       const clips = baked && [...baked, ...entityMotions(ch, e)];   // motion-library clips are retargeted on at load
       if (clips) { for (const m of checkClipVariants(mergeClipVariants(ch, e), clips)) err(f, `${e.id}: ${m}`); clips.push(...Object.keys(mergeClipVariants(ch, e))); }
-      if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
+      if (clips === null) err(f, `${e.id}: model file not found: ${v.glb} — moved or renamed? \`npm run assets\` relinks it by content`);
       else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
       else for (const b of e.behaviors || []) for (const [k, val] of Object.entries(b.params || {}))
         if (/Clip$/.test(k) && val && val !== 'none' && typeof val === 'string' && !clips.includes(val)) err(f, `${e.id}: ${b.type}.${k} "${val}" isn't in ${v.glb}`);
