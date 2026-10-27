@@ -72,6 +72,27 @@ Claude can see what you see. The tools include: list scene objects, get the sele
 - ship anywhere: web, a website, Capacitor → App Store/Play Store, and export to Godot / Unity / Unreal;
 - one-button sign-in, so artists never touch tokens or permissions.
 
+## 7c. Who it's for, and how they never see GitHub (Colin, 2026-10-27)
+**The target user has never coded and doesn't know what GitHub is.** They have an AI subscription and want to make a game. So, like Lovable, Bolt and Replit, the front door is an account and a Publish button, not a repo.
+
+1. **Everyone:**
+   - Sign in with Google/Apple.
+   - Projects autosave to our cloud (like Google Docs, no Save button).
+   - **Publish** uploads the game to static hosting and gives a shareable link. Netlify/Vercel/Cloudflare Pages take direct file uploads through their APIs, so no git is involved.
+2. **Their AI:**
+   - Scene Companion is a hosted MCP **connector** that people add to the Claude or ChatGPT app they already pay for.
+   - They say "put a castle and three goblins in my level", their AI edits their cloud project, and the editor on their phone updates live.
+   - It costs us nothing per request. (Running AI ourselves would mean API keys and a paid plan.)
+3. **Creators (Colin):**
+   - Connect GitHub through a GitHub App (repo, commits, Pages via the API; nothing to paste).
+   - Export to Godot/Unity/Unreal, and Capacitor for the App Store/Play Store.
+
+**What owning the backend costs:**
+- Hosting and storage (big GLBs, so cheap object storage like Cloudflare R2).
+- Moderation of public games (report and takedown).
+- Privacy policy and accounts.
+- Apple's review rules for apps that run user-made HTML5 games (check them before committing to an iPhone app).
+
 ## 8. Build stages
 1. **Format + runtime:** the scene file format, behavior base class and schema, and a loader that builds a Three.js scene from them. Prove it on one small demo game. *(v0 built: runtime/, behaviors/, scenes/kitchen-sink, index.html, tools/validate.mjs)*
 2. **Skill:** Claude follows the rules on a fresh vibe-coded game, and a validator checks them.
