@@ -197,6 +197,9 @@
             "mine": false,
             "count": 6
           }
+        },
+        {
+          "type": "Trail"
         }
       ],
       "children": [

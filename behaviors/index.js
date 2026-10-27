@@ -1305,6 +1305,36 @@ export class Emitter extends Behavior {
   }
 }
 
+// A ribbon trail off bones (Roller Girl's blade and hand trails; a katana's swing): after the animation, each named bone's world
+// position is sampled and sent as a `trail` (the page draws them, runtime/trails.js). It shows with SPEED — from nothing at
+// `minSpeed` to full at `fullSpeed` (m/s of the point itself), so a standing skater has none and a fast carve or a swing streaks.
+export class Trail extends Behavior {
+  static schema = {
+    bones:     { type: 'string', default: 'mixamorig_LeftToeBase, mixamorig_RightToeBase' },   // comma list ('' = the entity)
+    life:      { type: 'number', default: 0.22, min: 0.05, max: 2, step: 0.01 },
+    width:     { type: 'number', default: 0.12, min: 0.01, max: 2, step: 0.01 },
+    color:     { type: 'string', default: '#e8fbff' },
+    minSpeed:  { type: 'number', default: 6, min: 0, max: 50, step: 0.5 },
+    fullSpeed: { type: 'number', default: 14, min: 0.1, max: 80, step: 0.5 },
+  };
+  start() { this.pts = null; this.last = new Map(); }
+  lateUpdate(dt) {
+    if (dt <= 0) return;
+    const o = this.entity.object3d, P = this.params;
+    if (!this.pts) {
+      const names = P.bones.split(',').map(x => x.trim()).filter(Boolean);
+      this.pts = names.length ? names.map(n => o.getObjectByName?.(n)).filter(Boolean) : [o];
+    }
+    const V = o.position.constructor;
+    for (const b of this.pts) {
+      const p = b.getWorldPosition(new V()), at = [p.x, p.y, p.z], prev = this.last.get(b); this.last.set(b, at);
+      if (!prev) continue;
+      const v = Math.hypot(at[0] - prev[0], at[1] - prev[1], at[2] - prev[2]) / dt, k = (v - P.minSpeed) / Math.max(1e-6, P.fullSpeed - P.minSpeed);
+      if (k > 0.01) this.world.emit('trail', { key: `${this.entity.id}:${b.name || 'root'}`, at, width: P.width, life: P.life, color: P.color, strength: Math.min(1, k) });
+    }
+  }
+}
+
 // A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
 // fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
 // its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
@@ -2446,6 +2476,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

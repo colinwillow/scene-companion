@@ -127,3 +127,4 @@
 - 2026-10-27 — Performance part 9 — glass batched in KitParts, AC units in Batch; kit row 101 draws; 268 tests (live session)
 - 2026-10-27 — AudioSource + runtime/audio.js + mixer + Zap's sounds; 270 tests; checked headless (live session)
 - 2026-10-27 — Particles part 1 — pooled particles + presets + Emitter; 271 tests; checked headless (live session)
+- 2026-10-27 — Particles part 2 — Trail behavior + runtime/trails.js; 272 tests (live session)

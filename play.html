@@ -83,6 +83,7 @@ import { bindStick } from './runtime/sticks.js';
 import { createSfx } from './runtime/sfx.js';
 import { createAudio } from './runtime/audio.js';
 import { createParticles } from './runtime/particles.js';
+import { createTrails } from './runtime/trails.js';
 import { createFpsMeter, buildState, sameScene, overBudget, BUDGETS } from './runtime/livestate.js';
 import './behaviors/index.js';
 import { solidOutline } from './runtime/collide.js';
@@ -204,7 +205,7 @@ $('cols').onclick = () => {
 // every pass (post-processing renders more than once), so it is reset by hand each frame.
 renderer.info.autoReset = false;
 let statT = 0;
-let frameStats = { draws: 0, tris: 0 }, particles = null;
+let frameStats = { draws: 0, tris: 0 }, particles = null, trails = null;
 function showStats(dt) {
   const el = $('stats'), r = renderer.info.render; el.hidden = !colView;
   frameStats = { draws: r.calls, tris: r.triangles };            // last frame's totals, for the chip and the editor's LIVE badge
@@ -248,12 +249,14 @@ async function start() {
   world = new World(renderer, { tier: TIER });
   await world.load(structuredClone(data));    // the authored data is never touched by play
   world.instanceStatic();                     // repeated static props → one InstancedMesh per part (draw calls)
-  window.__sc = { world, data, audio, get particles() { return particles; }, get live() { return liveStatus; } };
+  window.__sc = { world, data, audio, get particles() { return particles; }, get trails() { return trails; }, get live() { return liveStatus; } };
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
   audio.stop();
   particles?.dispose(); particles = createParticles(world.scene);
   world.on('fx', req => particles.burst(req));                                 // Emitter → a burst of particles
+  trails?.dispose(); trails = createTrails(world.scene);
+  world.on('trail', s => trails.add(s));                                       // Trail → a ribbon sample
   world.on('audio', req => audio.play(req));                                   // AudioSource → a sound file
   world.on('audiostop', key => audio.stop(key));
   const music = data.settings?.music; if (music?.url || typeof music === 'string') audio.play({ url: music.url || music, loop: true, bus: 'music', key: 'music', volume: music.volume ?? 1 });
@@ -400,6 +403,7 @@ renderer.setAnimationLoop(() => {
   drawColliders(dt);
   showStats(dt);
   particles?.update(dt, camera, renderer);
+  trails?.update(dt, camera);
   { const f = new THREE.Vector3(); camera.getWorldDirection(f); audio.listen(camera.position.toArray(), f.toArray());
     audio.update(id => { const o = world.getEntity(id)?.object3d; return o ? o.getWorldPosition(new THREE.Vector3()).toArray() : null; }); }
   if (post) post.render(); else renderer.render(world.scene, camera);

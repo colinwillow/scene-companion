@@ -459,6 +459,17 @@
         },
         {
           "type": "HandGrip"
+        },
+        {
+          "type": "Trail",
+          "params": {
+            "bones": "mixamorig_RightHand",
+            "color": "#cfe8ff",
+            "width": 0.18,
+            "minSpeed": 5,
+            "fullSpeed": 10,
+            "life": 0.15
+          }
         }
       ],
       "children": [

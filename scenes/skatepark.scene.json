@@ -284,6 +284,19 @@
         },
         {
           "type": "TrickScore"
+        },
+        {
+          "type": "Trail"
+        },
+        {
+          "type": "Trail",
+          "params": {
+            "bones": "mixamorig_LeftHand, mixamorig_RightHand",
+            "color": "#ffd1f4",
+            "width": 0.08,
+            "minSpeed": 8,
+            "fullSpeed": 16
+          }
         }
       ]
     },

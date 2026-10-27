@@ -49,3 +49,14 @@ test('Emitter: a burst where the event happened (a blast starts with its positio
   for (let i = 0; i < 61; i++) s.update(1 / 60);
   const stream = sent.slice(1); assert.equal(stream.reduce((n, r) => n + r.count, 0), 10); assert.deepEqual(stream[0].at, [5, 4, 0]);
 });
+
+test('Trail: samples a bone after animation, only while it moves fast enough, stronger the faster', async () => {
+  const THREE = await import('three'); const { Trail } = await import('../behaviors/index.js');
+  const root = new THREE.Group(), foot = new THREE.Object3D(); foot.name = 'toe'; root.add(foot);
+  const sent = [], world = { emit: (n, s) => sent.push(s) };
+  const t = new Trail({ id: 'sk', object3d: root }, { bones: 'toe', minSpeed: 6, fullSpeed: 14 }, world); t.start();
+  t.lateUpdate(1 / 60); root.position.x += 3 / 60; root.updateMatrixWorld(true); t.lateUpdate(1 / 60);
+  assert.equal(sent.length, 0, '3 m/s: no trail');
+  root.position.x += 20 / 60; root.updateMatrixWorld(true); t.lateUpdate(1 / 60);
+  assert.equal(sent.length, 1); assert.equal(sent[0].key, 'sk:toe'); assert.equal(sent[0].strength, 1);
+});
