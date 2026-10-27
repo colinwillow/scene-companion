@@ -132,7 +132,7 @@ import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
 import { clipRoles, characterEntries } from './runtime/character.js';
-import { libraryPacks, setInstalled, parseUnlocks } from './runtime/packs.js';
+import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runtime/packs.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -472,7 +472,7 @@ let scatterOn = false, eraseMode = false, stroke = null, twoFinger = false;
 const brushPointers = new Set();
 const savedNav = { touch: orbit.touches.ONE, mouse: orbit.mouseButtons.LEFT };
 function fillScatter() {
-  const names = [...new Set([...Object.keys(data.prefabs || {}), ...prefabLibrary])].sort();
+  const show = shown(), names = [...new Set([...Object.keys(data.prefabs || {}), ...prefabLibrary.filter(n => show({ kind: 'prefab', name: n }))])].sort();
   const cur = $('scPrefab').value || ['grass_tuft', 'tree', 'rock_round'].find(n => names.includes(n)) || names[0];
   $('scPrefab').innerHTML = names.map(n => `<option ${n === cur ? 'selected' : ''}>${n}</option>`).join('');
 }
@@ -738,6 +738,7 @@ async function travel(dir) {
   updateUndo();
   if (selectedId && !data.entities.some(e => e.id === selectedId)) selectedId = null;
   if (libTab === "packs") renderLib();   // pack installs are scene data too
+  fillAdd();
   await rebuild(); renderPanel(); renderLib();
 }
 $('undo').onclick = () => travel(-1);
@@ -757,7 +758,7 @@ fetch('./thumbs/index.json').then(r => (r.ok ? r.json() : {})).then(j => { thumb
 let characterLibrary = [];   // Library › Characters: bare characters from their character.json files
 fetch('./assets/models/colin/characters/index.json').then(r => (r.ok ? r.json() : [])).then(paths => { characterLibrary = characterEntries(paths); }).catch(() => {});
 function fillAdd() {
-  const pf = Object.keys(data.prefabs || {}), more = prefabLibrary.filter(n => !pf.includes(n)), as = Object.keys(data.assets || {});
+  const show = shown(), pf = Object.keys(data.prefabs || {}), more = prefabLibrary.filter(n => !pf.includes(n) && show({ kind: 'prefab', name: n })), as = Object.keys(data.assets || {});
   $('add').innerHTML = `<option value="">＋ Add</option>` +
     (pf.length ? `<optgroup label="Prefabs">${pf.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
     (more.length ? `<optgroup label="More prefabs">${more.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
@@ -806,8 +807,11 @@ function packUnlocks() {
 }
 async function togglePack(id, on) {
   if (playing) return;
-  record(); setInstalled(data, libPacks, id, on); renderLib();
+  record(); setInstalled(data, libPacks, id, on); renderLib(); fillAdd(); if (scatterOn) fillScatter();
 }
+// What Characters / Props / Level kit, ＋Add and the scatter brush offer: scene items, loose files, installed pack items.
+function shown() { return libPacks ? libraryFilter(libPacks, data, packUnlocks()) : () => true; }
+loadPacks().then(() => fillAdd());
 async function renderLib() {
   if (!$('lib').classList.contains('open') || !world) return;
   const seq = ++libSeq;                           // a newer render (tab switch, search) wins over this one
@@ -851,7 +855,8 @@ async function renderLib() {
     } }));
     $('libCount').textContent = `${selectedId}: ${items.length} motion${items.length === 1 ? '' : 's'}`;
   } else {
-    const group = libraryGroups(libPrefabs, data)[libTab].concat(libTab === 'characters' ? characterLibrary : []);
+    await loadPacks(); if (seq !== libSeq) return;
+    const show = shown(), group = libraryGroups(libPrefabs, data)[libTab].concat(libTab === 'characters' ? characterLibrary : []).filter(show);
     items = filterNames(group, q).map(i => ({ name: i.name, thumb: thumbIndex[`${i.kind}:${i.name}`],
       sub: i.kind === 'prefab' ? (data.prefabs?.[i.name] ? 'prefab' : 'prefab · not in scene yet') : i.kind === 'character' ? 'character · plays its roles' : 'model',
       pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom(i.kind, i.name); if (!wide) closeLib(); } }));

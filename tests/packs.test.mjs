@@ -74,3 +74,16 @@ test('checkScenePacks + MCP install_pack / uninstall_pack / list_packs', () => {
   assert.deepEqual(list.map(p => [p.id, p.installed, p.locked]), [['p', true, false], ['q', true, true], ['r', false, false]]);
   assert.deepEqual(list[0].items, ['character:zap', 'prefab:tree']);
 });
+
+import { libraryFilter } from '../runtime/packs.js';
+test('libraryFilter: other tabs show scene items, loose files and installed+unlocked pack items only', () => {
+  const show = libraryFilter(cat, { packs: ['q'], prefabs: { bush: './prefabs/bush.prefab.json' } });
+  assert.equal(show({ kind: 'prefab', name: 'tree' }), false);           // p not installed
+  assert.equal(show({ kind: 'prefab', name: 'bush' }), true);            // r not installed, but the scene uses it
+  assert.equal(show({ kind: 'prefab', name: 'rock' }), false);           // q installed but locked
+  assert.equal(libraryFilter(cat, { packs: ['q'] }, ['q'])({ kind: 'prefab', name: 'rock' }), true);
+  assert.equal(show({ kind: 'prefab', name: 'loose' }), true);           // in no pack
+  assert.equal(show({ kind: 'asset', name: 'ground' }), true);
+  assert.equal(show({ kind: 'character', name: 'zap', path: 'a/zap.character.json' }), false);
+  assert.equal(libraryFilter(cat, {})({ kind: 'character', name: 'zap', path: './a/zap.character.json' }), true);   // default: free packs
+});

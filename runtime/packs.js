@@ -83,3 +83,18 @@ export function checkScenePacks(scene, catalogIds) {
   if (!Array.isArray(scene.packs)) return ['"packs" must be a list of pack ids'];
   return scene.packs.filter(id => !catalogIds.includes(id)).map(id => `packs: no pack "${id}" in packs/index.json`);
 }
+
+// What the other Library tabs (Characters / Props / Level kit), ＋Add and the scatter brush offer, given the installed
+// packs. An item shows if the scene already uses it, if no pack in the catalog has it (loose files keep showing), or
+// if an installed, unlocked pack has it. → item ({ kind: 'prefab'|'character'|'asset', name, path? }) → bool
+export function libraryFilter(catalog = [], scene = {}, unlocks = []) {
+  const norm = p => String(p || '').replace(/^\.\//, '');
+  const inst = new Set(installedIds(scene, catalog));
+  const where = (kind, key) => catalog.filter(p => (kind === 'prefab' ? p.prefabs || [] : (p.characters || []).map(norm)).includes(key));
+  return item => {
+    if (!item || item.kind === 'asset') return true;
+    if (item.kind === 'prefab' && scene.prefabs?.[item.name]) return true;
+    const packs = item.kind === 'prefab' ? where('prefab', item.name) : where('character', norm(item.path));
+    return !packs.length || packs.some(p => inst.has(p.id) && !isLocked(p, unlocks));
+  };
+}
