@@ -24,3 +24,4 @@
 - 2026-10-27 — MCP server — tools/mcp-server.mjs + mcp-tools.mjs, runtime/commands.js, editor command handler (undoable, patches in place when it can), .mcp.json; 76 tests incl. end-to-end dev server + MCP; checked headless with a real editor tab (spawn/attach/select/play/screenshot/stop/save all work; headless GPU is slow) (build run)
 - 2026-10-27 — Tiny Hop juice — Squash + Footsteps behaviors, step sound, livepatch calls onMoved on scale too; fall clip blocked (no clip in robot.glb); 78 tests; checked headless (steps, jump, land, squash 0.82→1) (build run)
 - 2026-10-27 — Tap-to-select in game — 🎯 pick mode in play.html, `pick` message, editor selects + frames; checked headless (tap robot in game → editor inspector shows player) (build run)
+- 2026-10-27 — MCP headless fallback — auto-start dev server + headless editor (Playwright, optional); ping command; checked from a cold start: list/move/screenshot/read_errors in ~17 s (build run)

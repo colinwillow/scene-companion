@@ -28,7 +28,7 @@ test('MCP server lists tools and drives an editor through the dev server', async
     catch (e) { ed.send(JSON.stringify({ type: 'cmd-result', id: m.id, ok: false, error: e.message })); }
   });
 
-  const mcp = spawn(process.execPath, ['tools/mcp-server.mjs'], { env: { ...process.env, SC_DEV_URL: `ws://localhost:${PORT}/live`, SC_TIMEOUT_MS: '2000' } });
+  const mcp = spawn(process.execPath, ['tools/mcp-server.mjs'], { env: { ...process.env, SC_DEV_URL: `ws://localhost:${PORT}/live`, SC_TIMEOUT_MS: '2000', SC_HEADLESS: 'off' } });
   t.after(() => mcp.kill());
   const lines = createInterface({ input: mcp.stdout });
   const waiting = new Map(); let n = 0;

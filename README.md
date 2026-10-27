@@ -31,4 +31,6 @@ swapping models restarts the game with the new scene. Nothing is saved until you
 2. Claude Code picks up `.mcp.json` in this repo (server `scene-companion` → `node tools/mcp-server.mjs`). Point it elsewhere with `SC_DEV_URL=ws://<host>:<port>/live`.
 3. Tools: `list_entities`, `get_entity`, `list_library`, `get_selection`, `select`, `spawn`, `move`, `delete`, `attach_behavior`, `set_param`, `remove_behavior`, `play`, `stop`, `screenshot`, `read_errors`, `save_scene`.
 
+No editor open? The MCP server starts the dev server if needed and opens a headless editor itself (needs `playwright`: `npm i -D playwright && npx playwright install chromium`; `SC_HEADLESS=off` to disable, `SC_SCENE=./scenes/x.scene.json` to pick the scene). Software rendering is slow: adding objects can take a while there.
+
 Edits go through `runtime/commands.js` (schema-checked, all-or-nothing), are undoable in the editor, and stream to running games over the live link. `save_scene` writes the scene file into `scenes/`; run `npm run check` and commit after.

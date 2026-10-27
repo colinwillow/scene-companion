@@ -5,9 +5,13 @@
 //
 // Run `npm run dev`, open the editor, and add this server to Claude (the repo's .mcp.json does it for
 // Claude Code). Hand-written JSON-RPC over stdio, no SDK: the protocol surface we need is tiny.
+// No editor open? It opens a headless one (SC_HEADLESS=auto|off|always, needs playwright); no dev server? It starts one.
 // Env: SC_DEV_URL (default ws://localhost:8080/live), SC_TIMEOUT_MS (default 30000; adding objects rebuilds the scene, slow on old phones).
 import { WebSocket } from 'ws';
 import { writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { resolve, relative, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
@@ -18,36 +22,97 @@ const DEV_URL = process.env.SC_DEV_URL || `ws://localhost:${process.env.PORT || 
 const TIMEOUT = +(process.env.SC_TIMEOUT_MS || 30000);
 const log = (...a) => process.stderr.write(a.join(' ') + '\n');   // stdout is the protocol — never log there
 
-// ---- link to the dev server (reconnects lazily)
-let ws = null, opening = null, seq = 0;
+// ---- link to the dev server (reconnects lazily; starts one if nothing is listening)
+let ws = null, opening = null, seq = 0, devChild = null;
 const pending = new Map();
-function link() {
-  if (ws?.readyState === WebSocket.OPEN) return Promise.resolve(ws);
+const tryOpen = () => new Promise((res, rej) => {
+  const s = new WebSocket(DEV_URL);
+  s.once('open', () => res(s));
+  s.once('error', rej);
+});
+async function link() {
+  if (ws?.readyState === WebSocket.OPEN) return ws;
   if (opening) return opening;
-  opening = new Promise((res, rej) => {
-    const s = new WebSocket(DEV_URL);
-    s.once('open', () => { ws = s; opening = null; res(s); });
-    s.once('error', e => { opening = null; rej(new Error(`Can't reach the dev server at ${DEV_URL} (${e.message}). Start it with \`npm run dev\`.`)); });
+  opening = (async () => {
+    let s;
+    try { s = await tryOpen(); }
+    catch (e) {
+      const url = new URL(DEV_URL);
+      if (process.env.SC_AUTOSTART === '0' || !['localhost', '127.0.0.1'].includes(url.hostname) || devChild)
+        throw new Error(`Can't reach the dev server at ${DEV_URL} (${e.message}). Start it with \`npm run dev\`.`);
+      log('no dev server — starting one on port', url.port || 80);
+      devChild = spawn(process.execPath, [join(ROOT, 'tools/dev-server.mjs')], { cwd: ROOT, env: { ...process.env, PORT: url.port || '80' }, stdio: ['ignore', 'ignore', 'inherit'] });
+      for (let i = 0; i < 50 && !s; i++) { await sleep(100); s = await tryOpen().catch(() => null); }
+      if (!s) throw new Error(`Started a dev server but couldn't connect to ${DEV_URL}`);
+    }
     s.on('close', () => { if (ws === s) ws = null; });
     s.on('message', raw => {
       let m; try { m = JSON.parse(raw.toString()); } catch { return; }
+      if (process.env.SC_DEBUG) log('ws <-', m.type, m.id || '', m.ok ?? '');
       if (m.type !== 'cmd-result' || !pending.has(m.id)) return;
       const p = pending.get(m.id); pending.delete(m.id); clearTimeout(p.timer);
       m.ok ? p.res(m) : p.rej(new Error(m.error));
     });
-  });
+    ws = s; return s;
+  })().finally(() => { opening = null; });
   return opening;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function send(op, args, scene, timeoutMs, timeoutMsg) {
+  return link().then(s => new Promise((res, rej) => {
+    const id = `c${++seq}_${Date.now()}`;
+    const timer = setTimeout(() => { pending.delete(id); rej(new Error(timeoutMsg)); }, timeoutMs);
+    pending.set(id, { res, rej, timer });
+    s.send(JSON.stringify({ type: 'cmd', id, op, args, ...(scene ? { scene } : {}) }));
+  }));
+}
+
+// ---- headless editor: when no editor tab answers, open one in a headless browser so Claude can work alone.
+// SC_HEADLESS = auto (default) | off | always. Needs the `playwright` package (npm i -D playwright).
+const HEADLESS = process.env.SC_HEADLESS || 'auto';
+let browser = null, headlessScene = null, lastPong = 0;
+async function startHeadless(scene) {
+  let pw;
+  try { pw = await import('playwright'); } catch { try { pw = createRequire(import.meta.url)('playwright'); } catch {} }   // require() also honours NODE_PATH
+  if (!pw) {
+    throw new Error('No editor is open, and the headless fallback needs Playwright (`npm i -D playwright && npx playwright install chromium`). Or open the editor from `npm run dev`.');
+  }
+  const chromium = pw.chromium || pw.default?.chromium;
+  browser ||= await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+  const page = await browser.newPage({ viewport: { width: 640, height: 480 } });
+  if (process.env.SC_DEBUG) { page.on('console', m => log('[headless console]', m.type(), m.text().slice(0, 200))); page.on('requestfailed', r => log('[headless failed]', r.url())); }
+  page.on('pageerror', e => log('[headless editor]', e.message));
+  const localThree = join(ROOT, 'node_modules/three');
+  if (existsSync(localThree))   // serve three from node_modules: faster, and works offline / behind a strict proxy
+    await page.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\//, r => r.fulfill({ path: join(localThree, new URL(r.request().url()).pathname.replace(/^\/npm\/three@[^/]+\//, '')) }));
+  const http = DEV_URL.replace(/^ws/, 'http').replace(/\/live$/, '');
+  headlessScene = scene || process.env.SC_SCENE || './scenes/kitchen-sink.scene.json';
+  await page.goto(`${http}/index.html?scene=${encodeURIComponent(headlessScene)}`);
+  log('headless editor open on', headlessScene);
+  for (let i = 0; i < 12; i++)                  // wait until its live link answers (software GL is slow: be patient)
+    if (await send('ping', {}, scene, 10000, 'no pong').then(() => true, () => false)) return;
+  throw new Error('The headless editor did not come up (see the MCP server log).');
+}
+
+async function ensureEditor(scene) {
+  if (HEADLESS === 'off') return;
+  if (HEADLESS === 'always' && !browser) return startHeadless(scene);
+  if (browser && (!scene || scene === headlessScene)) return;                 // our own headless editor is up
+  if (Date.now() - lastPong < 20000 && !scene) return;
+  const alive = await send('ping', {}, scene, 3000, 'no pong').then(() => true, () => false);
+  if (alive) { lastPong = Date.now(); return; }
+  await startHeadless(scene);
+  lastPong = Date.now();
 }
 
 // Send one command to the editor; the first editor that answers wins.
 export async function command(op, args = {}, scene) {
-  const s = await link();
-  const id = `c${++seq}_${Date.now()}`;
-  return new Promise((res, rej) => {
-    const timer = setTimeout(() => { pending.delete(id); rej(new Error('No editor answered. Open the editor page from `npm run dev` (index.html, on a computer or phone) and keep it in the foreground.')); }, TIMEOUT + (args.seconds || 0) * 1000);
-    pending.set(id, { res, rej, timer });
-    s.send(JSON.stringify({ type: 'cmd', id, op, args, ...(scene ? { scene } : {}) }));
-  });
+  await ensureEditor(scene);
+  const r = await send(op, args, scene, TIMEOUT * (browser ? 4 : 1) + (args.seconds || 0) * 1000,
+    'No editor answered. Open the editor page from `npm run dev` (index.html, on a computer or phone) and keep it in the foreground.');
+  lastPong = Date.now();
+  return r;
 }
 
 // ---- tool calls
@@ -70,11 +135,11 @@ async function callTool(name, args = {}) {
 }
 
 // ---- MCP (JSON-RPC 2.0, newline-delimited over stdio)
-const send = msg => process.stdout.write(JSON.stringify(msg) + '\n');
+const out = msg => process.stdout.write(JSON.stringify(msg) + '\n');
 async function handle(msg) {
   const { id, method, params } = msg;
-  const reply = result => id !== undefined && send({ jsonrpc: '2.0', id, result });
-  const fail = (code, message) => id !== undefined && send({ jsonrpc: '2.0', id, error: { code, message } });
+  const reply = result => id !== undefined && out({ jsonrpc: '2.0', id, result });
+  const fail = (code, message) => id !== undefined && out({ jsonrpc: '2.0', id, error: { code, message } });
   switch (method) {
     case 'initialize':
       return reply({
@@ -98,10 +163,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const rl = createInterface({ input: process.stdin });
   rl.on('line', line => {
     if (!line.trim()) return;
-    let msg; try { msg = JSON.parse(line); } catch { return send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); }
+    let msg; try { msg = JSON.parse(line); } catch { return out({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); }
     handle(msg).catch(e => log('mcp error:', e.stack));
   });
-  rl.on('close', () => { ws?.close(); process.exit(0); });
+  const bye = async () => { ws?.close(); await browser?.close().catch(() => {}); devChild?.kill(); process.exit(0); };
+  rl.on('close', bye); process.on('SIGTERM', bye); process.on('SIGINT', bye);
   log(`scene-companion MCP server → ${DEV_URL}`);
 }
 

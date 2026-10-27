@@ -446,6 +446,7 @@ async function editorCommand(op, args) {
     return { result };
   }
   switch (op) {
+    case 'ping': return { result: { scene: SCENE_URL, playing } };
     case 'get_selection': return { result: selectedId ? runCommand(data, 'get_entity', { id: selectedId }, { prefabs: world.prefabs }).result : null };
     case 'select':
       if (args.id && !world.getEntity(args.id)) throw new Error(`No entity "${args.id}"`);
