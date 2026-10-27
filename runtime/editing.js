@@ -134,3 +134,23 @@ export function setLightValue(data, id, key, value) {
   e.light[key] = value;
   return true;
 }
+
+// Scatter brush: from the surface points a drag passed over, keep the ones at least `spacing` metres from every
+// instance already placed this stroke (placed: [[x, y, z]]). → new points to place (also appended to placed)
+export function scatterPoints(samples, spacing, placed = []) {
+  const out = [];
+  for (const p of samples) {
+    if (placed.some(q => Math.hypot(p[0] - q[0], p[2] - q[2]) < spacing)) continue;
+    placed.push(p); out.push(p);
+  }
+  return out;
+}
+
+// One painted instance: a prefab at a point with a random turn and a little size variety. rng: () => [0, 1)
+export function scatterEntity(data, prefab, point, rng = Math.random, { scaleJitter = 0.2 } = {}) {
+  const e = addEntity(data, { prefab }, point);
+  e.rotation = [0, Math.round(rng() * 360), 0];
+  const s = r3(1 + (rng() * 2 - 1) * scaleJitter);
+  if (s !== 1) e.scale = [s, s, s];
+  return e;
+}

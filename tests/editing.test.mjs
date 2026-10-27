@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ, addLight, setLightValue, LIGHT_FIELDS } from '../runtime/editing.js';
+import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity } from '../runtime/editing.js';
 
 const scene = () => ({
   assets: { crate: {}, tree_big: {} },
@@ -86,4 +86,15 @@ test('lights: add point/spot with defaults, lifted; set values clamped and valid
   assert.equal(setLightValue(d, 'point_light_01', 'color', 'red'), false);
   assert.equal(setLightValue(d, 'point_light_01', 'angle', 20), false, 'points have no angle');
   assert.equal(setLightValue(d, 'crate_01', 'intensity', 1), false);
+});
+
+test('scatter: spacing between painted points, random turn + size per instance', () => {
+  const placed = [];
+  const a = scatterPoints([[0, 0, 0], [0.5, 0, 0], [1.6, 0, 0], [1.7, 0, 0.2]], 1.5, placed);
+  assert.deepEqual(a, [[0, 0, 0], [1.6, 0, 0]]);
+  assert.deepEqual(scatterPoints([[0.2, 0, 0.2], [3.5, 1, 0]], 1.5, placed), [[3.5, 1, 0]]);   // later in the same stroke
+  const d = scene(); let k = 0; const rng = () => [0.5, 1, 0.25, 0][k++ % 4];
+  const e1 = scatterEntity(d, 'tree', [1, 0, 2], rng), e2 = scatterEntity(d, 'tree', [3, 0, 2], rng);
+  assert.deepEqual([e1.id, e1.rotation, e1.scale], ['tree_01', [0, 180, 0], [1.2, 1.2, 1.2]]);
+  assert.deepEqual([e2.id, e2.rotation, e2.scale], ['tree_02', [0, 90, 0], [0.8, 0.8, 0.8]]);
 });

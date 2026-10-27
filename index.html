@@ -66,6 +66,11 @@
   @media (orientation: landscape) and (min-width: 600px) {
     #tree, #lib { right:auto; width:260px; top:0; bottom:0; max-height:none; padding-top:60px; border-bottom:none; border-right:1px solid var(--line); }
   }
+  #scatterBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid #3ddc84; border-radius:14px; padding:6px 8px; }
+  #scatterBar[hidden] { display:none; }
+  #scatterBar select { background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px; font:inherit; max-width:150px; }
+  #scatterBar small { color:var(--dim); }
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
@@ -83,6 +88,7 @@
   <button id="libBtn" title="Libraries: characters, props, motions">📚 Library</button>
   <button id="play">▶ Play</button>
   <button id="mode" title="Gizmo mode">Move</button>
+ <button id="scatter" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">🖌 Scatter</button>
   <button id="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">▦ Snap</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
   <select id="tier" title="Quality tier"><option>web</option><option>desktop</option></select>
@@ -97,6 +103,7 @@
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><select id="scSpacing" title="Spacing"><option value="0.75">0.75 m</option><option value="1.5" selected>1.5 m</option><option value="3">3 m</option><option value="6">6 m</option></select><small>drag on the ground to paint</small></div>
 <div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
 
@@ -114,7 +121,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity } from './runtime/editing.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -267,6 +274,11 @@ function renderTree() {
 // (platforms, blocks); missing those, the y=0 plane; looking at the sky, below the orbit focus. Uses the
 // editor's camera, so it's wherever you're looking, however far you've panned.
 const dropRay = new THREE.Raycaster();
+function surfaceHit(ndc) {
+  dropRay.setFromCamera(ndc, camera);
+  const surfaces = [...world.entities.values()].filter(e => !e.object3d.isLight && isDropSurface(e.id, e.resolved)).map(e => e.object3d);
+  return dropRay.intersectObjects(surfaces, true).find(h => h.object.visible && h.object.isMesh && !h.object.userData.outline) || null;
+}
 function viewDropPoint() {
   camera.updateMatrixWorld();
   dropRay.setFromCamera(new THREE.Vector2(0, 0), camera);
@@ -441,11 +453,57 @@ function renderPanel() {
   }
 }
 
+// ---- 🖌 Scatter brush: pick a prefab, drag on the ground/solids; instances land `spacing` apart with a random turn
+// and ±20% size. One undo step and one rebuild per stroke. Navigation is off while the brush is on.
+let scatterOn = false, stroke = null;
+function fillScatter() {
+  const names = [...new Set([...Object.keys(data.prefabs || {}), ...prefabLibrary])].sort();
+  const cur = $('scPrefab').value || ['grass_tuft', 'tree', 'rock_round'].find(n => names.includes(n)) || names[0];
+  $('scPrefab').innerHTML = names.map(n => `<option ${n === cur ? 'selected' : ''}>${n}</option>`).join('');
+}
+$('scatter').onclick = () => {
+  if (playing) return;
+  scatterOn = !scatterOn;
+  $('scatter').classList.toggle('on', scatterOn); $('scatterBar').hidden = !scatterOn;
+  orbit.enabled = !scatterOn;
+  if (scatterOn) { select(null); fillScatter(); }
+};
+const ndcOf = e => new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+function strokeAt(e) {
+  const hit = surfaceHit(ndcOf(e)); if (!hit) return;
+  for (const p of scatterPoints([hit.point.toArray()], +$('scSpacing').value, stroke.placed)) {
+    stroke.points.push(p);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: 0x3ddc84 }));   // sc:overlay (stroke preview)
+    dot.position.fromArray(p); dot.raycast = () => {}; world.scene.add(dot); stroke.dots.push(dot);
+  }
+}
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!scatterOn || stroke) return;
+  stroke = { id: e.pointerId, placed: [], points: [], dots: [] };
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+  strokeAt(e);
+});
+renderer.domElement.addEventListener('pointermove', e => { if (stroke && e.pointerId === stroke.id) strokeAt(e); });
+const endStroke = async e => {
+  if (!stroke || e.pointerId !== stroke.id) return;
+  const { points, dots } = stroke; stroke = null;
+  for (const d of dots) { world.scene.remove(d); d.geometry.dispose(); d.material.dispose(); }
+  if (!points.length) return;
+  const name = $('scPrefab').value;
+  record();
+  if (!data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
+  for (const p of points) scatterEntity(data, name, p.map(v => Math.round(v * 1000) / 1000));
+  await rebuild(); fillAdd(); renderTree();
+};
+renderer.domElement.addEventListener('pointerup', endStroke);
+renderer.domElement.addEventListener('pointercancel', endStroke);
+
 // ---- tapping: select in edit mode, move the player in play mode
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 let downAt = null;
 renderer.domElement.addEventListener('pointerdown', e => (downAt = [e.clientX, e.clientY]));
 renderer.domElement.addEventListener('pointerup', e => {
+  if (scatterOn) return;
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8 || gizmo.dragging) return;
   ptr.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -465,6 +523,7 @@ const entityIdOf = o => { while (o) { if (o.userData.entityId) return o.userData
 
 // ---- toolbar
 $('play').onclick = async () => {
+  if (scatterOn) $('scatter').onclick();                // the brush is an edit-mode tool
   playing = !playing;
   $('play').textContent = playing ? '■ Stop' : '▶ Play';
   $('play').classList.toggle('on', playing);
