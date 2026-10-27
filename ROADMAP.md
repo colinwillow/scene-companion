@@ -181,7 +181,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Blender bridge: MCP tools `send_to_blender {id}` / `blender_status` (tested in mcp.test), and a green ● on the editor's → Blender button while the add-on is polling (checked headless)
 - [x] Blender bridge: whole-prefab send — editor **→ Blender: all <prefab>** on prefab instances (MCP `send_to_blender {prefab:true}`); Send Back saves `bridge/<prefab>-<n>.glb` and rewrites the prefab file's web glb, editors rebuild. Tested (routes) + headless e2e with bpy: kitchen-sink trees round-tripped, no errors. Not undoable by design (it's a file edit)
 - [x] Libraries panel v0 — 📚 Library button: Characters / Props tabs (every prefab in `prefabs/` + scene models, sorted by pure `runtime/library.js`, tested; tap adds at the view centre, prefabs not in the scene get added) and Motions (the selected object's clips; tap plays + keeps it, undoable); search on every tab; top sheet on phones, side panel in landscape. Checked headless on Tiny Hop: mutant added, Zap's 62 motions listed and switched
-- [ ] Libraries: Sounds tab (the synthesized sfx + any `assets/sounds/`), and small thumbnails for characters/props (render once, cache)
+- [ ] [IN PROGRESS] Libraries: Sounds tab (the synthesized sfx + any `assets/sounds/`), and small thumbnails for characters/props (render once, cache)
 - [ ] Libraries: motions from Colin's mocap library (`retarget-anims`, Mixamo names) applied to any Mixamo character
 - [ ] Generator plug-ins (image→3D, image gen)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
