@@ -71,6 +71,10 @@
   #scatterBar[hidden] { display:none; }
   #scatterBar select { background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px; font:inherit; max-width:150px; }
   #scatterBar small { color:var(--dim); }
+  #scatterBar label { display:flex; gap:4px; align-items:center; }
+  #scatterBar input[type=range] { width:84px; accent-color:#3ddc84; }
+  #scatterBar.erase { border-color:#ff5d5d; }
+  #scatterBar.erase input[type=range] { accent-color:#ff5d5d; }
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
@@ -103,7 +107,7 @@
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
-<div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><select id="scSpacing" title="Spacing"><option value="0.75">0.75 m</option><option value="1.5" selected>1.5 m</option><option value="3">3 m</option><option value="6">6 m</option></select><small>drag on the ground to paint</small></div>
+<div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
 
@@ -121,7 +125,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius } from './runtime/editing.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -454,9 +458,12 @@ function renderPanel() {
   }
 }
 
-// ---- 🖌 Scatter brush: pick a prefab, drag on the ground/solids; instances land `spacing` apart with a random turn
-// and ±20% size. One undo step and one rebuild per stroke. Navigation is off while the brush is on.
-let scatterOn = false, stroke = null;
+// ---- 🖌 Scatter brush: pick a prefab, drag on the ground/solids; instances land `gap` apart with a random turn
+// and size variety (jitter slider). 🧽 Erase mode removes that prefab's instances under the drag. One undo step and
+// one rebuild per stroke. One finger/left mouse paints; two fingers orbit + zoom (right mouse pans, wheel zooms).
+let scatterOn = false, eraseMode = false, stroke = null, twoFinger = false;
+const brushPointers = new Set();
+const savedNav = { touch: orbit.touches.ONE, mouse: orbit.mouseButtons.LEFT };
 function fillScatter() {
   const names = [...new Set([...Object.keys(data.prefabs || {}), ...prefabLibrary])].sort();
   const cur = $('scPrefab').value || ['grass_tuft', 'tree', 'rock_round'].find(n => names.includes(n)) || names[0];
@@ -465,35 +472,71 @@ function fillScatter() {
 $('scatter').onclick = () => {
   if (playing) return;
   scatterOn = !scatterOn;
+  if (stroke) cancelStroke();
   $('scatter').classList.toggle('on', scatterOn); $('scatterBar').hidden = !scatterOn;
-  orbit.enabled = !scatterOn;
+  // keep the orbit controls on so two fingers still orbit/zoom; only the one-finger / left-button drag is the brush's
+  orbit.touches.ONE = scatterOn ? -1 : savedNav.touch;
+  orbit.mouseButtons.LEFT = scatterOn ? -1 : savedNav.mouse;
   if (scatterOn) { select(null); fillScatter(); }
 };
+$('scMode').onclick = () => {
+  eraseMode = !eraseMode;
+  $('scMode').textContent = eraseMode ? '🧽 Erase' : '🖌 Paint';
+  $('scatterBar').classList.toggle('erase', eraseMode);
+  $('scHint').textContent = eraseMode ? '1 finger erases · 2 fingers orbit' : '1 finger paints · 2 fingers orbit';
+};
+$('scSpacing').oninput = () => { $('scSpacingV').textContent = (+$('scSpacing').value).toFixed(2).replace(/\.?0+$/, '') + ' m'; };
 const ndcOf = e => new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+const brushDot = (p, color) => {
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color }));   // sc:overlay (stroke preview)
+  dot.position.fromArray(p); dot.raycast = () => {}; world.scene.add(dot); stroke.dots.push(dot);
+};
 function strokeAt(e) {
   const hit = surfaceHit(ndcOf(e)); if (!hit) return;
-  for (const p of scatterPoints([hit.point.toArray()], +$('scSpacing').value, stroke.placed)) {
-    stroke.points.push(p);
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: 0x3ddc84 }));   // sc:overlay (stroke preview)
-    dot.position.fromArray(p); dot.raycast = () => {}; world.scene.add(dot); stroke.dots.push(dot);
+  const p = hit.point.toArray(), gap = +$('scSpacing').value;
+  if (stroke.erase) {
+    for (const id of scatterEraseIds(data, $('scPrefab').value, [p], eraseRadius(gap))) {
+      if (stroke.ids.has(id)) continue;
+      stroke.ids.add(id);
+      const pos = data.entities.find(x => x.id === id).position;
+      brushDot([pos[0], pos[1] + 0.3, pos[2]], 0xff5d5d);
+    }
+    return;
   }
+  for (const q of scatterPoints([p], gap, stroke.placed)) { stroke.points.push(q); brushDot(q, 0x3ddc84); }
+}
+function cancelStroke() {
+  for (const d of stroke.dots) { world.scene.remove(d); d.geometry.dispose(); d.material.dispose(); }
+  stroke = null;
 }
 renderer.domElement.addEventListener('pointerdown', e => {
-  if (!scatterOn || stroke) return;
-  stroke = { id: e.pointerId, placed: [], points: [], dots: [] };
+  if (!scatterOn) return;
+  brushPointers.add(e.pointerId);
+  if (brushPointers.size > 1) { twoFinger = true; if (stroke) cancelStroke(); return; }   // second finger → orbit, drop the stroke
+  if (stroke || twoFinger || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  stroke = { id: e.pointerId, erase: eraseMode, placed: [], points: [], ids: new Set(), dots: [] };
   try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
   strokeAt(e);
 });
 renderer.domElement.addEventListener('pointermove', e => { if (stroke && e.pointerId === stroke.id) strokeAt(e); });
 const endStroke = async e => {
+  brushPointers.delete(e.pointerId);
+  if (!brushPointers.size) twoFinger = false;           // all fingers up: the next touch can paint again
   if (!stroke || e.pointerId !== stroke.id) return;
-  const { points, dots } = stroke; stroke = null;
-  for (const d of dots) { world.scene.remove(d); d.geometry.dispose(); d.material.dispose(); }
-  if (!points.length) return;
+  const { points, ids, erase } = stroke; cancelStroke();
+  if (e.type === 'pointercancel') return;
   const name = $('scPrefab').value;
-  record();
-  if (!data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
-  for (const p of points) scatterEntity(data, name, p.map(v => Math.round(v * 1000) / 1000));
+  if (erase) {
+    if (!ids.size) return;
+    record();
+    for (const id of ids) deleteEntity(data, id);
+  } else {
+    if (!points.length) return;
+    record();
+    if (!data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
+    const opts = jitterOptions(+$('scJitter').value);
+    for (const p of points) scatterEntity(data, name, p.map(v => Math.round(v * 1000) / 1000), Math.random, opts);
+  }
   await rebuild(); fillAdd(); renderTree();
 };
 renderer.domElement.addEventListener('pointerup', endStroke);

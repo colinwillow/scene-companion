@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity } from '../runtime/editing.js';
+import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius } from '../runtime/editing.js';
 
 const scene = () => ({
   assets: { crate: {}, tree_big: {} },
@@ -97,4 +97,18 @@ test('scatter: spacing between painted points, random turn + size per instance',
   const e1 = scatterEntity(d, 'tree', [1, 0, 2], rng), e2 = scatterEntity(d, 'tree', [3, 0, 2], rng);
   assert.deepEqual([e1.id, e1.rotation, e1.scale], ['tree_01', [0, 180, 0], [1.2, 1.2, 1.2]]);
   assert.deepEqual([e2.id, e2.rotation, e2.scale], ['tree_02', [0, 90, 0], [0.8, 0.8, 0.8]]);
+});
+
+test('scatter: jitter slider + erase brush only removes that prefab near the stroke', () => {
+  assert.deepEqual(jitterOptions(0), { scaleJitter: 0, turn: false });
+  assert.deepEqual(jitterOptions(0.4), { scaleJitter: 0.2, turn: true });
+  assert.deepEqual(jitterOptions(5), { scaleJitter: 0.5, turn: true });
+  const d = scene();
+  const flat = scatterEntity(d, 'fence', [0, 0, 0], () => 0.5, jitterOptions(0));
+  assert.equal(flat.rotation, undefined); assert.equal(flat.scale, undefined);
+  scatterEntity(d, 'tree', [1, 0, 0], () => 0.5); scatterEntity(d, 'tree', [5, 0, 0], () => 0.5);
+  const near = scatterEraseIds(d, 'tree', [[0.5, 3, 0.4]], eraseRadius(1.5));
+  assert.deepEqual(near, ['tree_01'], 'fence at the same spot stays; far tree stays; height ignored');
+  assert.deepEqual(scatterEraseIds(d, 'tree', [[0.2, 0, 0], [5.2, 0, 0]], 0.9), ['tree_01', 'tree_02']);
+  assert.equal(eraseRadius(0.75), 0.6); assert.equal(eraseRadius(6), 3.6);
 });

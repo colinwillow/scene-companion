@@ -147,10 +147,28 @@ export function scatterPoints(samples, spacing, placed = []) {
 }
 
 // One painted instance: a prefab at a point with a random turn and a little size variety. rng: () => [0, 1)
-export function scatterEntity(data, prefab, point, rng = Math.random, { scaleJitter = 0.2 } = {}) {
+// scaleJitter 0.2 = ±20% size; turn false = keep the prefab's facing (for rows of fences, posts…)
+export function scatterEntity(data, prefab, point, rng = Math.random, { scaleJitter = 0.2, turn = true } = {}) {
   const e = addEntity(data, { prefab }, point);
-  e.rotation = [0, Math.round(rng() * 360), 0];
+  if (turn) e.rotation = [0, Math.round(rng() * 360), 0];
   const s = r3(1 + (rng() * 2 - 1) * scaleJitter);
   if (s !== 1) e.scale = [s, s, s];
   return e;
 }
+
+// The brush's jitter slider (0–1) → scatterEntity options: size variety up to ±50%, random turn once it's above 0.
+export const jitterOptions = j => ({ scaleJitter: r3(Math.min(1, Math.max(0, +j || 0)) * 0.5), turn: +j > 0 });
+
+// Erase brush: ids of `prefab` instances whose ground position (x, z) is within `radius` of any sample the drag
+// passed over. Only that prefab, only top-level placed instances (an instance's own model/asset swap still counts).
+export function scatterEraseIds(data, prefab, samples, radius) {
+  const out = [];
+  for (const e of data.entities || []) {
+    if (e.prefab !== prefab || !e.position) continue;
+    if (samples.some(p => Math.hypot(p[0] - e.position[0], p[2] - e.position[2]) <= radius)) out.push(e.id);
+  }
+  return out;
+}
+
+// Brush size for erasing: a little wider than the paint spacing so one pass clears a painted strip.
+export const eraseRadius = spacing => r3(Math.max(0.6, spacing * 0.6));
