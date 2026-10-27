@@ -288,6 +288,21 @@ export class World {
     return ent;
   }
 
+  // Build an AUTHORED entity (from the scene file) into a running World — the editor's in-place add / duplicate / undo,
+  // instead of rebuilding everything (runtime/livepatch.js patchScene). Same steps as spawn, minus the 'spawned' mark.
+  async add(authored, parentId = null) {
+    if (authored.prefab) await this.loadPrefab(authored.prefab);
+    const parentEnt = parentId ? this.entities.get(parentId) : null;
+    if (parentId && !parentEnt) throw new Error(`add: no parent "${parentId}"`);
+    const before = new Set(this.entities.keys());
+    const ent = await this.buildEntity(authored, parentEnt);
+    applyLookTo(ent.object3d, this.look || 'toon');
+    const added = [...this.entities.values()].filter(x => !before.has(x.id));
+    added.forEach(x => this.attachBehaviors(x));
+    added.forEach(x => x.behaviors.forEach(b => b.start()));
+    return ent;
+  }
+
   // Remove an entity and everything under it (spawned or authored — authored ones come back on the next Play).
   destroy(id) {
     const ent = this.entities.get(id);

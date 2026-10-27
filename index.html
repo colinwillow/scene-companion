@@ -155,7 +155,7 @@ import { saveFile } from './runtime/github.js';
 import { createPost } from './runtime/post.js';
 import { describeState, sameScene } from './runtime/livestate.js';
 import { COMMANDS, runCommand } from './runtime/commands.js';
-import { applyScene } from './runtime/livepatch.js';
+import { applyScene, patchScene } from './runtime/livepatch.js';
 import './behaviors/index.js';
 
 const $ = id => document.getElementById(id);
@@ -529,8 +529,8 @@ function renderPanel() {
         } catch (err) { showErr('Send to Blender: ' + err.message); }
         setTimeout(() => (btn.innerHTML = a === 'blender' ? blenderLabel() : label), 3000);
       }
-      if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await rebuild(); select(c.id); }
-      if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }
+      if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await refresh(); select(c.id); }
+      if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await refresh(); select(null); renderPanel(); }
     };
     panel.append(acts);
     const at = findEntity(data, e.id);
@@ -694,7 +694,7 @@ const endStroke = async e => {
     const opts = jitterOptions(+$('scJitter').value);
     for (const p of points) scatterEntity(data, name, p.map(v => Math.round(v * 1000) / 1000), Math.random, opts);
   }
-  await rebuild(); fillAdd(); renderTree();
+  await refresh(); fillAdd(); renderTree();
 };
 renderer.domElement.addEventListener('pointerup', endStroke);
 renderer.domElement.addEventListener('pointercancel', endStroke);
@@ -845,7 +845,7 @@ async function editorCommand(op, args) {
     if (changed) {
       hist.record(before); updateUndo();
       if (selectedId && !findEntity(data, selectedId)) selectedId = null;
-      if (applyScene(world, before, data) === 'rebuild') await rebuild();   // moves / params patch in place (fast)
+      await refresh(before);   // moves, params, adds and deletes patch in place (fast); the rest rebuilds
       renderPanel();
     }
     return { result };
@@ -881,17 +881,27 @@ async function editorCommand(op, args) {
 
 // ---- undo / redo (whole-scene snapshots; sliders coalesce into one step)
 const hist = new History();
-function record(key) { hist.record(data, key); updateUndo(); }
+function record(key) { lastBefore = structuredClone(data); hist.record(data, key); updateUndo(); }
+// After an edit: patch the World in place when only objects were added/removed/changed (fast), else rebuild it all.
+var lastBefore = null;
+async function refresh(before = lastBefore) {
+  const r = await patchScene(world, before, data).catch(() => 'rebuild');
+  if (r === 'rebuild') return rebuild();
+  world.data = data; window.__sc.data = data;
+  if (selectedId && !world.getEntity(selectedId)) selectedId = null;
+  renderTree();
+}
 function updateUndo() { $('undo').disabled = !hist.canUndo; $('redo').disabled = !hist.canRedo; }
 async function travel(dir) {
   if (playing) return;
+  const before = structuredClone(data);
   if (!(dir < 0 ? hist.undo(data) : hist.redo(data))) return;
   $('look').value = data.settings?.look || 'toon';
   updateUndo();
   if (selectedId && !findEntity(data, selectedId)) selectedId = null;
   if (libTab === "packs") renderLib();   // pack installs are scene data too
   fillAdd();
-  await rebuild(); renderPanel(); renderLib();
+  await refresh(before); renderPanel(); renderLib();
 }
 $('undo').onclick = () => travel(-1);
 $('redo').onclick = () => travel(1);
@@ -927,14 +937,14 @@ async function addFrom(kind, name) {
   record();
   if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
   const e = kind === 'light' ? addLight(data, name, viewDropPoint()) : addEntity(data, { [kind]: name }, viewDropPoint());
-  await rebuild(); select(e.id); fillAdd();
+  await refresh(); select(e.id); fillAdd();
 }
 
 async function addCharacterFrom(i) {
   if (playing) return;
   record();
   const e = addCharacter(data, i.name, i.path, viewDropPoint());
-  await rebuild(); select(e.id); fillAdd();
+  await refresh(); select(e.id); fillAdd();
 }
 
 // ---- Libraries panel: characters / props (every prefab + scene model; tap to add at the view centre) and
