@@ -15,7 +15,7 @@ const ROOT = process.cwd();
 const FORGE = [process.env.SC_FORGE, join(ROOT, '../zap')].find(d => d && existsSync(join(d, 'forge.html'))) || null;   // the Forge app (zap/forge.html)
 const MOTIONS = [process.env.SC_MOTIONS, join(ROOT, '../retarget-anims/library')].find(d => d && existsSync(join(d, 'index.json'))) || null;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
-  '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.css': 'text/css', '.md': 'text/markdown' };
+  '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.css': 'text/css', '.md': 'text/markdown', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.webp': 'image/webp' };
 
 // ---- Blender bridge (tools/blender/scene_companion_bridge.py polls these over plain HTTP)
 //   POST /bridge/send   {id, glb, scene, prefab?}  editor → queued for Blender (prefab: edit every instance)

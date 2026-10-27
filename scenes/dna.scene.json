@@ -128,6 +128,21 @@
         },
         {
           "type": "Disguise"
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/blaster_sound_01.mp3",
+            "on": "shoot",
+            "volume": 0.8
+          }
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/powerup_01.mp3",
+            "on": "disguise"
+          }
         }
       ],
       "children": [

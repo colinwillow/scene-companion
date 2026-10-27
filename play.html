@@ -41,6 +41,11 @@
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #stats { position:fixed; right:calc(8px + env(safe-area-inset-right)); top:calc(52px + env(safe-area-inset-top)); z-index:5; pointer-events:none; font:600 12px/1.35 system-ui, sans-serif; color:#fff; background:#0009; padding:4px 8px; border-radius:8px; white-space:pre; }
+  #mixer { position:fixed; right:calc(12px + env(safe-area-inset-right)); top:calc(52px + env(safe-area-inset-top)); z-index:6; background:#000a; color:#fff; padding:10px 12px; border-radius:12px; display:flex; flex-direction:column; gap:8px; font:600 13px system-ui, sans-serif; touch-action:manipulation; }
+  #mixer[hidden] { display:none; }
+  #mixer label { display:flex; align-items:center; gap:8px; justify-content:space-between; }
+  #mixer input { width:130px; }
+  #mixer button { background:#3ddc84; color:#0b3d1f; border:none; border-radius:8px; padding:6px 10px; font-weight:700; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
@@ -60,6 +65,7 @@
 <div id="err" hidden></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="stats" hidden></div>
+<div id="mixer" hidden><button id="mixMute">Sound on</button><label>All <input type="range" min="0" max="1" step="0.05" data-bus="master"></label><label>Music <input type="range" min="0" max="1" step="0.05" data-bus="music"></label><label>Effects <input type="range" min="0" max="1" step="0.05" data-bus="sfx"></label></div>
 <script>
 window.__errQueue=[];
 function showErr(m){const e=document.getElementById('err');e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;window.__errQueue.push(m);}
@@ -75,6 +81,7 @@ import { applyScene } from './runtime/livepatch.js';
 import { clipCamera } from './runtime/camera.js';
 import { bindStick } from './runtime/sticks.js';
 import { createSfx } from './runtime/sfx.js';
+import { createAudio } from './runtime/audio.js';
 import { createFpsMeter, buildState, sameScene, overBudget, BUDGETS } from './runtime/livestate.js';
 import './behaviors/index.js';
 import { solidOutline } from './runtime/collide.js';
@@ -93,12 +100,18 @@ let world, post, player, coinsTotal, over;
 // ---- sounds (synthesized; browsers only allow audio after the first tap)
 let muted = false; try { muted = localStorage.getItem('sc.muted') === '1'; } catch {}
 const sfx = createSfx({ muted });
+const audio = createAudio(); audio.muted = muted;   // sound FILES (AudioSource, scene music) on master / music / sfx buses
 const muteBtn = $('mute');
 const showMute = () => (muteBtn.textContent = sfx.muted ? '🔇' : '🔊');
 showMute();
-muteBtn.addEventListener('pointerdown', e => { e.stopPropagation(); sfx.unlock(); sfx.muted = !sfx.muted; showMute(); try { localStorage.setItem('sc.muted', sfx.muted ? '1' : '0'); } catch {} });
-addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
-addEventListener('keydown', () => sfx.unlock(), { capture: true });
+// 🔊 opens the mixer: mute, and a slider per bus (kept per device)
+const mixer = $('mixer');
+for (const b of ['master', 'music', 'sfx']) { const r = mixer.querySelector(`[data-bus=${b}]`); r.value = audio.vol[b]; r.oninput = () => audio.setVolume(b, +r.value); }
+const setMute = m => { sfx.muted = audio.muted = m; audio.setVolume(); showMute(); $('mixMute').textContent = m ? 'Sound off' : 'Sound on'; try { localStorage.setItem('sc.muted', m ? '1' : '0'); } catch {} };
+$('mixMute').onclick = () => setMute(!sfx.muted); setMute(sfx.muted);
+muteBtn.addEventListener('pointerdown', e => { e.stopPropagation(); sfx.unlock(); audio.unlock(); mixer.hidden = !mixer.hidden; });
+addEventListener('pointerdown', () => { sfx.unlock(); audio.unlock(); }, { capture: true });
+addEventListener('keydown', () => { sfx.unlock(); audio.unlock(); }, { capture: true });
 
 // ---- input → world.input (camera-relative, world space)
 let yaw = 0; const pitch = 0.35;            // camera orbit around the player (yaw only: right stick, Q/E)
@@ -234,9 +247,13 @@ async function start() {
   world = new World(renderer, { tier: TIER });
   await world.load(structuredClone(data));    // the authored data is never touched by play
   world.instanceStatic();                     // repeated static props → one InstancedMesh per part (draw calls)
-  window.__sc = { world, data, get live() { return liveStatus; } };
+  window.__sc = { world, data, audio, get live() { return liveStatus; } };
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
+  audio.stop();
+  world.on('audio', req => audio.play(req));                                   // AudioSource → a sound file
+  world.on('audiostop', key => audio.stop(key));
+  const music = data.settings?.music; if (music?.url || typeof music === 'string') audio.play({ url: music.url || music, loop: true, bus: 'music', key: 'music', volume: music.volume ?? 1 });
   world.on('gameover', () => { sfx.play('gameover'); end('Game over'); });
   world.on('health', () => { sfx.play('hurt'); hud(); });
   for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
@@ -379,6 +396,8 @@ renderer.setAnimationLoop(() => {
   placeBubbles();
   drawColliders(dt);
   showStats(dt);
+  { const f = new THREE.Vector3(); camera.getWorldDirection(f); audio.listen(camera.position.toArray(), f.toArray());
+    audio.update(id => { const o = world.getEntity(id)?.object3d; return o ? o.getWorldPosition(new THREE.Vector3()).toArray() : null; }); }
   if (post) post.render(); else renderer.render(world.scene, camera);
 });
 </script>

@@ -1268,6 +1268,38 @@ export class Batch extends Behavior {
   }
 }
 
+// A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
+// fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
+// its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
+// entity, and fall off with distance past `ref` metres. Pure: it emits an `audio` request; the game page plays it (runtime/audio.js).
+export class AudioSource extends Behavior {
+  static schema = {
+    clip:     { type: 'string', default: '' },                                    // a sound file, e.g. ./assets/audio/colin/blaster_sound_01.mp3
+    on:       { type: 'string', default: '' },                                    // world event that plays it ('' = at Play)
+    mine:     { type: 'boolean', default: true },                                 // only events about this entity
+    loop:     { type: 'boolean', default: false },
+    volume:   { type: 'number', default: 1, min: 0, max: 2, step: 0.05 },
+    pitch:    { type: 'number', default: 1, min: 0.25, max: 4, step: 0.05 },
+    pitchVar: { type: 'number', default: 0.06, min: 0, max: 1, step: 0.01 },     // ± random, so a repeated sound is not a machine gun of one
+    spatial:  { type: 'boolean', default: true },
+    ref:      { type: 'number', default: 4, min: 0.1, max: 100, step: 0.5 },     // m before it starts to fall off
+    bus:      { type: 'string', default: 'sfx' },                                 // sfx | music
+  };
+  start() {
+    const P = this.params; if (!P.clip) return;
+    this.key = P.loop ? `${this.entity.id}:${P.clip}` : null;
+    if (!P.on) { this.play([]); return; }
+    this.world.on?.(P.on, (...a) => { if (!P.mine || a[0] === this.entity.id || typeof a[0] !== 'string') this.play(a); });
+  }
+  play(args) {
+    const P = this.params, n = args.length, tail = n >= 3 && args.slice(-3).every(v => typeof v === 'number') ? args.slice(-3) : null;
+    const p = this.entity.object3d?.position, r = (this.world.rng?.() ?? Math.random()) * 2 - 1;
+    this.world.emit('audio', { url: P.clip, volume: P.volume, pitch: P.pitch * (1 + P.pitchVar * r), loop: P.loop, bus: P.bus, ref: P.ref, key: this.key,
+      at: P.spatial ? (tail || (p ? [p.x, p.y, p.z] : null)) : null, follow: P.spatial && !tail && P.loop ? this.entity.id : null });
+  }
+  destroy() { if (this.key) this.world.emit?.('audiostop', this.key); }
+}
+
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
 // catches the lip — he hangs (`hangClip`). Tap: climb up over it (`climbClip`) and stand on top. Stick pulled away: let go.
 // Every distance is a share of his height (the PlayerController's `height`), so it fits any body.
@@ -2377,6 +2409,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

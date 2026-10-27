@@ -1,0 +1,39 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { AudioSource } from '../behaviors/index.js';
+import { createAudio } from '../runtime/audio.js';
+
+test('AudioSource: plays on its event (only events about its entity), from where it happened; a loop at Play follows the entity', () => {
+  const handlers = {}, sent = [], world = { on: (n, f) => { handlers[n] = f; }, emit: (n, r) => sent.push([n, r]) };
+  const ent = { id: 'house', object3d: { position: { x: 1, y: 2, z: 3 } } };
+  new AudioSource(ent, { clip: 'a.mp3', on: 'chunk', pitchVar: 0 }, world).start();
+  handlers.chunk('other', 'w', 0, 1, 9, 9, 9); assert.equal(sent.length, 0, 'not mine');
+  handlers.chunk('house', 'w', 0, 1, 5, 6, 7);
+  assert.deepEqual(sent[0][1].at, [5, 6, 7]); assert.equal(sent[0][1].url, 'a.mp3'); assert.equal(sent[0][1].follow, null);
+  const loop = new AudioSource({ id: 'fountain', object3d: { position: { x: 0, y: 0, z: 0 } } }, { clip: 'w.mp3', loop: true }, world); loop.start();
+  assert.equal(sent[1][1].follow, 'fountain'); assert.equal(sent[1][1].key, 'fountain:w.mp3');
+  loop.destroy(); assert.deepEqual(sent[2], ['audiostop', 'fountain:w.mp3']);
+});
+
+test('audio runtime: buses carry the volumes (kept per device), mute silences master, a loop asked for before the tap starts on it', async () => {
+  const gains = [], started = [];
+  const node = () => ({ connect() {}, gain: { value: 1 } });
+  class FakeCtx {
+    constructor() { this.state = 'running'; this.destination = {}; this.listener = {}; }
+    createGain() { const g = node(); gains.push(g); return g; }
+    createBufferSource() { return { connect() {}, playbackRate: { value: 1 }, start() { started.push(this); }, stop() {} }; }
+    createPanner() { return { connect() {}, positionX: { value: 0 }, positionY: { value: 0 }, positionZ: { value: 0 } }; }
+    decodeAudioData(b, ok) { ok({ duration: 1 }); }
+    resume() { return Promise.resolve(); }
+  }
+  globalThis.AudioContext = FakeCtx; globalThis.fetch = async () => ({ arrayBuffer: async () => new ArrayBuffer(4) });
+  const store = { v: null, getItem() { return this.v; }, setItem(k, v) { this.v = v; } };
+  const a = createAudio({ storage: store });
+  await a.play({ url: 'music.mp3', loop: true, bus: 'music', key: 'music' });
+  assert.equal(started.length, 0, 'no context yet: queued');
+  a.unlock(); await new Promise(r => setTimeout(r, 5));
+  assert.equal(started.length, 1, 'the queued loop started on unlock');
+  a.setVolume('music', 0.3); assert.equal(gains[1].gain.value, 0.3); assert.equal(JSON.parse(store.v).music, 0.3);
+  a.muted = true; a.setVolume(); assert.equal(gains[0].gain.value, 0);
+  delete globalThis.AudioContext;
+});

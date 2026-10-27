@@ -77,6 +77,7 @@ const warn = (f, msg) => { warnings++; console.error(`⚠ ${f}: ${msg}`); };
 // Behavior params must exist in the schema and fit their type/range.
 function checkBehaviors(f, who, behaviors) {
   for (const b of behaviors || []) {
+    if (b.type === 'AudioSource' && b.params?.clip && !existsSync(b.params.clip.replace(/^\.\//, ''))) err(f, `${who}: AudioSource clip not found: ${b.params.clip}`);
     const Cls = getBehavior(b.type);
     if (!Cls) { err(f, `${who}: unknown behavior "${b.type}"`); continue; }
     for (const [k, v] of Object.entries(b.params || {})) {

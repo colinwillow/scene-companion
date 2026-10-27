@@ -140,6 +140,14 @@
           "params": {
             "gun": "blaster"
           }
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/blaster_sound_01.mp3",
+            "on": "shoot",
+            "volume": 0.8
+          }
         }
       ],
       "children": [
@@ -175,6 +183,31 @@
         },
         {
           "type": "Batch"
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/box_break_01.mp3",
+            "on": "chunk",
+            "volume": 0.6,
+            "pitchVar": 0.15
+          }
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/metal_ping_01.mp3",
+            "on": "shatter",
+            "volume": 0.7,
+            "pitch": 1.4
+          }
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/metal_clang_01.mp3",
+            "on": "broken"
+          }
         }
       ]
     },
@@ -198,6 +231,24 @@
         },
         {
           "type": "Batch"
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/box_break_01.mp3",
+            "on": "chunk",
+            "volume": 0.6,
+            "pitchVar": 0.15
+          }
+        },
+        {
+          "type": "AudioSource",
+          "params": {
+            "clip": "./assets/audio/colin/metal_ping_01.mp3",
+            "on": "shatter",
+            "volume": 0.7,
+            "pitch": 1.4
+          }
         }
       ]
     }
