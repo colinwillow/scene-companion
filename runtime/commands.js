@@ -6,7 +6,7 @@
 import { addEntity, deleteEntity, addLight, setLightValue, LIGHT_FIELDS } from './editing.js';
 import { mergeEntity, setOverride } from './prefabs.js';
 import { libraryPacks, setInstalled } from './packs.js';
-import { allEntities, findEntity, walkEntities } from './tree.js';
+import { allEntities, findEntity, walkEntities, reparent } from './tree.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
 const isVec3 = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n));
@@ -76,7 +76,7 @@ export const COMMANDS = {
   },
   spawn: {
     mutates: true,
-    run(data, { prefab, asset, position = [0, 0, 0], id }, ctx = {}) {
+    run(data, { prefab, asset, position = [0, 0, 0], id, parent }, ctx = {}) {
       if (!prefab && !asset) throw new Error('spawn needs a prefab or an asset (see list_library)');
       if (prefab && !data.prefabs?.[prefab]) {
         // ctx.library: prefab files from prefabs/ the host fetched ({ name: json }); spawning one adds it to the scene
@@ -90,9 +90,11 @@ export const COMMANDS = {
         if (!/^[a-z0-9_]+$/.test(id)) throw new Error('id must be lowercase_with_underscores');
         if (findEntity(data, id)) throw new Error(`id "${id}" is taken`);
       }
+      if (parent && !findEntity(data, parent)) throw new Error(`No entity "${parent}" to be the parent`);
       const e = addEntity(data, prefab ? { prefab } : { asset }, position);
       if (id) e.id = id;
-      return { id: e.id, position: e.position };
+      if (parent) reparent(data, e.id, parent);   // position stays a world position; stored relative to the parent
+      return { id: e.id, position: e.position, ...(parent ? { parent } : {}) };
     },
   },
   move: {
@@ -183,6 +185,13 @@ export const COMMANDS = {
       else if (typeof clip !== 'string') throw new Error('clip must be a clip name (see get_entity / the model) or null');
       else e.animation = clip;
       return { id, animation: e.animation ?? null };
+    },
+  },
+  set_parent: {
+    mutates: true,
+    run(data, { id, parent = null }) {
+      const e = reparent(data, id, parent || null);
+      return { id, parent: parent || null, position: e.position, rotation: e.rotation || [0, 0, 0], scale: e.scale || [1, 1, 1] };
     },
   },
   list_packs: {

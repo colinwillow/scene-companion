@@ -49,6 +49,8 @@
   .row output { width:44px; text-align:right; }
   select.add { width:100%; margin-top:6px; padding:8px; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; }
   .acts { display:flex; gap:8px; margin:8px 0; }
+  .parentRow { display:flex; gap:8px; align-items:center; margin:0 0 8px; color:var(--dim); font-size:13px; }
+  .parentRow select { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
   .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
   #lib .tabs { display:flex; gap:6px; margin-bottom:6px; }
   #lib .tabs button { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
@@ -133,7 +135,7 @@ import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
 import { clipRoles, characterEntries } from './runtime/character.js';
 import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runtime/packs.js';
-import { findEntity } from './runtime/tree.js';
+import { findEntity, allEntities, descendantIds, reparent } from './runtime/tree.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -401,6 +403,21 @@ function renderPanel() {
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }
     };
     panel.append(acts);
+    const at = findEntity(data, e.id);
+    if (at) {                                       // nesting: pick a parent; it stays where it is in the world
+      const row = document.createElement('label'); row.className = 'parentRow';
+      const banned = new Set([e.id, ...descendantIds(at.entity)]);
+      const opts = allEntities(data).filter(x => !banned.has(x.id) && !x.light).map(x => x.id);
+      row.innerHTML = '<span>Parent</span><select></select>';
+      const sel = row.querySelector('select');
+      sel.innerHTML = `<option value="">— none (top level) —</option>` + opts.map(id => `<option>${id}</option>`).join('');
+      sel.value = at.parent?.id || '';
+      sel.onchange = async () => {
+        try { record(); reparent(data, e.id, sel.value || null); } catch (x) { alert(x.message); return; }
+        await rebuild(); select(e.id);
+      };
+      panel.append(row);
+    }
     if (!e.light && data.assets && Object.keys(data.assets).length) {
       const row = document.createElement('div'); row.className = 'row';
       const cur = typeof e.asset === 'string' ? e.asset : '';
