@@ -271,6 +271,9 @@
         },
         {
           "type": "Skater"
+        },
+        {
+          "type": "FootIK"
         }
       ]
     },

@@ -238,6 +238,66 @@ export class CollisionMesh extends Behavior {
 
 const STEP_UP = 0.35;
 
+// The floor height under (x, z) at or below `below`: every Surface, Solid top, and the flat `groundY`. Shared by the skater and FootIK.
+export function groundUnder(world, x, z, below, groundY = 0) {
+  let best = { y: groundY, n: [0, 1, 0] };
+  for (const sf of world.surfaces || []) { const g = sf.groundAt(x, z, below); if (g && g.y > best.y) best = g; }
+  for (const so of world.solids || []) { const t = walkShape(so).topNear(x, z, 0.1); if (t <= below && t > best.y) best = { y: t, n: [0, 1, 0] }; }
+  return best;
+}
+
+// Feet on the ground (Roller Girl's FOOTIK): after the pose, while he/she is on the ground, the model is dropped until the
+// LOWER sole touches the floor under it (at most `maxDrop`, raised at most `maxRaise`), and the other leg is reached down with
+// two-bone IK when its sole is within `near` of its own floor (further off is a stride or a trick — left alone). Eased.
+// The sole is the ankle minus its height above the soles in the first grounded pose (measured, never typed).
+export class FootIK extends Behavior {
+  static schema = {
+    maxDrop:  { type: 'number', default: 0.25, min: 0, max: 1, step: 0.01 },
+    maxRaise: { type: 'number', default: 0.06, min: 0, max: 0.5, step: 0.01 },
+    near:     { type: 'number', default: 0.16, min: 0, max: 1, step: 0.01 },
+    ease:     { type: 'number', default: 0.05, min: 0.005, max: 1, step: 0.005 },   // s half-life of the drop
+  };
+  start() { this.legs = null; this.off = 0; }
+  grounded() {
+    const b = this.entity.behaviors.find(x => x instanceof Skater || x instanceof PlayerController);
+    return b ? (b instanceof Skater ? b.grounded && !b.grind : b.grounded) && !this.entity.mover : true;
+  }
+  lateUpdate(dt) {
+    const e = this.entity, o = e.object3d, model = o.children?.[0]; if (!model) return;
+    if (!this.legs) {
+      const g = n => o.getObjectByName?.(`mixamorig_${n}`);
+      const L = { up: g('LeftUpLeg'), mid: g('LeftLeg'), foot: g('LeftFoot') }, R = { up: g('RightUpLeg'), mid: g('RightLeg'), foot: g('RightFoot') };
+      if (!L.foot || !R.foot) { this.legs = []; return; }
+      this.legs = [L, R]; this.baseY = model.position.y;
+    }
+    if (!this.legs.length) return;
+    const P = this.params, V = o.position.constructor, k = 1 - Math.pow(0.5, dt / P.ease);
+    let want = 0;
+    if (this.grounded()) {
+      model.position.y = this.baseY + this.off; o.updateMatrixWorld(true);
+      const rootY = o.position.y, gY = this.entity.behaviors.find(x => x instanceof PlayerController)?.params.groundY ?? this.entity.behaviors.find(x => x instanceof Skater)?.params.groundY ?? 0;
+      const soles = this.legs.map(L => {
+        const a = L.foot.getWorldPosition(new V());
+        if (L.ankle === undefined) {   // first grounded pose: the ankle's height over the soles — the LOWER ankle's, for both (a pose may lift one)
+          const ys = this.legs.map(l => l.foot.getWorldPosition(new V()).y - rootY - this.off);
+          for (const l of this.legs) l.ankle = Math.max(0.02, Math.min(...ys));
+        }
+        const s = a.y - L.ankle, fl = groundUnder(this.world, a.x, a.z, s + 0.5, gY).y;
+        return { L, a, s, fl, gap: s - fl };
+      });
+      const low = soles.reduce((m, x) => x.gap < m.gap ? x : m);
+      want = Math.max(-P.maxDrop, Math.min(P.maxRaise, this.off - low.gap));
+      this.off += (want - this.off) * k;
+      model.position.y = this.baseY + this.off; o.updateMatrixWorld(true);
+      for (const x of soles) {                                  // the other foot: reach it down to its own floor if it is close
+        if (x === low) continue;
+        const a = x.L.foot.getWorldPosition(new V()), gap = (a.y - x.L.ankle) - x.fl;
+        if (gap > 0.005 && gap < P.near) ik2(x.L.up, x.L.mid, x.L.foot, new V(a.x, a.y - gap, a.z), 1);
+      }
+    } else { this.off += (0 - this.off) * k; model.position.y = this.baseY + this.off; }
+  }
+}
+
 // A grind rail (Roller Girl's railPath, straight for now): the bar runs along this object's local X, `length` long, through its
 // origin — so turning or TILTING the object in the editor makes a down rail. Skaters catch it from the air (Skater).
 export class Rail extends Behavior {
@@ -307,12 +367,7 @@ export class Skater extends Behavior {
   }
   onMoved() { const p = this.entity.object3d.position; this.spawn = [p.x, p.y, p.z]; this.v = [0, 0, 0]; }
   // the floor under (x, z) at or below `below`: { y, n } — Surfaces, Solid tops, the flat ground
-  floor(x, z, below) {
-    let best = { y: this.params.groundY, n: [0, 1, 0] };
-    for (const sf of this.world.surfaces || []) { const g = sf.groundAt(x, z, below); if (g && g.y > best.y) best = g; }
-    for (const so of this.world.solids || []) { const t = walkShape(so).topNear(x, z, 0.15); if (t <= below && t > best.y) best = { y: t, n: [0, 1, 0] }; }
-    return best;
-  }
+  floor(x, z, below) { return groundUnder(this.world, x, z, below, this.params.groundY); }
   update(dt) {
     if (dt <= 0 || this.entity.defeated) return;
     this.railCoolT = Math.max(0, (this.railCoolT || 0) - dt);
@@ -1603,6 +1658,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

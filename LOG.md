@@ -97,3 +97,4 @@
 - 2026-10-27 — Roller Girl step 3b — skater move brain (push/roll/idle/air, fakie with backward clips); 231 tests; checked headless (live session)
 - 2026-10-27 — Roller Girl step 3c — Rail + grinds; skatepark rails; 234 tests; checked headless (live session)
 - 2026-10-27 — Roller Girl step 3d — flips (left flick in the air), play.html left flick → input.trick; 235 tests; checked headless (live session)
+- 2026-10-27 — Roller Girl step 3e — FootIK + groundUnder; 237 tests (live session)
