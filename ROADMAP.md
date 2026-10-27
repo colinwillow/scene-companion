@@ -180,7 +180,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
   - [x] 2D part 2b: Library → 2D tab lists assets/sprites sheets (or a PNG from the device, kept in the scene file); the slicer draws the numbered grid over the sheet (cols/rows guessed), clips as text lines ("run 2-5 10"), height in metres; Add puts it in the scene with a SpriteAnimator
   - [x] 2D part 3a: Parallax behavior (follow 0..1 of the camera's move, axes), world.view set by the game page; far/near hills + clouds in Side Hop and Blob Hop
   - [x] 2D part 3b: Tilemap behavior — rows of text + legend + tile sheet, solid runs become colliders, World.drawTiles merges the tiles into one mesh; tools/make-tiles.mjs stand-in sheet; Tile Hop scene
-  - [ ] 2D part 3c: paint a tilemap in the editor — a tile palette when a Tilemap is selected, tap/drag on its plane paints (Tilemap.paint), eraser, undo
+  - [ ] [IN PROGRESS] 2D part 3c: paint a tilemap in the editor — a tile palette when a Tilemap is selected, tap/drag on its plane paints (Tilemap.paint), eraser, undo
   - [ ] 2D part 4: render a 3D character into a sprite sheet
 - [ ] Ship anywhere: Capacitor wrapper → iOS/Android builds from a scene; export to Godot `.tscn`, then Unity/Unreal
 - [ ] Pack unlocks: purchase/unlock flow, licence per pack, free starter pack bundled — local unlock codes + the starter pack already work (?unlock=, packs/colin-starter); the PURCHASE half needs a payments account (blocked on Colin)
