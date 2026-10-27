@@ -1395,6 +1395,25 @@ export class HudBar extends Behavior {
   destroy() { this.world.emit?.('hudset', { id: this.hid(), remove: true }); }
 }
 
+// A prompt on the screen while someone is near ("Hold ↑ to shoot", "Grind the rail!"): `text` at the bottom while `who` is
+// within `radius` of this entity, gone when they leave. Pure: `hudset` in, `hudset` remove out.
+export class HudPrompt extends Behavior {
+  static schema = {
+    text:   { type: 'string', default: 'Hello!' },
+    who:    { type: 'string', default: 'player' },
+    radius: { type: 'number', default: 3, min: 0.5, max: 50, step: 0.5 },
+    corner: { type: 'string', default: 'bottom' },
+  };
+  start() { this.on = false; this.world.on?.('hudrefresh', () => { if (this.on) { this.on = false; } }); }
+  update() {
+    const w = this.world.getEntity?.(this.params.who)?.object3d?.position, p = this.entity.object3d?.position; if (!w || !p) return;
+    const inside = Math.hypot(w.x - p.x, w.z - p.z) <= this.params.radius && Math.abs(w.y - p.y) < 4;
+    if (inside === this.on) return; this.on = inside;
+    this.world.emit('hudset', inside ? { id: this.entity.id + ':prompt', kind: 'label', text: this.params.text, corner: this.params.corner, size: 20, color: '#ffffff' } : { id: this.entity.id + ':prompt', remove: true });
+  }
+  destroy() { this.world.emit?.('hudset', { id: this.entity.id + ':prompt', remove: true }); }
+}
+
 // A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
 // fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
 // its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
@@ -2518,7 +2537,7 @@ export class Reactions extends Behavior {
       case 'destroy': { const t = this.target(a.target); if (t) (W.destroy ? W.destroy(t.id) : (t.object3d.visible = false)); break; }
       case 'hud': W.emit('hud', String(a.text ?? ''), +a.seconds || 2); break;
       case 'shake': W.emit('shake', +a.amount || 0.3, +a.seconds || 0.3); break;
-      case 'end': W.emit('end', String(a.text ?? '')); break;
+      case 'end': W.emit('end', String(a.text ?? ''), { sub: a.sub ? String(a.sub) : '', button: a.button ? String(a.button) : '', next: a.next ? String(a.next) : '' }); break;   // a win / lose screen: title, line under it, button, next scene
       case 'load': if (a.scene) W.emit('loadScene', String(a.scene)); break;
     }
   }
@@ -2536,6 +2555,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

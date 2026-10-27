@@ -30,7 +30,7 @@ export const DO = {
   destroy: { target: 'self' },
   hud:     { text: 'Find the key!', seconds: 2 },   // a message across the screen (game page)
   shake:   { amount: 0.3, seconds: 0.3 },            // camera shake (game page)
-  end:     { text: 'You win!' },                     // the end screen (game page) — win or lose
+  end:     { text: 'You win!', sub: '', button: '', next: '' },   // the end screen (game page) — win or lose; sub: a line under it, button: its word, next: a scene to go to
   load:    { scene: './scenes/tiny-hop.scene.json' },   // go to another scene (game page)
 };
 export const OPS = ['>=', '>', '==', '!=', '<', '<='];

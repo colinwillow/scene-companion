@@ -281,12 +281,20 @@ function placeBubbles() {
 const hearts = (n, max) => max > 10 ? `❤ ${Math.ceil(n)} / ${max}` : '❤'.repeat(n) + '♡'.repeat(Math.max(0, max - n));   // a big health pool reads as a number, not a wall of hearts
 function hud() {
   const h = player.behaviors.find(b => b.constructor.name === 'Health');
-  $('hearts').textContent = h ? hearts(h.current, h.params.max) : '';
+  const H = data.settings?.hud || {};             // a scene can drop the built-in row and author its own (HudLabel / HudBar)
+  $('hearts').textContent = h && H.hearts !== false ? hearts(h.current, h.params.max) : '';
   const got = coinsTotal - [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup' && !b.collected)).length;
-  $('coins').textContent = `● ${got} / ${coinsTotal}`; $('coins').style.display = coinsTotal ? '' : 'none';   // no coins in this scene: no counter (and no instant win)
+  $('coins').textContent = `● ${got} / ${coinsTotal}`; $('coins').style.display = coinsTotal && H.coins !== false ? '' : 'none';   // no coins in this scene: no counter (and no instant win)
   if (!over && coinsTotal > 0 && got === coinsTotal) { sfx.play('win'); end('You got every coin! 🎉'); }
 }
-function end(text) { over = true; $('msgText').textContent = text; $('msg').style.display = 'flex'; }
+// the end screen — a Reactions 'end' can author it: a title, a line under it, the button's word, and a next scene to go to
+function end(text, o = {}) {
+  over = true; $('msgText').innerHTML = ''; $('msgText').append(text);
+  if (o.sub) { const d = document.createElement('div'); d.style.cssText = 'font-size:16px;font-weight:600;opacity:.8;margin-top:6px'; d.textContent = o.sub; $('msgText').append(d); }
+  $('again').textContent = o.button || (o.next ? 'Next' : 'Play again'); endNext = o.next || '';
+  $('msg').style.display = 'flex';
+}
+let endNext = '';
 
 async function start() {
   world?.dispose(); post?.dispose();
@@ -319,13 +327,13 @@ async function start() {
   world.on('shake', (amount, secs) => { shake = { amp: amount, t: secs, dur: secs }; });
   world.on('zoom', (_id, power) => { fovKick = Math.max(fovKick, 14 * (power ?? 1)); });   // a Zoom dash widens the lens
   world.on('boost', () => { fovKick = Math.max(fovKick, 9); });                         // so does a skater's boost
-  world.on('end', text => end(text));
+  world.on('end', (text, o) => end(text, o));
   world.on('loadScene', url => { location.search = `?scene=${encodeURIComponent(url)}`; });   // Footsteps varies the pitch (world.rng)
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
   resize(); hud();
 }
-$('again').onclick = start;
+$('again').onclick = () => { if (endNext) location.href = `./play.html?scene=${encodeURIComponent(endNext)}`; else start(); };
 // ---- pause: ⏸ (or the page going to the background) freezes game time (world.time.paused); animation stops too
 function setPaused(on) {
   if (!world || (on && over)) return;

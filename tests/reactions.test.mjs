@@ -73,7 +73,7 @@ test('v1: frame, struck and var triggers; hud / shake / end / load actions; grap
   w.emit('hit', 'someone_else', { clip: 'punch' }); w.emit('hit', 'me', { clip: 'punch' }); r.update(1 / 60);
   w.emit('struck', 'hero', 'me', 1); r.update(1 / 60);
   w.vars.coins = 2; r.update(1 / 60); w.vars.coins = 3; r.update(1 / 60); r.update(1 / 60);
-  assert.deepEqual(out, [['shake', 0.2, 0.1], ['hud', 'Ow', 1], ['end', 'You win!'], ['loadScene', './scenes/x.scene.json']]);
+  assert.deepEqual(out, [['shake', 0.2, 0.1], ['hud', 'Ow', 1], ['end', 'You win!', { sub: '', button: '', next: '' }], ['loadScene', './scenes/x.scene.json']]);
   const svg = graphSvg([{ when: { type: 'near', target: 'player', radius: 3 }, if: { once: true }, do: [{ type: 'say', text: 'Hi <you>' }, { type: 'look', target: 'player' }] }]);
   assert.match(svg, /^<svg/); assert.match(svg, /When near/); assert.match(svg, />If</); assert.match(svg, /Hi &lt;you&gt;/);
   assert.equal((svg.match(/class="n do"/g) || []).length, 2);

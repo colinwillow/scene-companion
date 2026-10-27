@@ -88,3 +88,13 @@ test('HudLabel / HudBar: text from world variables and behavior properties, sent
   const b = new HudBar(me, {}, world); b.start(); assert.equal(sent[2].value, 0.6);
   me.behaviors[0].current = 5; b.update(); assert.equal(sent[3].value, 1);
 });
+
+test('HudPrompt: shows while the player is near, goes when they leave', async () => {
+  const { HudPrompt } = await import('../behaviors/index.js');
+  const player = { object3d: { position: { x: 10, y: 0, z: 0 } } }, sent = [];
+  const world = { on() {}, emit: (n, h) => sent.push(h), getEntity: id => (id === 'player' ? player : null) };
+  const p = new HudPrompt({ id: 'rail', object3d: { position: { x: 0, y: 0, z: 0 } } }, { text: 'Grind it!', radius: 3 }, world); p.start();
+  p.update(); assert.equal(sent.length, 0);
+  player.object3d.position.x = 2; p.update(); p.update(); assert.equal(sent.length, 1); assert.equal(sent[0].text, 'Grind it!');
+  player.object3d.position.x = 9; p.update(); assert.equal(sent[1].remove, true);
+});

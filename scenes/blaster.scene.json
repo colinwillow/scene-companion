@@ -242,6 +242,13 @@
             "preset": "glass",
             "on": "shatter"
           }
+        },
+        {
+          "type": "HudPrompt",
+          "params": {
+            "text": "Hold the right stick UP to charge \u2014 let go to shoot",
+            "radius": 12
+          }
         }
       ]
     }
