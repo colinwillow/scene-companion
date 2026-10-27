@@ -193,6 +193,20 @@ if (existsSync('packs')) {
     if (errors === before) console.log(`✓ ${pf} — ${['characters', 'prefabs', 'behaviors', 'scenes'].map(k => `${(pack[k] || []).length} ${k}`).join(', ')}`);
   }
 }
+// Inventory (SPEC §7b): every model imported from Colin's repos should be traceable to where it came from.
+{
+  const ROOT_DIR = join(dirname(new URL(import.meta.url).pathname), '..');
+  const inv = join(ROOT_DIR, 'inventory.json'), colin = join(ROOT_DIR, 'assets/models/colin');
+  if (existsSync(inv) && existsSync(colin)) {
+    const known = new Set(JSON.parse(readFileSync(inv, 'utf8')).assets.map(a => a.hash));
+    const { createHash } = await import('node:crypto');
+    const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.glb') ? [join(d, e.name)] : []);
+    for (const f of walk(colin)) {
+      const h = createHash('sha1').update(readFileSync(f)).digest('hex').slice(0, 12);
+      if (!known.has(h)) warn(f.slice(ROOT_DIR.length + 1), 'not in inventory.json (new or changed since the last scan) — run `npm run inventory`');
+    }
+  }
+}
 if (warnings) console.log(`${warnings} warning(s)`);
 
 process.exit(errors ? 1 : 0);
