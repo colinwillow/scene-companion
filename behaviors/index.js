@@ -796,9 +796,12 @@ export class Breakables extends Behavior {
     dmgScale: { type: 'number', default: 12, min: 0, max: 100, step: 0.5 },   // weirdport's KIT.dmg: game damage → his hp
     fall:     { type: 'number', default: 0.28, min: 0, max: 3, step: 0.01 },  // s an orphaned chunk hangs before it goes
     cool:     { type: 'number', default: 0.15, min: 0, max: 2, step: 0.01 },  // s a chunk ignores further hits (one blast, one hit)
+    debris:   { type: 'number', default: 24, min: 0, max: 200, step: 1 },     // most flying pieces at once (0 = none)
+    throw:    { type: 'number', default: 3.5, min: 0, max: 20, step: 0.1 },   // m/s a piece leaves away from the blast
+    life:     { type: 'number', default: 2.2, min: 0.2, max: 10, step: 0.1 },  // s before a piece is gone
   };
   start() {
-    this.walls = []; this.solids = [];
+    this.walls = []; this.solids = []; this.flying = [];
     const o = this.entity.object3d; o.updateMatrixWorld?.(true);
     const nodes = []; o.traverse?.(n => { if (n.userData?.chunks) nodes.push(n); });
     for (const node of nodes) {
@@ -824,6 +827,7 @@ export class Breakables extends Behavior {
   get alive() { return this.walls.reduce((n, W) => n + W.chunks.filter(c => !c.dead).length, 0); }
   blast(x, y, z, r = 0.5, dmg = 1) {
     const D = dmg * this.params.dmgScale; let hit = 0; if (D <= 0) return 0;
+    this.lastBlast = [x, y, z];
     for (const W of this.walls) {
       let wh = 0;
       for (const c of W.chunks) {
@@ -839,6 +843,7 @@ export class Breakables extends Behavior {
   kill(c, loud) {
     if (c.dead) return false;
     const W = c.wall; c.dead = true;
+    if (loud && this.params.debris > 0) this.throwPiece(c, this.lastBlast);   // lifted out BEFORE the collapse destroys its triangles
     if (!W.cloned) { W.cloned = true; for (const m of W.meshes) { m.userData.kGeo = m.geometry; m.geometry = m.geometry.clone(); } }   // the mesh is SHARED by several walls
     for (const m of W.meshes) {
       const pos = m.geometry.attributes.position, ch = m.geometry.attributes._chunk; let touched = false;
@@ -849,6 +854,43 @@ export class Breakables extends Behavior {
     this.world.emit('chunk', this.entity.id, W.node.name, c.id, loud ? 1 : 0, ...c.c);
     return true;
   }
+  // weirdport's kitDebrisChunk: the chunk's own triangles (a copy of the wall's geometry indexed down to them, re-centred on the
+  // chunk) thrown out away from the blast with a spin, falling, gone after `life`. Made with the wall mesh's own constructors.
+  throwPiece(c, from) {
+    const W = c.wall, scene = this.world.scene; if (!scene) return;
+    while (this.flying.length >= this.params.debris) this.dropPiece(this.flying[0]);
+    const V = W.node.position.constructor, Q = W.node.quaternion.constructor, at = W.node.localToWorld(new V(...c.lc));
+    const away = from ? new V(at.x - from[0], 0, at.z - from[2]) : new V(); if (away.lengthSq() < 1e-6) away.set(Math.random() - 0.5, 0, Math.random() - 0.5); away.normalize();
+    for (const m of W.meshes) {
+      const g = m.geometry, ch = g.attributes._chunk, idx = [], src = g.index;
+      const tris = src ? src.count / 3 : ch.count / 3;
+      for (let t = 0; t < tris; t++) {
+        const a = src ? src.getX(t * 3) : t * 3, b = src ? src.getX(t * 3 + 1) : t * 3 + 1, d = src ? src.getX(t * 3 + 2) : t * 3 + 2;
+        if (Math.round(ch.getX(a)) === c.id && Math.round(ch.getX(b)) === c.id && Math.round(ch.getX(d)) === c.id) idx.push(a, b, d);
+      }
+      if (!idx.length) continue;
+      const pg = g.clone(); pg.setIndex(idx); pg.translate(-c.lc[0], -c.lc[1], -c.lc[2]);
+      const piece = new m.constructor(pg, m.material);
+      piece.position.copy(at); W.node.getWorldQuaternion(piece.quaternion); W.node.getWorldScale(piece.scale);
+      piece.castShadow = true; scene.add(piece);
+      const k = this.params.throw * (0.6 + Math.random() * 0.8);
+      this.flying.push({ piece, v: [away.x * k, 1.5 + Math.random() * 2, away.z * k], axis: new V(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(), rate: 4 + Math.random() * 6, q: new Q(), t: this.params.life });
+    }
+  }
+  dropPiece(f) { f.piece.parent?.remove(f.piece); f.piece.geometry.dispose?.(); this.flying.splice(this.flying.indexOf(f), 1); }
+  // weirdport's kitRestore: a kill run backwards — the chunk's vertices back from the wall as authored, its collider back in
+  restore(wallName, id) {
+    const W = this.walls.find(w => w.node.name === wallName), c = W?.byId.get(id); if (!c?.dead) return false;
+    c.dead = false; c.fall = 0; c.hp = c.hp0;
+    for (const m of W.meshes) {
+      const O = m.userData.kGeo?.attributes.position, pos = m.geometry.attributes.position, ch = m.geometry.attributes._chunk; if (!O) continue;
+      for (let i = 0; i < ch.count; i++) if (Math.round(ch.getX(i)) === c.id) pos.setXYZ(i, O.getX(i), O.getY(i), O.getZ(i));
+      pos.needsUpdate = true;
+    }
+    if (!(this.world.solids ||= []).includes(c.solid)) this.world.solids.push(c.solid);
+    this.world.emit('repair', this.entity.id, wallName, id);
+    return true;
+  }
   flood(W) {
     const live = W.chunks.filter(c => !c.dead), seen = new Set(), q = live.filter(c => c.anchored);
     for (const c of q) seen.add(c.id);
@@ -856,6 +898,11 @@ export class Breakables extends Behavior {
     let n = 0; for (const c of live) if (!seen.has(c.id) && !c.fall) c.fall = this.params.fall * (1 + n++ * 0.35);
   }
   update(dt) {
+    for (const f of [...this.flying]) {                // the pieces in the air
+      f.v[1] -= 9.8 * dt; f.piece.position.x += f.v[0] * dt; f.piece.position.y += f.v[1] * dt; f.piece.position.z += f.v[2] * dt;
+      f.piece.quaternion.multiply(f.q.setFromAxisAngle(f.axis, f.rate * dt));
+      if ((f.t -= dt) <= 0 || f.piece.position.y < -5) this.dropPiece(f);
+    }
     for (const W of this.walls) {
       let fell = false;
       for (const c of W.chunks) {
@@ -867,6 +914,7 @@ export class Breakables extends Behavior {
     }
   }
   destroy() {
+    for (const f of [...(this.flying || [])]) this.dropPiece(f);
     const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); }
     for (const W of this.walls || []) if (W.cloned) for (const m of W.meshes) if (m.userData.kGeo) { m.geometry.dispose?.(); m.geometry = m.userData.kGeo; delete m.userData.kGeo; }   // Stop: the wall as authored
   }

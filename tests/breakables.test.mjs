@@ -14,7 +14,7 @@ function house(yaw = 0) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('_chunk', new THREE.Float32BufferAttribute(ch, 1));
   const mesh = new THREE.Mesh(geo); wall.add(mesh); wall.name = 'wallB_test';
   wall.userData.chunks = JSON.stringify([0, 1, 2].map(i => ({ id: i, box: [0, -0.25, i, 1, 0, i + 1], hp: 20, anchored: i === 0, nb: [i - 1, i + 1].filter(n => n >= 0 && n < 3) })));
-  const handlers = {}, world = { solids: [], emitted: [], on: (n, f) => { handlers[n] = f; }, emit(...a) { this.emitted.push(a); if (handlers[a[0]]) handlers[a[0]](...a.slice(1)); } };
+  const handlers = {}, world = { scene: new THREE.Scene(), solids: [], emitted: [], on: (n, f) => { handlers[n] = f; }, emit(...a) { this.emitted.push(a); if (handlers[a[0]]) handlers[a[0]](...a.slice(1)); } };
   const b = new Breakables({ id: 'house', object3d: root }, {}, world); b.start();
   return { b, world, mesh, geo };
 }
@@ -49,4 +49,19 @@ test('Breakables: a weak hit chips (hp), a far one misses, the same blast cannot
   for (let i = 0; i < 20; i++) b.update(1 / 60);
   world.emit('blast', 10.5, 2.5, 5.1, 0.2, 1); assert.equal(b.alive, 2, 'the top chunk goes; the rest still stands on the anchor');
   world.emit('blast', 30, 2.5, 5, 0.2, 9); assert.equal(b.alive, 2);
+});
+
+test('Breakables: a dead chunk throws its own triangles out (gone after `life`); restore puts it back, collider and all', () => {
+  const { b, world, mesh, geo } = house();
+  world.emit('blast', 10.5, 2.5, 5.1, 0.2, 2);          // the top chunk
+  assert.equal(b.flying.length, 1); const piece = b.flying[0].piece;
+  assert.equal(piece.parent, world.scene); assert.equal(piece.geometry.index.count, 36, 'its 12 triangles');
+  const y0 = piece.position.y; for (let i = 0; i < 30; i++) b.update(1 / 60);
+  assert.ok(Math.abs(piece.position.x - 10.5) > 0.2 || piece.position.y !== y0, 'it moved');
+  for (let i = 0; i < 200; i++) b.update(1 / 60);
+  assert.equal(b.flying.length, 0); assert.equal(piece.parent, null);
+  assert.equal(b.restore('wallB_test', 2), true); assert.equal(b.alive, 3); assert.equal(world.solids.length, 3);
+  const p = mesh.geometry.attributes.position, o = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) assert.equal(p.getY(i), o.getY(i));
+  assert.equal(b.restore('wallB_test', 2), false, 'already whole');
 });

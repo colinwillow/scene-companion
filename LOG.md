@@ -107,3 +107,4 @@
 - 2026-10-27 — Shred World step 3 — DeckTricks + found ledges + fun boxes in the skateboard scene; 247 tests; checked headless (live session)
 - 2026-10-27 — weirdport walls step 1 — extraction map (docs/weirdport-walls-extraction.md) (live session)
 - 2026-10-27 — weirdport walls step 2 — Breakables + Melee blast; test house breakable; 250 tests; checked headless (live session)
+- 2026-10-27 — weirdport walls step 3a — Breakables debris + restore; 251 tests (live session)
