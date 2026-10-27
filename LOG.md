@@ -146,3 +146,4 @@
 - 2026-10-27 — Generator plug-ins part 1 — generators/*.gen.mjs registry, dev server /gen/list + POST /gen/<id> (?dry=1), OpenAI image gen saves to assets/generated/; 292 tests (live session)
 - 2026-10-27 — Generator plug-ins part 2 — Library Generate tab (search box = prompt, → 3D on pictures, tap a model to add), generators/tripo-model.gen.mjs (front view → mesh → texture → GLB); Library tabs scroll on phones; 293 tests; tab checked headless (live session)
 - 2026-10-27 — 2D part 1 — settings.camera2d (side/top, narrow lens, follows), PlayerController plane: side (z pinned, walls push in x), Side Hop scene; 294 tests; checked headless (live session)
+- 2026-10-27 — 2D part 2 — sprite variant (sheet, frames, clips) + SpriteAnimator, Blob Hop scene, tools/make-sprite.mjs; 299 tests; checked headless (live session)

@@ -14,6 +14,7 @@ import { applyLook, applyLookTo } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
 import { proceduralTexture } from './textures.js';
+import { frameUV, normClips } from './sprites.js';
 import { characterVariant } from './character.js';
 import { childIdFor, mergeTags, matchesQuery, spawnId } from './tree.js';
 import { createTime, createRng, playSeed } from './time.js';
@@ -130,6 +131,7 @@ export class World {
       root.userData.clips = gltf.animations;
       return root;
     }
+    if (variant.sprite) return this.buildSprite(variant);
     const s = variant.size || [1, 1, 1];
     const geo = {
       box: () => new THREE.BoxGeometry(...s),
@@ -169,6 +171,34 @@ export class World {
     mesh.castShadow = variant.castShadow !== false && !(variant.opacity < 1);
     mesh.receiveShadow = !(variant.opacity < 1);
     return mesh;
+  }
+
+  // A sprite (runtime/sprites.js): a quad standing on the origin, facing +z whatever way the body turns, one frame of its sheet
+  // showing. root.userData.sprite = { clips, setFrame(i), face(yaw) } — SpriteAnimator drives it; the texture is per instance.
+  async buildSprite(variant) {
+    this.spriteTex ||= new Map();
+    if (!this.spriteTex.has(variant.sprite)) this.spriteTex.set(variant.sprite, new THREE.TextureLoader().loadAsync(variant.sprite).catch(() => null));
+    const base = await this.spriteTex.get(variant.sprite);
+    const [cols, rows] = variant.frames || [1, 1], [w, h] = variant.size || [1, 1];
+    const tex = base ? base.clone() : null;
+    if (tex) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      if (variant.pixel !== false) { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; }
+      tex.needsUpdate = true;
+    }
+    const opts = { map: tex, color: tex ? '#ffffff' : '#ff00ff', alphaTest: 0.5, side: THREE.DoubleSide };
+    const mat = variant.lit ? new THREE.MeshStandardMaterial({ ...opts, roughness: 1 }) : new THREE.MeshBasicMaterial(opts);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h).translate(0, h / 2, 0), mat);
+    mesh.castShadow = false; mesh.receiveShadow = !!variant.lit;
+    const root = new THREE.Group(); root.add(mesh);
+    let frame = -1, flip = 1;
+    const sprite = { clips: normClips(variant.clips), cols, rows, mesh,
+      setFrame(i) { if (i === frame || !tex) return; frame = i; const uv = frameUV(i, cols, rows); tex.offset.fromArray(uv.offset); tex.repeat.fromArray(uv.repeat); },
+      face(yaw) { const sx = Math.sin(yaw); if (Math.abs(sx) > 0.01) flip = sx < 0 ? -1 : 1; mesh.rotation.y = -yaw; mesh.scale.x = (variant.flip === false ? 1 : flip) * (variant.mirror ? -1 : 1); },   // the art faces right; mirror: it faces left
+      get frame() { return frame; } };
+    sprite.setFrame(variant.frame ?? 0);
+    root.userData.sprite = sprite;
+    return root;
   }
 
   buildLight(l) {
@@ -298,6 +328,7 @@ export class World {
     if (stems.length && obj.userData.clips && variant?.glb) obj.userData.clips = [...obj.userData.clips, ...await this.loadMotions(obj.children[0], variant, stems)];
     const variants = mergeClipVariants(character, e);
     if (Object.keys(variants).length && obj.userData.clips?.length) obj.userData.clips = [...obj.userData.clips, ...this.clipVariants(obj, obj.userData.clips, variants, character?.masks)];
+    if (obj.userData.sprite) ent.sprite = obj.userData.sprite;
     if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle,
       { masks: character?.masks, events: mergeEvents(character, e), emit: (name, info) => this.emit(name, id, info) });
     this.entities.set(id, ent);

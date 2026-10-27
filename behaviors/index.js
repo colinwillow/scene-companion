@@ -9,6 +9,7 @@ import { NavGrid } from '../runtime/nav.js';
 import { placeCollider } from '../runtime/colliders.js';
 import { ik2 } from '../runtime/ik.js';
 import { yawOf } from '../runtime/yaw.js';
+import { clipFrame, spriteRole } from '../runtime/sprites.js';
 import { TriGrid, meshTriangles } from '../runtime/trimesh.js';
 export { yawOf };
 export { topAt };
@@ -2680,6 +2681,28 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+// Plays a sprite sheet's clips (an asset variant with `sprite`, runtime/sprites.js) by role, like Animator does for a rig:
+// with a PlayerController on the body it picks idle / run / jump / fall, otherwise it plays `clip`. It keeps the quad facing
+// the camera's plane and flips it to the way the body faces. `clip` set and `auto` off = always that clip (a coin spinning).
+export class SpriteAnimator extends Behavior {
+  static schema = {
+    clip:  { type: 'string', default: 'idle' },
+    auto:  { type: 'boolean', default: true },     // pick the clip from the PlayerController's state
+    speed: { type: 'number', default: 1, min: 0, max: 4, step: 0.1 },   // × every clip's fps
+  };
+  start() { this.t = 0; this.cur = null; const p = this.entity.object3d.position; this.last = [p.x, p.z]; }
+  update(dt) {
+    const sp = this.entity.sprite; if (!sp) return;
+    const o = this.entity.object3d, p = o.position, pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    const speed = dt > 0 ? Math.hypot(p.x - this.last[0], p.z - this.last[1]) / dt : 0; this.last = [p.x, p.z];
+    const want = this.params.auto && pc ? spriteRole({ grounded: pc.grounded, vy: pc.vy, speed }, sp.clips) : this.params.clip;
+    if (want !== this.cur) { this.cur = want; this.t = 0; }
+    this.t += dt * this.params.speed;
+    const c = sp.clips[this.cur]; if (c) sp.setFrame(clipFrame(c, this.t));
+    sp.face(yawOf(o));
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, SpriteAnimator, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

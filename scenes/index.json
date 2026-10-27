@@ -53,5 +53,10 @@
   "file": "./scenes/side-hop.scene.json",
   "title": "Side Hop (2D)",
   "note": "side-scroller camera; run right, jump, double jump"
+ },
+ {
+  "file": "./scenes/blob-hop.scene.json",
+  "title": "Blob Hop (2D sprites)",
+  "note": "a sprite-sheet character: idle, run, jump, fall frames"
  }
 ]
