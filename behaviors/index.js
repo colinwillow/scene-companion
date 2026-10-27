@@ -604,6 +604,9 @@ export class Reactions extends Behavior {
       case 'start': return !this.started;
       case 'timer': st.acc = (st.acc || 0) + dt; if (st.acc >= Math.max(0.05, w.every)) { st.acc = 0; return true; } return false;
       case 'event': this.listen(w.name); return (this.heard[w.name] || []).some(args => !w.from || args[0] === w.from);
+      case 'frame': this.listen(w.name); return (this.heard[w.name] || []).some(args => args[0] === this.entity.id);
+      case 'struck': this.listen('struck'); return (this.heard.struck || []).some(args => args[1] === this.entity.id);
+      case 'var': { const ok = compare(this.world.vars?.[w.var] ?? 0, w.op || '>=', w.value ?? 0), was = st.ok ?? false; st.ok = ok; return ok && !was; }
       case 'near': case 'bumped': case 'leave': {
         const inside = this.dist(w.target) <= w.radius, was = st.inside ?? false; st.inside = inside;
         return w.type === 'leave' ? (was && !inside) : (inside && !was);
@@ -638,6 +641,10 @@ export class Reactions extends Behavior {
       case 'spawn': if (a.prefab && W.spawn) { const p = me.object3d.position, o = a.offset || [0, 0, 0]; W.spawn(a.prefab, { position: [p.x + o[0], p.y + o[1], p.z + o[2]] })?.catch?.(() => {}); } break;
       case 'hide': case 'show': { const t = this.target(a.target); if (t) t.object3d.visible = a.type === 'show'; break; }
       case 'destroy': { const t = this.target(a.target); if (t) (W.destroy ? W.destroy(t.id) : (t.object3d.visible = false)); break; }
+      case 'hud': W.emit('hud', String(a.text ?? ''), +a.seconds || 2); break;
+      case 'shake': W.emit('shake', +a.amount || 0.3, +a.seconds || 0.3); break;
+      case 'end': W.emit('end', String(a.text ?? '')); break;
+      case 'load': if (a.scene) W.emit('loadScene', String(a.scene)); break;
     }
   }
   update(dt) {

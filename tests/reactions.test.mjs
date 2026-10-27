@@ -60,3 +60,21 @@ test('MCP add_reaction adds a Reactions behavior and validates the rule', () => 
   runCommand(data, 'add_reaction', { id: 'npc', rule: { when: { type: 'timer', every: 1 }, do: [{ type: 'emit', name: 'tick' }] } }, { prefabs: {} });
   assert.equal(data.entities[0].behaviors[0].params.rules.length, 2);
 });
+
+test('v1: frame, struck and var triggers; hud / shake / end / load actions; graph view', async () => {
+  const { graphSvg } = await import('../runtime/reactions.js');
+  const me = fakeEntity('me'), w = fakeWorld([me]); w.vars = { coins: 0 };
+  const out = []; for (const n of ['hud', 'shake', 'end', 'loadScene']) w.on(n, (...a) => out.push([n, ...a]));
+  const r = attach(Reactions, me, { rules: [
+    { when: { type: 'frame', name: 'hit' }, do: [{ type: 'shake', amount: 0.2, seconds: 0.1 }] },
+    { when: { type: 'struck' }, do: [{ type: 'hud', text: 'Ow', seconds: 1 }] },
+    { when: { type: 'var', var: 'coins', op: '>=', value: 3 }, do: [{ type: 'end', text: 'You win!' }, { type: 'load', scene: './scenes/x.scene.json' }] }] }, w);
+  r.update(1 / 60);
+  w.emit('hit', 'someone_else', { clip: 'punch' }); w.emit('hit', 'me', { clip: 'punch' }); r.update(1 / 60);
+  w.emit('struck', 'hero', 'me', 1); r.update(1 / 60);
+  w.vars.coins = 2; r.update(1 / 60); w.vars.coins = 3; r.update(1 / 60); r.update(1 / 60);
+  assert.deepEqual(out, [['shake', 0.2, 0.1], ['hud', 'Ow', 1], ['end', 'You win!'], ['loadScene', './scenes/x.scene.json']]);
+  const svg = graphSvg([{ when: { type: 'near', target: 'player', radius: 3 }, if: { once: true }, do: [{ type: 'say', text: 'Hi <you>' }, { type: 'look', target: 'player' }] }]);
+  assert.match(svg, /^<svg/); assert.match(svg, /When near/); assert.match(svg, />If</); assert.match(svg, /Hi &lt;you&gt;/);
+  assert.equal((svg.match(/class="n do"/g) || []).length, 2);
+});

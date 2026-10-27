@@ -73,3 +73,4 @@
 - 2026-10-27 — Reactions v0 — when/if/do rules, world variables, inspector rule editor, MCP add_reaction, speech bubbles, kitchen-sink NPC demo; 173 tests; checked headless game + editor (live session)
 - 2026-10-27 — In-place add/delete — patchScene + world.add; Duplicate 130 s → 3 s headless, undo 2.4 s; 175 tests (live session)
 - 2026-10-27 — Re-parent in place — patchScene re-parents without a rebuild; Parent picker + List drag use it (live session)
+- 2026-10-27 — Reactions v1 — frame/struck/var triggers, hud/shake/end/load actions, Variables tab, node-graph view; 176 tests; checked headless (live session)

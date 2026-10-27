@@ -486,6 +486,21 @@
                     "value": 1
                   }
                 ]
+              },
+              {
+                "when": {
+                  "type": "var",
+                  "var": "coins",
+                  "op": ">=",
+                  "value": 1
+                },
+                "do": [
+                  {
+                    "type": "hud",
+                    "text": "The robot is impressed.",
+                    "seconds": 2
+                  }
+                ]
               }
             ]
           }
@@ -1005,6 +1020,30 @@
           "type": "Stompable",
           "params": {
             "hitStop": 0.07
+          }
+        },
+        {
+          "type": "Reactions",
+          "params": {
+            "rules": [
+              {
+                "when": {
+                  "type": "struck"
+                },
+                "do": [
+                  {
+                    "type": "shake",
+                    "amount": 0.25,
+                    "seconds": 0.3
+                  },
+                  {
+                    "type": "hud",
+                    "text": "Bonk!",
+                    "seconds": 1
+                  }
+                ]
+              }
+            ]
           }
         }
       ]

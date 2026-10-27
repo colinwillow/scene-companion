@@ -93,6 +93,10 @@
   .ruleRow input[type=number] { width:58px; } .ruleRow input[type=text] { width:96px; }
   .ruleFields { display:contents; } .ruleFields label { display:flex; gap:3px; align-items:center; color:var(--dim); }
   .ruleAdd { align-self:flex-start; font-size:12px; }
+  .graphBox { overflow:auto; max-height:40vh; border:1px solid var(--line); border-radius:8px; padding:4px; }
+  .rulegraph .n { fill:#1a2230; stroke:var(--line); } .rulegraph .when { stroke:#5ab0ff; } .rulegraph .if { stroke:#f5c04a; } .rulegraph .do { stroke:#3ddc84; }
+  .rulegraph .t { fill:var(--text); font:700 12px system-ui,sans-serif; } .rulegraph .s { fill:var(--dim); font:10px system-ui,sans-serif; }
+  .rulegraph .w { fill:none; stroke:var(--dim); stroke-width:1.5; }
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
@@ -124,7 +128,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
@@ -427,6 +431,7 @@ function control(def, value, onChange) {
 
 // Reactions editor: "When ▾ [fields]  If [once] [cooldown] [chance]  Do ▾ [fields] …" per rule, dropdowns from the
 // vocabulary in runtime/reactions.js (no code). Every change hands back a fresh copy of the whole list.
+var showGraph = false;   // remembered across objects while the editor is open
 function rulesEditor(rules, onChange) {
   const wrap = document.createElement('div'); wrap.className = 'rules';
   const commit = () => { onChange(structuredClone(rules)); draw(); };
@@ -485,9 +490,13 @@ function rulesEditor(rules, onChange) {
       card.append(addA);
       wrap.append(card);
     });
+    const bar = document.createElement('div'); bar.className = 'ruleRow';
     const addR = document.createElement('button'); addR.className = 'ruleAdd'; addR.textContent = '+ rule';
     addR.onclick = () => { rules.push(RX.newRule()); commit(); };
-    wrap.append(addR);
+    const gr = document.createElement('button'); gr.className = 'ruleAdd'; gr.textContent = showGraph ? '◇ Hide graph' : '◇ Graph';
+    gr.onclick = () => { showGraph = !showGraph; draw(); };
+    bar.append(addR, gr); wrap.append(bar);
+    if (showGraph && rules.length) { const g = document.createElement('div'); g.className = 'graphBox'; g.innerHTML = RX.graphSvg(rules); wrap.append(g); }
   }
   draw();
   return wrap;
@@ -1011,6 +1020,28 @@ async function renderLib() {
     }
     const n = rows.filter(r => r.installed).length;
     $('libCount').textContent = playing ? 'Stop play to add things' : `${n} of ${rows.length} pack${rows.length === 1 ? '' : 's'} installed in this project — tap an item to add it at the view centre`;
+  } else if (libTab === 'vars') {
+    // World variables (settings.variables): what Reactions read and change — coins, keys, flags. Values are numbers.
+    const vars = data.settings.variables || {};
+    ul.innerHTML = '';
+    $('libCount').textContent = `${Object.keys(vars).length} variable(s) — Reactions can test, set and add to these`;
+    for (const [k, v] of Object.entries(vars)) {
+      const li = document.createElement('li');
+      li.innerHTML = '<span></span><input type="number" step="any" style="width:80px"><button class="packbtn">✕</button>';
+      li.firstChild.textContent = k;
+      const inp = li.querySelector('input'); inp.value = v;
+      inp.onchange = async () => { if (playing) return; record(); data.settings.variables[k] = +inp.value; await refresh(); };
+      li.querySelector('button').onclick = async () => { if (playing) return; record(); delete data.settings.variables[k]; await refresh(); renderLib(); };
+      ul.append(li);
+    }
+    const add = document.createElement('li'); add.innerHTML = '<span>+ variable</span>';
+    add.onclick = async () => {
+      const name = (prompt('Variable name (letters, digits, _):') || '').trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || playing) return;
+      record(); (data.settings.variables ||= {})[name] = 0; await refresh(); renderLib();
+    };
+    ul.append(add);
+    return;
   } else if (libTab === 'motions') {
     const ent = world.getEntity(selectedId);
     if (!ent?.anim) { $('libCount').textContent = 'Select an animated object to see its motions'; ul.innerHTML = ''; return; }
