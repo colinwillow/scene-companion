@@ -295,6 +295,8 @@ export class Skater extends Behavior {
     catchR:   { type: 'number', default: 0.6, min: 0.05, max: 3, step: 0.05 },
     minCos:   { type: 'number', default: 0.35, min: 0, max: 1, step: 0.05 },
     grindDrag:{ type: 'number', default: 0.08, min: 0, max: 3, step: 0.01 },
+    tuckClip: { type: 'string', default: 'tuck' },       // held during a flip
+    flipShare:{ type: 'number', default: 0.85, min: 0.3, max: 1, step: 0.05 },   // the flip takes this share of the air she has left
     grindLeft: { type: 'string', default: 'grind_left' },
     grindRight:{ type: 'string', default: 'grind_right' },
   };
@@ -318,6 +320,8 @@ export class Skater extends Behavior {
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], mag = Math.hypot(move[0], move[1]);
     const v = this.v;
     if (this.grind) { this.stepGrind(dt, input); return this.pose(dt); }
+    if (input.trick) { const t = input.trick; input.trick = null; if (!this.grounded) this.startFlip(t); }
+    if (this.flip) this.flip.t += dt;
     if (input.jump) {
       input.jump = false;
       if (this.grounded) { const k = P.ollie; v[0] += this.n[0] * k * 0.3; v[1] += k; v[2] += this.n[2] * k * 0.3; this.leave(); this.world.emit('jump'); }
@@ -374,6 +378,7 @@ export class Skater extends Behavior {
         p.x = nx; p.z = nz; p.y = g.y; this.n = g.n; this.grounded = true;
         const vn = dot(v, g.n); for (let i = 0; i < 3; i++) v[i] -= g.n[i] * vn;
         if (this.airT > 0.25) this.world.emit('land');
+        if (this.flip) { if (this.flip.t >= this.flip.dur * 0.8) this.world.emit('landtrick', this.entity.id, this.flip.kind); this.flip = null; }   // short of round: the pose eases out of what is left
         this.airT = 0;
       } else { p.x = nx; p.y = ny; p.z = nz; }
     }
@@ -388,6 +393,26 @@ export class Skater extends Behavior {
     }
     if (p.y < P.killY) { [p.x, p.y, p.z] = this.spawn; this.v = [0, 0, 0]; this.grounded = true; this.n = [0, 1, 0]; this.world.emit('respawn'); }
     this.pose(dt);
+  }
+  // FLIPS (her FLIPP / startFlip): a left flick in the air — up a front flip, down a back flip, sideways a 360 — timed to the
+  // air she has LEFT (flipShare of the time to come back down), so a late flick is quick and an early one takes its time. Too
+  // little air is no flip at all, never a guaranteed bail. One at a time.
+  startFlip([fx, fy]) {
+    if (this.flip || this.grind) return;
+    const P = this.params, p = this.entity.object3d.position, g = P.gravity, vy = this.v[1];
+    const floor = this.floor(p.x, p.z, p.y).y, fall = Math.max(0, p.y - floor);
+    const tAir = (vy + Math.sqrt(vy * vy + 2 * g * fall)) / g, dur = tAir * P.flipShare;
+    if (dur < 0.35) return;
+    const kind = Math.abs(fy) >= Math.abs(fx) ? (fy < 0 ? 'front' : 'back') : (fx > 0 ? 'spinR' : 'spinL');
+    this.flip = { kind, t: 0, dur };
+    this.world.emit('trick', this.entity.id, kind === 'front' ? 'FRONT FLIP' : kind === 'back' ? 'BACK FLIP' : '360');
+  }
+  // the extra turn a flip adds to her pose: about her own left axis (+X: a front flip pitches the nose down) or her up axis
+  flipQ(Q, V) {
+    const F = this.flip; if (!F) return null;
+    const u = Math.min(1, F.t / F.dur), e = u * u * (3 - 2 * u), a = 2 * Math.PI * e;
+    return F.kind === 'front' ? new Q().setFromAxisAngle(new V(1, 0, 0), a) : F.kind === 'back' ? new Q().setFromAxisAngle(new V(1, 0, 0), -a)
+      : new Q().setFromAxisAngle(new V(0, 1, 0), F.kind === 'spinR' ? -a : a);
   }
   // GRINDS. Caught on the way down: the frame's path (from → to) passes the bar's top within catchR in plan, at a glancing angle.
   catchRail(p, to) {
@@ -406,7 +431,7 @@ export class Skater extends Behavior {
       const dir = Math.sign(v[0] * u[0] + v[1] * u[1] + v[2] * u[2]) || 1;
       const right = [-u[2] * dir, u[0] * dir], drift = v[0] * right[0] + v[2] * right[1];   // her right is (-fz, fx)
       this.grind = { rail, a, u, L, t, dir, speed: Math.max(1.5, Math.abs(v[0] * u[0] + v[1] * u[1] + v[2] * u[2])), side: drift >= 0 ? 'right' : 'left' };
-      this.grounded = false; this.heading = Math.atan2(u[0] * dir, u[2] * dir);
+      this.grounded = false; this.heading = Math.atan2(u[0] * dir, u[2] * dir); this.flip = null;
       [p.x, p.y, p.z] = q;
       this.world.emit('grind', this.entity.id, this.grind.side);
       return true;
@@ -448,7 +473,7 @@ export class Skater extends Behavior {
     const back = this.fakie && has(P.backPush);   // only with backward clips; otherwise fakie plays the forward ones
     let clip, rate = 1;
     if (this.grind) return { clip: pick(this.grind.side === 'right' ? P.grindRight : P.grindLeft, P.airClip), rate: 1, flip: 0 };
-    if (!this.grounded) clip = pick(P.airClip, roleClip('', 'jump', R));
+    if (!this.grounded) clip = this.flip && /front|back/.test(this.flip.kind) ? pick(P.tuckClip, P.airClip) : pick(P.airClip, roleClip('', 'jump', R));
     else if (sp < P.idleBelow) clip = back ? pick(P.backIdle, P.idleClip) : pick(P.idleClip, roleClip('', 'idle', R));
     else if (this.pushing) {
       clip = back ? P.backPush : sp > P.hardAt ? pick(P.hardClip, roleClip('', 'run', R)) : pick(P.pushClip, roleClip('', 'walk', R));
@@ -462,9 +487,10 @@ export class Skater extends Behavior {
     const o = this.entity.object3d, n = this.grounded ? this.n : [0, 1, 0], Q = o.quaternion.constructor, V = o.position.constructor;
     const m = this.moves();
     const tilt = new Q().setFromUnitVectors(new V(0, 1, 0), new V(n[0], n[1], n[2])), yaw = new Q().setFromAxisAngle(new V(0, 1, 0), this.heading + m.flip);
-    const want = tilt.multiply(yaw);
+    const want = tilt.multiply(yaw), fq = this.flipQ(Q, V);
     const snap = m.flip !== (this.lastFlip ?? 0); this.lastFlip = m.flip;
-    if (snap) o.quaternion.copy(want); else o.quaternion.slerp(want, 1 - Math.exp(-(this.grounded ? 14 : 6) * dt));
+    if (fq) o.quaternion.copy(want.multiply(fq));        // a flip is driven exactly, no easing
+    else if (snap) o.quaternion.copy(want); else o.quaternion.slerp(want, 1 - Math.exp(-(this.grounded ? 14 : 6) * dt));
     const a = this.entity.anim; if (!a || this.entity.animHold > 0 || !m.clip) return;
     a.play(m.clip, { fade: 0.2 });
     a.action?.()?.setEffectiveTimeScale?.(m.rate);

@@ -111,3 +111,23 @@ test('grind: a tilted rail is a down rail — she speeds up on it; a tap ollies 
   assert.ok(sk.grind, 'grinding'); w.input.jump = true; sk.update(1 / 60);
   assert.equal(sk.grind, null); assert.ok(sk.v[1] > 5, 'popped off');
 });
+
+test('flips: a flick up in the air front-flips her, timed to land round; too little air is no flip', async () => {
+  const { w, sk } = await run(railScene(), 0.01);
+  const e = w.getEntity('player'), o = e.object3d; sk.grind = null;
+  o.position.set(10, 0, 0); sk.grounded = true; sk.v = [0, 0, 0]; sk.heading = 0;
+  const done = []; w.on('landtrick', (_, k) => done.push(k));
+  w.input.jump = true; sk.update(1 / 60);                     // ollie (8 m/s → ~0.8 s of air)
+  w.input.trick = [0, -1]; sk.update(1 / 60);
+  assert.equal(sk.flip?.kind, 'front');
+  let maxTurn = 0;
+  for (let i = 0; i < 120 && !sk.grounded; i++) {
+    sk.update(1 / 60);
+    const up = new (o.position.constructor)(0, 1, 0).applyQuaternion(o.quaternion);
+    maxTurn = Math.max(maxTurn, Math.acos(Math.max(-1, Math.min(1, up.y))));
+  }
+  assert.ok(sk.grounded, 'landed'); assert.ok(maxTurn > 3, `went upside down, ${maxTurn.toFixed(2)} rad`);
+  assert.deepEqual(done, ['front'], 'landed it round');
+  sk.v = [0, 1, 0]; sk.grounded = false; o.position.y = 0.05;
+  w.input.trick = [0, -1]; sk.update(1 / 60); assert.equal(sk.flip, null, 'no air left: no flip');
+});

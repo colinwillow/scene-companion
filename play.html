@@ -104,14 +104,14 @@ const input = { move: [0, 0], jump: false, attack: null };
 const stickL = { x: 0, y: 0, down: false }, stickR = { x: 0, y: 0, down: false };
 const YAW_RATE = 2.9;                        // rad/s at full right-stick deflection (rollergirl's CAM.yawRate)
 
-addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; if (e.code === 'KeyC') input.charge = true; });
+addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; if (e.code === 'KeyC') input.charge = true; if (e.code === 'KeyR') input.trick = [0, -1]; if (e.code === 'KeyV') input.trick = [0, 1]; });
 addEventListener('keyup', e => { keys.delete(e.code); if (e.code === 'KeyC') input.charge = false; });
 
 // Twin sticks: left = move, right = orbit (yaw only); a TAP jumps — right stick, or either (settings.controls.jumpTap).
 // A right-stick FLICK strikes in the flicked direction (Melee behavior); hold and the left flick stay free.
 const jumpTap = () => { input.jump = true; $('hint').style.opacity = 0; };
 const tapEither = () => (data.settings?.controls?.jumpTap === 'either');
-bindStick($('stkL'), stickL, { onTap: () => { if (tapEither()) jumpTap(); }, onHold: on => { input.charge = on; } });   // left hold in place = charge (Zoom)
+bindStick($('stkL'), stickL, { onTap: () => { if (tapEither()) jumpTap(); }, onHold: on => { input.charge = on; }, onFlick: (fx, fy) => { input.trick = [fx, fy]; } });   // left hold = charge (Zoom); left flick = trick (Skater flips)   // left hold in place = charge (Zoom)
 bindStick($('stkR'), stickR, { onTap: jumpTap, onFlick: (fx, fy) => { input.attack = [fx, fy]; } });   // right flick = strike that way (Melee)
 for (const p of [$('stkL'), $('stkR')]) p.addEventListener('pointerdown', () => ($('hint').style.opacity = 0));
 const cv = renderer.domElement;
@@ -129,6 +129,7 @@ function readInput() {
   world.input.move = [rx * ix - fx * iy, rz * ix - fz * iy];
   if (input.jump) { world.input.jump = true; input.jump = false; }
   world.input.charge = !!input.charge;
+  if (input.trick) { world.input.trick = input.trick; input.trick = null; }   // screen direction: [x right, y down]
   if (input.attack) {                        // screen flick → world direction, same mapping as the move stick; [0,0] = facing
     const [ax, ay] = input.attack, l = Math.hypot(ax, ay) || 1;
     world.input.attack = l > 1e-3 && (ax || ay) ? [(rx * ax - fx * ay) / l, (rz * ax - fz * ay) / l] : [0, 0];
