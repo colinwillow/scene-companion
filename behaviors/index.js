@@ -785,6 +785,93 @@ export class DeckTricks extends Behavior {
   destroy() { if (this.homeQ) { this.entity.object3d.quaternion.copy(this.homeQ); this.entity.object3d.position.copy(this.homeP); } }
 }
 
+// weirdport's breakable walls (kitBlast / kitKill / kitFlood, docs/weirdport-walls-extraction.md), on a building whose export
+// carries Colin's `wallB_*` pieces: every node with a `chunks` table (extras, a JSON string) is a wall of chunks. Each live
+// chunk is a turned box in `world.solids` (his boxes are Blender Z-up: (x, y, z) → (x, z, −y), then the wall's own matrix).
+// A world `blast(x, y, z, r, dmg)` (Melee emits one where it hits) damages every chunk it reaches, `dmgScale` × dmg against his
+// hp 20. A dead chunk's triangles collapse to its own centre (zero area: nothing to draw) and its collider goes; then a flood
+// from the ANCHORED chunks through `nb` finds what is left hanging, which falls a moment later, staggered, so a hole spreads.
+export class Breakables extends Behavior {
+  static schema = {
+    dmgScale: { type: 'number', default: 12, min: 0, max: 100, step: 0.5 },   // weirdport's KIT.dmg: game damage → his hp
+    fall:     { type: 'number', default: 0.28, min: 0, max: 3, step: 0.01 },  // s an orphaned chunk hangs before it goes
+    cool:     { type: 'number', default: 0.15, min: 0, max: 2, step: 0.01 },  // s a chunk ignores further hits (one blast, one hit)
+  };
+  start() {
+    this.walls = []; this.solids = [];
+    const o = this.entity.object3d; o.updateMatrixWorld?.(true);
+    const nodes = []; o.traverse?.(n => { if (n.userData?.chunks) nodes.push(n); });
+    for (const node of nodes) {
+      let recs; try { recs = JSON.parse(node.userData.chunks); } catch { continue; }
+      const meshes = []; node.traverse(m => { if (m.isMesh && m.geometry?.attributes?._chunk) meshes.push(m); });
+      const Q = node.quaternion.constructor, V = node.position.constructor;
+      const wq = node.getWorldQuaternion(new Q()), ws = node.getWorldScale(new V()), yaw = 2 * Math.atan2(wq.y, wq.w);
+      const W = { node, meshes, chunks: [], byId: new Map(), cloned: false };
+      for (const r of recs) {
+        const b = r.box, lo = [Math.min(b[0], b[3]), Math.min(b[2], b[5]), Math.min(-b[1], -b[4])], hi = [Math.max(b[0], b[3]), Math.max(b[2], b[5]), Math.max(-b[1], -b[4])];
+        const lc = lo.map((v, i) => (v + hi[i]) / 2), c = node.localToWorld(new V(...lc)), size = [(hi[0] - lo[0]) * ws.x, (hi[1] - lo[1]) * ws.y, (hi[2] - lo[2]) * ws.z];
+        const ch = { id: r.id, hp: r.hp || 20, hp0: r.hp || 20, anchored: !!r.anchored, nb: r.nb || [], lc, c: [c.x, c.y, c.z], r: Math.hypot(...size) / 2, dead: false, fall: 0, coolT: 0, wall: W };
+        const sol = Object.create(Solid.prototype);      // a Solid with no entity of its own (CollisionMesh's pattern)
+        sol.world = this.world; sol.params = { size, anchor: 'center', slope: false, shape: 'box', rotated: true, layer: 'default' };
+        sol.entity = { id: `${this.entity.id}#${node.name}:${r.id}`, owner: this.entity.id, chunk: ch, object3d: { position: { x: c.x, y: c.y, z: c.z }, rotation: { x: 0, y: yaw, z: 0 } } };
+        ch.solid = sol; W.chunks.push(ch); W.byId.set(ch.id, ch); this.solids.push(sol);
+      }
+      this.walls.push(W);
+    }
+    (this.world.solids ||= []).push(...this.solids);
+    this.world.on?.('blast', (x, y, z, r, dmg) => this.blast(x, y, z, r, dmg));
+  }
+  get alive() { return this.walls.reduce((n, W) => n + W.chunks.filter(c => !c.dead).length, 0); }
+  blast(x, y, z, r = 0.5, dmg = 1) {
+    const D = dmg * this.params.dmgScale; let hit = 0; if (D <= 0) return 0;
+    for (const W of this.walls) {
+      let wh = 0;
+      for (const c of W.chunks) {
+        if (c.dead || c.coolT > 0) continue;
+        if (Math.hypot(c.c[0] - x, c.c[1] - y, c.c[2] - z) > r + c.r) continue;
+        c.hp -= D; c.coolT = this.params.cool; wh++;
+        if (c.hp <= 0) this.kill(c, true);
+      }
+      if (wh) { hit += wh; this.flood(W); }
+    }
+    return hit;
+  }
+  kill(c, loud) {
+    if (c.dead) return false;
+    const W = c.wall; c.dead = true;
+    if (!W.cloned) { W.cloned = true; for (const m of W.meshes) { m.userData.kGeo = m.geometry; m.geometry = m.geometry.clone(); } }   // the mesh is SHARED by several walls
+    for (const m of W.meshes) {
+      const pos = m.geometry.attributes.position, ch = m.geometry.attributes._chunk; let touched = false;
+      for (let i = 0; i < ch.count; i++) if (Math.round(ch.getX(i)) === c.id) { pos.setXYZ(i, c.lc[0], c.lc[1], c.lc[2]); touched = true; }
+      if (touched) pos.needsUpdate = true;
+    }
+    const all = this.world.solids || [], i = all.indexOf(c.solid); if (i >= 0) all.splice(i, 1);
+    this.world.emit('chunk', this.entity.id, W.node.name, c.id, loud ? 1 : 0, ...c.c);
+    return true;
+  }
+  flood(W) {
+    const live = W.chunks.filter(c => !c.dead), seen = new Set(), q = live.filter(c => c.anchored);
+    for (const c of q) seen.add(c.id);
+    while (q.length) for (const id of q.pop().nb) { const n = W.byId.get(id); if (n && !n.dead && !seen.has(id)) { seen.add(id); q.push(n); } }
+    let n = 0; for (const c of live) if (!seen.has(c.id) && !c.fall) c.fall = this.params.fall * (1 + n++ * 0.35);
+  }
+  update(dt) {
+    for (const W of this.walls) {
+      let fell = false;
+      for (const c of W.chunks) {
+        if (c.coolT > 0) c.coolT -= dt;
+        if (c.dead || !c.fall) continue;
+        if ((c.fall -= dt) <= 0) { this.kill(c, true); fell = true; }
+      }
+      if (fell) this.flood(W);                         // a chunk falling can orphan the one above it
+    }
+  }
+  destroy() {
+    const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); }
+    for (const W of this.walls || []) if (W.cloned) for (const m of W.meshes) if (m.userData.kGeo) { m.geometry.dispose?.(); m.geometry = m.userData.kGeo; delete m.userData.kGeo; }   // Stop: the wall as authored
+  }
+}
+
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
 // catches the lip — he hangs (`hangClip`). Tap: climb up over it (`climbClip`) and stand on top. Stick pulled away: let go.
 // Every distance is a share of his height (the PlayerController's `height`), so it fits any body.
@@ -1590,6 +1677,7 @@ export class Melee extends Behavior {
     hitDelay: { type: 'number', default: 0.15, min: 0, max: 1, step: 0.01 },    // s from swing to impact
     cooldown: { type: 'number', default: 0.45, min: 0, max: 3, step: 0.05 },
     damage:   { type: 'number', default: 1, min: 0, max: 100, step: 1 },
+    blastY:   { type: 'number', default: 1, min: 0, max: 3, step: 0.05 },      // m up from the feet where a swing breaks things
     turn:     { type: 'boolean', default: true },     // face the strike direction
     speed:    { type: 'number', default: 1.75, min: 0.25, max: 4, step: 0.05 },  // clip playback rate (weirdport plays Zap's strikes at 1.75)
     // combos (zap's katana): a chain of clips — a press during a swing is kept and throws the next one; a pause resets it
@@ -1661,6 +1749,8 @@ export class Melee extends Behavior {
       if (d > 1e-3 && (dx * dir[0] + dz * dir[1]) / d < cosHalf) continue;
       this.world.emit('struck', this.entity.id, e.id, P.damage);
     }
+    // and whatever breaks (Breakables: weirdport's walls) — a blast where the blade lands
+    const k = P.reach * 0.75; this.world.emit('blast', p.x + dir[0] * k, p.y + P.blastY, p.z + dir[1] * k, P.reach * 0.5, P.damage);
   }
 }
 
@@ -1890,6 +1980,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

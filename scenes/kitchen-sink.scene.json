@@ -1397,6 +1397,11 @@
         20,
         0,
         4
+      ],
+      "behaviors": [
+        {
+          "type": "Breakables"
+        }
       ]
     }
   ],
