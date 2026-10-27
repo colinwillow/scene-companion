@@ -93,6 +93,9 @@ Claude can see what you see. The tools include: list scene objects, get the sele
 - Privacy policy and accounts.
 - Apple's review rules for apps that run user-made HTML5 games (check them before committing to an iPhone app).
 
+## 7d. Engine scope
+Scene Companion is growing into a full engine on Three.js. `docs/ENGINE.md` is the subsystem checklist (from TheCherno's brief and standard engine architecture) with status and order; ROADMAP Stage 7 builds it.
+
 ## 8. Build stages
 1. **Format + runtime:** the scene file format, behavior base class and schema, and a loader that builds a Three.js scene from them. Prove it on one small demo game. *(v0 built: runtime/, behaviors/, scenes/kitchen-sink, index.html, tools/validate.mjs)*
 2. **Skill:** Claude follows the rules on a fresh vibe-coded game, and a validator checks them.

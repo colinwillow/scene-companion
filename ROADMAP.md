@@ -31,6 +31,20 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Goblin samurai, step 3+: one behavior per item from the extraction doc (each with a test and a demo in the stadium scene), then the dynamic hair/cape as a `Dynamics` behavior
 - [ ] Then the same extraction pass for the next game's pieces (Roller Girl skating, Shred World board, weirdport breakable walls, Zap blaster/DNA), one doc + one item at a time
 
+## Stage 7 — Engine core (docs/ENGINE.md; reorder freely against Stage 6)
+- [ ] Entities that spawn and nest: `world.spawn(prefab, {position, parent})` / `world.destroy(id)` from behaviors (runtime-only, never saved), `children` in scene files (editor hierarchy shows nesting, gizmo moves the subtree), tags + `world.find()`
+- [ ] Time: fixed-timestep gameplay update with interpolated render, `world.time.scale` (pause, hit-stop, slow-mo), `world.rng` seeded per Play
+- [ ] Collision queries: `world.raycast` / `world.sweep` for behaviors, collision layers, rotated boxes + spheres/capsules, colliders from a collision GLB
+- [ ] Animation layers + masks (upper/lower body) and frame events (`step`, `hit`) declared per clip in character.json
+- [ ] Performance basics: frustum culling back on (correct skinned bounds), InstancedMesh for repeated prefabs, `renderer.info` stats in the LIVE badge, per-tier budgets that warn in validate/route checks
+- [ ] AudioSource behavior: sound files, 3D positional, loop/volume/pitch in schema, music track + buses with sliders
+- [ ] Particles/VFX: pooled particle system + `Emitter` behavior (burst/continuous, editable in inspector); hit sparks, dust, smoke presets
+- [ ] Game UI/HUD authored in the scene (score, health bar, prompt, win/lose screens)
+- [ ] Game flow: game states, scene switching, spawn points/checkpoints, save/load progress
+- [ ] Camera entities (follow/orbit/fixed/rail + shake) replacing page-owned camera code
+- [ ] AI: grid/navmesh pathfinding + an editable state machine
+- [ ] Asset IDs: `.meta.json` with a stable id per asset so renames/moves don't break scenes
+
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
 Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.
 - [x] Sky + environment lighting: procedural sky (three's Sky addon) or gradient sky, PMREM environment from it, sun direction/colour from scene settings, filmic tone mapping. Make `pbr` look great by default.
