@@ -143,6 +143,18 @@ export class World {
         g.computeVertexNormals();
         return g;
       },
+      // a QUARTER PIPE: a curved transition rising toward +x (radius = height, `sweep` degrees, default 85), a flat deck
+      // behind it, width along z. Its curve is real triangles — give it a Surface to ride it (a Solid would be a box).
+      quarterpipe: () => {
+        const [w, h, d] = s, R = h, sweep = (variant.sweep ?? 85) * Math.PI / 180, n = 16, run = R * Math.sin(sweep), deck = Math.max(0.3, w - run);
+        const sh = new THREE.Shape(); sh.moveTo(-w / 2, -h / 2);
+        for (let i = 0; i <= n; i++) { const a = sweep * i / n; sh.lineTo(-w / 2 + R * Math.sin(a), -h / 2 + R * (1 - Math.cos(a))); }
+        const topY = -h / 2 + R * (1 - Math.cos(sweep));
+        sh.lineTo(-w / 2 + run + deck, topY); sh.lineTo(-w / 2 + run + deck, -h / 2); sh.lineTo(-w / 2, -h / 2);
+        const g = new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: false, curveSegments: 1 });
+        g.translate(0, 0, -d / 2); g.computeVertexNormals();
+        return g;
+      },
     }[variant.primitive]?.() || new THREE.BoxGeometry(...s);
     if (variant.pivot === 'bottom' && variant.primitive !== 'plane') geo.translate(0, s[1] / 2, 0);   // origin at the base: sits on what it's dropped on
     const mat = new THREE.MeshStandardMaterial({

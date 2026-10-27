@@ -327,6 +327,24 @@
           "roughness": 0.5
         }
       }
+    },
+    "qp": {
+      "variants": {
+        "web": {
+          "primitive": "quarterpipe",
+          "pivot": "bottom",
+          "size": [
+            3.4,
+            2.4,
+            6
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#c7d0db",
+          "roughness": 0.8,
+          "sweep": 55
+        }
+      }
     }
   },
   "entities": [
@@ -1053,6 +1071,39 @@
               0.12
             ]
           }
+        }
+      ]
+    },
+    {
+      "id": "qp_west",
+      "asset": "qp",
+      "position": [
+        8,
+        0,
+        6
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Surface"
+        }
+      ]
+    },
+    {
+      "id": "qp_east",
+      "asset": "qp",
+      "position": [
+        16,
+        0,
+        6
+      ],
+      "behaviors": [
+        {
+          "type": "Surface"
         }
       ]
     }

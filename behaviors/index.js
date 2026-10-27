@@ -7,6 +7,7 @@ import { topAt, walkShape } from '../runtime/collide.js';
 import { placeCollider } from '../runtime/colliders.js';
 import { ik2 } from '../runtime/ik.js';
 import { yawOf } from '../runtime/yaw.js';
+import { TriGrid, meshTriangles } from '../runtime/trimesh.js';
 export { yawOf };
 export { topAt };
 
@@ -236,6 +237,25 @@ export class CollisionMesh extends Behavior {
 }
 
 const STEP_UP = 0.35;
+
+// A walkable SURFACE made of this object's own triangles (Roller Girl's triangle floor, runtime/trimesh.js): ramps, bowls, hills
+// and stairs from Blender are stood on as drawn, not as boxes. Faces steeper than `maxSlope` are not floors (give walls a Solid).
+// PlayerController (and later the Skater) stands on every Surface in world.surfaces. Rebuilt when the object is moved.
+export class Surface extends Behavior {
+  static schema = {
+    maxSlope: { type: 'number', default: 60, min: 5, max: 85, step: 1 },   // degrees: steeper is a wall, not a floor
+    cell:     { type: 'number', default: 2, min: 0.25, max: 20, step: 0.25 },
+  };
+  start() { this.build(); (this.world.surfaces ||= []).push(this); }
+  destroy() { const l = this.world.surfaces; if (l) { const i = l.indexOf(this); if (i >= 0) l.splice(i, 1); } }
+  onMoved() { this.build(); }
+  build() {
+    this.grid = new TriGrid({ cell: this.params.cell, maxSlope: this.params.maxSlope });
+    this.count = 0;
+    for (const m of meshTriangles(this.entity.object3d, o => o.name !== '__outline')) this.count += this.grid.addPositions(m.pos, m.index);
+  }
+  groundAt(x, z, below) { return this.grid.groundAt(x, z, below); }
+}
 
 // Hang this object on a named bone of another entity's model — a katana in the goblin's hand, a hat on a head. The prop
 // is authored in that bone's frame (Colin's weapons are built round `weapon_root_right`), so it parents with identity;
@@ -912,10 +932,14 @@ export class PlayerController extends Behavior {
       const top = b.topNear(p.x, p.z, P.radius * 0.9);
       if (top <= p.y + (b.sloped ? STEP_UP : 0.05) && top > support) { support = top; supportIdx = i; }
     });
+    for (const sf of this.world.surfaces || []) {                          // triangle floors (Surface): slopes as drawn
+      const g = sf.groundAt(p.x, p.z, p.y + STEP_UP);
+      if (g && g.y > support) { support = g.y; supportIdx = -2; this.surfaceN = g.n; }
+    }
     if (this.vy > 0) for (const b of solids) {
       if (b.minY >= p.y + P.height - 0.01 && b.minY < ny + P.height && b.topNear(p.x, p.z, P.radius * 0.9) > -Infinity) { this.vy = 0; break; }
     }
-    const onRamp = supportIdx >= 0 && solids[supportIdx].sloped;
+    const onRamp = supportIdx === -2 || (supportIdx >= 0 && solids[supportIdx].sloped);
     if ((ny <= support || (onRamp && this.grounded && p.y - support < STEP_UP)) && this.vy <= 0) {   // ramps: stay stuck to the slope going down
       if (!this.grounded && this.airTime > 0.15) this.world.emit('land');
       p.y = support; this.vy = 0; this.grounded = true; this.airTime = 0; this.airJumpCount = 0;
@@ -1319,6 +1343,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

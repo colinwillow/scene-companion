@@ -92,3 +92,4 @@
 - 2026-10-27 — Goblin step 3i — stick HOLD gesture + Zoom (charge, dash, FOV kick); 219 tests (live session)
 - 2026-10-27 — Goblin step 3j — Duelist (Korajin duels you in the stadium); extraction doc status table; 223 tests; checked headless (live session)
 - 2026-10-27 — Roller Girl step 1 — docs/rollergirl-extraction.md (live session)
+- 2026-10-27 — Roller Girl step 2 — TriGrid + Surface behavior + quarterpipe primitive; PlayerController on triangle floors; 226 tests; checked headless (live session)
