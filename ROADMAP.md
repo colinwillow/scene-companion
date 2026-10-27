@@ -11,8 +11,16 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Level-building kit: a set of modular obstacle-course pieces (blocks, ledges, beams, ramps, poles, walls of standard sizes on a grid) as prefabs + grid snapping in the editor (toggle, 0.5 m / 15°), so Colin can hand-place a course instead of describing it. Target: his ninja-goblin parkour game.
 - [ ] Art direction: editable light entities in the editor (directional/point/spot: colour, intensity, shadows), a `Trigger` behavior (box volume → emits an event / activates entities) for enemy triggers, and a scatter brush for shrubs/trees/grass (tap-drag to paint prefab instances)
 - [ ] One-button sign-in: replace the paste-a-token Save with GitHub sign-in (OAuth device flow or a GitHub App; no token typing) — goal: an artist who doesn't know GitHub can open the app, tap "Connect GitHub", and save
-- [ ] [ask Colin first] Move the ninja-goblin game out of `zap` into its own repo, built as a Scene Companion game (scene file + behaviors), and use it as the real dogfood project from then on
 - [ ] Motion library: hook the Libraries "Motions" tab to `retarget-anims` (its MCP layer) so a clip can be retargeted onto a character from the editor; long-term: a character library where each character ships with its tuned animation set
+
+## Stage 6 — The platform: shared library + packs (SPEC §7b; after the playtest pass)
+- [ ] Inventory: `tools/inventory.mjs` scans Colin's repos (weirdport, zap, city, rollergirl, plutopia, peggy, blender-addons, retarget-anims, culture_war, robits…) for GLBs and writes `INVENTORY.md` + `inventory.json`: path, rig (joints, Mixamo?), height, clips, size, draco/ktx, duplicates across repos, status (raw / imported / full asset / packed). Re-runnable; validate warns when an imported asset is missing from it.
+- [ ] `character.json` + clip roles: format, loader support, validator; Animator/PlayerController/enemy behaviors read ROLES (`idle`, `walk`, `run`, `jump`, `fall`, `land`, `hit`, `death`…) with per-entity overrides; convert Zap, skeleton and mutant to it
+- [ ] Pack format: `packs/<id>/pack.json` (characters, behaviors, prefabs, scenes, thumbnails, version, tier free|unlock); the editor Libraries panel lists installed packs; validator checks packs; first pack `colin-starter` from what's already imported
+- [ ] Goblin samurai, step 1: find him in `zap` (the stadium sandbox): the goblin/samurai GLBs, his clips, the hair + cape dynamics, katana mount. Write `docs/goblin-extraction.md` mapping every system to a future behavior (wall run, high bar flips, katana, ninja moves) with source line refs. No code moved yet.
+- [ ] Goblin samurai, step 2: the character as a full asset (GLB + character.json + roles), playable in a `stadium` scene with Colin's twin-stick controls
+- [ ] Goblin samurai, step 3+: one behavior per item from the extraction doc (each with a test and a demo in the stadium scene), then the dynamic hair/cape as a `Dynamics` behavior
+- [ ] Then the same extraction pass for the next game's pieces (Roller Girl skating, Shred World board, weirdport breakable walls, Zap blaster/DNA), one doc + one item at a time
 
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
 Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.
@@ -63,6 +71,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Editor ＋Add menu lists every prefab — new "More prefabs" group from `prefabs/index.json` (kept current by `npm run validate`, test checks it); picking one adds it to the scene's prefabs (undoable). Checked headless: bench added to Sky Steps, no errors
 
 ## Later
+- [ ] Ship anywhere: Capacitor wrapper → iOS/Android builds from a scene; export to Godot `.tscn`, then Unity/Unreal
+- [ ] Pack unlocks: purchase/unlock flow, licence per pack, free starter pack bundled
 - [x] Blender bridge add-on v0 — `tools/blender/scene_companion_bridge.py` (sidebar panel: server, Start/Stop, Send Back per model, Draco toggle) polls the dev server's new `/bridge/*` routes over plain HTTP; editor inspector **→ Blender** (when live); Send Back saves `assets/models/bridge/<id>-<n>.glb` and the editor swaps that one entity to it (pure `replaceModel()`, undoable, keeps height/frontSide). Tests for routes + swap. Checked end to end headless with Blender 5.0 (bpy): kitchen-sink robot → Blender → widened → back → editor shows it, no errors. Not tried in real Blender UI
 - [x] Blender bridge: MCP tools `send_to_blender {id}` / `blender_status` (tested in mcp.test), and a green ● on the editor's → Blender button while the add-on is polling (checked headless)
 - [x] Blender bridge: whole-prefab send — editor **→ Blender: all <prefab>** on prefab instances (MCP `send_to_blender {prefab:true}`); Send Back saves `bridge/<prefab>-<n>.glb` and rewrites the prefab file's web glb, editors rebuild. Tested (routes) + headless e2e with bpy: kitchen-sink trees round-tripped, no errors. Not undoable by design (it's a file edit)

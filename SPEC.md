@@ -54,6 +54,24 @@ Claude can see what you see. The tools include: list scene objects, get the sele
 - **Generators** (a provider plug-in interface, using your own API keys): image→3D (Tripo and others), image generation (OpenAI and others), and sound/voice. Generated assets land in the library with their source prompt saved.
 - **Libraries** as side panels: characters, motions (from the mocap app), sounds, props, and behaviors. Everything is drag-and-drop, and everything is pre-optimized for mobile (texture sizes, Draco, and so on). Free and unlockable tiers later.
 
+## 7b. The platform: one shared library, many games, asset packs (Colin, 2026-10-27)
+**Every game Colin makes gets reverse-engineered into pieces that fit the engine.** Zap, the goblin samurai, Roller Girl, Shred World, weirdport's breakable city, Clancy, Robits, Plutopia, Peggy: they overlap heavily and today share pieces by copy-paste between repos. From now on they share one library, and each game is thin (its scenes, plus a few behaviors of its own).
+
+**A full asset** is something an agent can drop into any game with zero tweaking:
+- **Character:** GLB (rigged, textured, Draco) plus `character.json`: measured height, facing, weapon mounts, a **clip-role map** (`idle, walk, run, sprint, jump, fall, land, hardLand, hit, knockdown, getUp, death, attack…` → that rig's clip names), tuned per-character animation layers (the retarget-anims profile), and dynamics settings (hair, cape, tail, cloth). Behaviors ask for roles, never clip names, so any character works in any game.
+- **Behavior:** a pure-JS move or system (wall run, high bar, katana combo, skate, blaster, breakable wall), with schema, tests and a demo scene.
+- **Prefab/prop:** model plus colliders plus behaviors, sized in metres.
+
+**Packs:** `packs/<id>/pack.json` lists a pack's characters, behaviors, prefabs, scenes, thumbnails, version and tier (`free` | `unlock`). A pack installs into a project's library. The platform is free and ships a free starter pack; Colin sells packs. Unlocking a character gives it fully rigged, textured, animated and tuned, so it just works out of the box.
+
+**Inventory:** one generated index of everything that exists across Colin's repos (what it is, where it lives, its rig, clips, size and status: raw → imported → full asset → in a pack), so assets are taken stock of once and promoted deliberately, not rediscovered by every session.
+
+**Reach (why people use it for free):**
+- cross-compatibility: Blender round trip, mocap/retarget, image→3D;
+- AI agents via MCP;
+- ship anywhere: web, a website, Capacitor → App Store/Play Store, and export to Godot / Unity / Unreal;
+- one-button sign-in, so artists never touch tokens or permissions.
+
 ## 8. Build stages
 1. **Format + runtime:** the scene file format, behavior base class and schema, and a loader that builds a Three.js scene from them. Prove it on one small demo game. *(v0 built: runtime/, behaviors/, scenes/kitchen-sink, index.html, tools/validate.mjs)*
 2. **Skill:** Claude follows the rules on a fresh vibe-coded game, and a validator checks them.
