@@ -94,6 +94,7 @@ for (const f of files) {
     }
     checkBehaviors(f, e.id, e.behaviors);
   }
+  for (const r of scene.settings?.route || []) if (!ids.has(r)) err(f, `settings.route: no entity "${r}"`);
   if (errors === errorsBefore) console.log(`✓ ${f} — ${ids.size} entities`);
 }
 

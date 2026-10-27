@@ -25,7 +25,18 @@
         "threshold": 0.85
       },
       "vignette": 0.25
-    }
+    },
+    "route": [
+      "coin_09",
+      "step_01",
+      "step_02",
+      "step_03",
+      "step_04",
+      "step_05",
+      "step_06",
+      "step_07",
+      "summit"
+    ]
   },
   "assets": {
     "ground": {

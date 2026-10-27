@@ -25,7 +25,14 @@
         "threshold": 0.85
       },
       "vignette": 0.25
-    }
+    },
+    "route": [
+      "plat_01",
+      "plat_02",
+      "plat_03",
+      "plat_mover",
+      "plat_top"
+    ]
   },
   "assets": {
     "ground": {

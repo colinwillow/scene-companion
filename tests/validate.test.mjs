@@ -18,6 +18,7 @@ test('kitchen-sink (and every scene) validates', () => {
 
 test('validator catches duplicate ids, unknown behaviors, bad params, missing prefabs and models', () => {
   const r = validate(tmpScene({
+    settings: { route: ['a', 'nowhere'] },
     assets: { m: { variants: { web: { glb: './assets/models/nope.glb' } } } },
     prefabs: { ghost: './prefabs/ghost.prefab.json' },
     entities: [
@@ -34,7 +35,7 @@ test('validator catches duplicate ids, unknown behaviors, bad params, missing pr
   }));
   assert.equal(r.status, 1);
   for (const msg of ['unknown behavior "Nope"', 'duplicate id "a"', 'speed: 99', '"sped" is not in the schema',
-                     'prefab "ghost" file not found', 'model file not found', 'unknown asset "missing"', 'animation "Moonwalk"', 'Animator.landClip "Splat"'])
+                     'prefab "ghost" file not found', 'model file not found', 'unknown asset "missing"', 'animation "Moonwalk"', 'Animator.landClip "Splat"', 'settings.route: no entity "nowhere"'])
     assert.ok(r.stderr.includes(msg), `expected: ${msg}\n${r.stderr}`);
 });
 
