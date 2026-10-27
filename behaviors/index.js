@@ -103,6 +103,7 @@ export class Animator extends Behavior {
     hardLandClip:  { type: 'string', default: '' },  // for big falls ('' = use landClip)
     hardLandSpeed: { type: 'number', default: 12, min: 1, max: 40, step: 0.5 }, // m/s downward at impact that counts as hard
     hardLandTime:  { type: 'number', default: 0.7, min: 0, max: 3, step: 0.05 },
+    hardLandMove:  { type: 'number', default: 0.2, min: 0, max: 1, step: 0.05 },  // move speed × this during a hard landing (jump still cancels it)
   };
   start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.air = 0; this.fallV = 0; this.landing = 0; }
   update(dt) {
@@ -113,7 +114,7 @@ export class Animator extends Behavior {
     const pc = this.entity.behaviors.find(b => b instanceof PlayerController);
     if (pc && !pc.grounded) {
       const rising = pc.vy > 0;
-      this.air += dt; this.landing = 0; this.sinceJump = rising && !(this.prevVy > 0) ? 0 : (this.sinceJump ?? 1e9) + dt;   // take-off or a stomp bounce
+      this.air += dt; this.landing = 0; this.entity.moveScale = 1; this.sinceJump = rising && !(this.prevVy > 0) ? 0 : (this.sinceJump ?? 1e9) + dt;   // take-off or a stomp bounce
       this.prevVy = pc.vy;
       if (rising || this.airborne || this.air >= P.airDelay) {
         this.airborne = true; this.fallV = Math.max(0, -pc.vy);
@@ -126,6 +127,7 @@ export class Animator extends Behavior {
         const hard = this.fallV >= P.hardLandSpeed;
         const clip = (hard && P.hardLandClip) || P.landClip;
         if (clip) { anim.play(clip, { once: true, fade: 0.08 }); this.landing = hard ? P.hardLandTime : P.landTime; this.hardLanding = hard; }
+        if (hard && clip) this.entity.moveScale = P.hardLandMove;
       }
       this.air = 0; this.airborne = false; this.prevVy = 0;
     }
@@ -133,6 +135,7 @@ export class Animator extends Behavior {
       this.landing -= dt;
       if (!this.hardLanding && speed > 0.5) this.landing = Math.min(this.landing, 0.05);  // moving cuts a soft land short
       if (this.landing > 0) return;
+      this.entity.moveScale = 1;
     }
     anim.play(speed < 0.1 ? P.idleClip : speed < P.runSpeed ? P.walkClip : P.runClip);
   }
@@ -213,8 +216,9 @@ export class PlayerController extends Behavior {
     o.visible = this.hurtTimer <= 0 || Math.floor(this.hurtTimer * 10) % 2 === 0;   // blink while invulnerable
 
     // Horizontal move, then push out of any solid we're inside (side collision).
-    p.x += move[0] * P.speed * dt;
-    p.z += move[1] * P.speed * dt;
+    const ms = this.entity.moveScale ?? 1;                                  // e.g. Animator slows us during a hard landing
+    p.x += move[0] * P.speed * ms * dt;
+    p.z += move[1] * P.speed * ms * dt;
     if (Math.hypot(move[0], move[1]) > 0.05) o.rotation.y = Math.atan2(move[0], move[1]);
     for (const b of solids) {
       if (p.y >= b.maxY - 0.05 || p.y + P.height <= b.minY) continue;      // above or below it

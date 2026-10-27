@@ -192,6 +192,25 @@ test('Animator: moving cuts a soft land short; no land clip = straight to locomo
   assert.deepEqual(p2, ['Jump', 'Idle']);
 });
 
+test('Animator slows a PlayerController during a hard landing only, then restores it', async () => {
+  const { PlayerController } = await import('../behaviors/index.js');
+  const e = fakeEntity();
+  e.anim = { play() {} };
+  const pc = Object.assign(Object.create(PlayerController.prototype), { grounded: false, vy: -20 });
+  e.behaviors.push(pc);
+  const a = attach(Animator, e, { landClip: 'Soft', hardLandClip: 'Hard', hardLandSpeed: 10, hardLandTime: 0.3, hardLandMove: 0.25, airDelay: 0 }, fakeWorld());
+  a.update(0.05);
+  pc.grounded = true; pc.vy = 0; a.update(0.05);
+  assert.equal(e.moveScale, 0.25);
+  a.update(0.2); assert.equal(e.moveScale, 0.25);
+  a.update(0.1); assert.equal(e.moveScale, 1);
+  pc.grounded = false; pc.vy = -5; a.update(0.05); pc.grounded = true; pc.vy = 0; a.update(0.05);   // soft land
+  assert.equal(e.moveScale, 1);
+  pc.grounded = false; pc.vy = -20; a.update(0.05); pc.grounded = true; pc.vy = 0; a.update(0.05);  // hard again…
+  pc.grounded = false; pc.vy = 7; a.update(0.05);                                                   // …jump cancels it
+  assert.equal(e.moveScale, 1);
+});
+
 test('Animator jumpHold lets a flip finish before the fall clip cuts in; a bounce restarts it', async () => {
   const { PlayerController } = await import('../behaviors/index.js');
   const e = fakeEntity(), played = [];

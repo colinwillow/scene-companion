@@ -33,6 +33,13 @@ test('player walks with input and stays on the ground', () => {
   assert.equal(p.y, 0);
 });
 
+test('entity.moveScale scales walking speed (Animator sets it during hard landings)', () => {
+  const { w, player, pc, p } = setup();
+  w.input.move = [1, 0]; player.moveScale = 0.2;
+  run(pc, 60);
+  assert.ok(Math.abs(p.x - 1) < 1e-6, `x=${p.x}`);
+});
+
 test('jump goes up and lands back; jump input is consumed', () => {
   const { w, pc, p } = setup();
   w.input.jump = true;

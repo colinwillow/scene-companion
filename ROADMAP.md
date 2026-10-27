@@ -25,7 +25,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Tiny Hop: landing squash; footstep sounds — new `Squash` (event-driven squash & stretch around the authored scale) and `Footsteps` (a `step` event per stride, longer when running) behaviors; tiny-hop player has both, kitchen-sink player squashes on `score`
 - [x] Tiny Hop: a proper fall clip — player is now Zap (1.6 m, idle_01/walk_fwd/run_fwd, `in_air` as jump + fall clip)
 - [x] Tiny Hop: Animator `landClip` (Zap has `landing_soft`/`landing_hard`; Clancy has `jumping_up`/`falling_idle`/`hard_landing`) and try `front_flip` as Zap's jumpClip — Animator `landClip`/`landTime`, `hardLandClip`/`hardLandSpeed`/`hardLandTime` (moving cuts a soft land short), `jumpRate` + `jumpHold` so a flip plays out before the fall clip; Zap now front-flips, lands soft (`landing_soft`) or hard (`landing_hard`, falls ≥ 11 m/s); validator checks every `*Clip` param against the model
-- [ ] [IN PROGRESS 2026-10-27 02:02 UTC] Tiny Hop: freeze or slow PlayerController during a hard landing (right now Zap can slide around in the `landing_hard` pose)
+- [x] Tiny Hop: slow PlayerController during a hard landing — Animator `hardLandMove` (default 0.2) sets `entity.moveScale`, PlayerController multiplies its speed by it; a jump cancels the landing
 - [x] Validator: catch hardcoded placement more robustly; check prefab references — set/assign/fromArray/copy literals in behaviors + game pages, comment-aware, camera exempt; prefab files (no id/position, asset, behavior params), unused prefabs, removeBehaviors typos, id style
 
 ## Stage 3 — Editor v1

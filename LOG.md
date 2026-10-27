@@ -27,3 +27,4 @@
 - 2026-10-27 — MCP headless fallback — auto-start dev server + headless editor (Playwright, optional); ping command; checked from a cold start: list/move/screenshot/read_errors in ~17 s (build run)
 - 2026-10-27 — Real models from Colin's repos — Zap player (fall clip), skeleton + mutant ground enemies with defeat falls, 12 props, Draco decoder, `frontSide`; 79 tests; checked headless: all load, Zap 1.60 m feet at 0 (live session)
 - 2026-10-27 — Animator land clips + Zap front flip — landClip/hardLandClip/jumpRate/jumpHold, validator checks *Clip params; 82 tests; checked headless by stepping the world: flip → landing_soft → idle, 8 m drop → in_air → landing_hard → idle, running jump → landing_soft cut to run (build run)
+- 2026-10-27 — Hard-landing slowdown — Animator hardLandMove → entity.moveScale → PlayerController; 84 tests; headless clip sequence unchanged (build run)
