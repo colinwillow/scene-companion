@@ -4,7 +4,7 @@ Top unchecked item = next run. Colin can reorder, add or delete freely.
 Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` passing and the kitchen-sink scene working.
 
 ## Colin's playtest pass (2026-10-27) — do these first, in order
-- [ ] Editor: ＋Add (and Duplicate offset) places at the centre of the camera VIEW on the ground — raycast screen centre against ground + solids, fall back to the y=0 plane; same for MCP `spawn` with no position (use the editor's view)
+- [ ] [IN PROGRESS 03:57 UTC] Editor: ＋Add (and Duplicate offset) places at the centre of the camera VIEW on the ground — raycast screen centre against ground + solids, fall back to the y=0 plane; same for MCP `spawn` with no position (use the editor's view)
 - [ ] Editor: selection no longer auto-opens the inspector — highlight (outline/marker) + a small name chip with an "edit" button that opens the sheet; tapping empty ground deselects quietly; landscape side panel may stay open if already open
 - [ ] Game kit: Colin's twin-stick controls in `play.html` — floating stylized sticks (look at rollergirl/weirdport `bindStick` + their CSS), left = move, right = orbit yaw only, tap right stick = jump (`settings.controls.jumpTap: right|either`), remove the jump button; hold/flick left free and documented in SKILL.md
 - [ ] Sky Steps: double jump (PlayerController `airJumps` param) with Zap's `front_flip` on the second jump (Animator `doubleJumpClip`)
