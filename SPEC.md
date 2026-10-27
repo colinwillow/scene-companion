@@ -116,6 +116,14 @@ Everything made lands in the library, auto-validated and thumbnailed.
 - **Marketplace:** asset packs and level packs for sale alongside the free library (SPEC §7b).
 - Rigs made with tools like Auto-Rig Pro are fine to share and sell. It's the add-on that can't be redistributed, not its output.
 
+## 7f. 2D and 2.5D games (later; Colin, 2026-10-27)
+Lots of people make 2D games, so the engine should support them too. It's the same scene files, behaviors, editor, MCP and library, with a 2D flavour:
+- **Sprites + sprite sheets:** import a sheet (or a folder of frames), slice it into a grid or auto-detect frames, name animations (`idle`, `run`, `jump`…). These are the same clip roles as 3D characters, so Animator/PlayerController work unchanged.
+- **Camera modes:** orthographic side-view (platformer), top-down, and 2.5D (3D models or sprites on a side-scrolling plane, parallax layers).
+- **2D collision:** the same Solid/Trigger behaviors, locked to a plane; tilemaps for levels (paint tiles in the editor).
+- **Bridges:** render a 3D (Mixamo-rigged) character to a sprite sheet from any clip (fixed camera angles, pixel/toon look), so Colin's characters work in 2D games too; image-gen for sprite art.
+- Library sections for sprites, tilesets and backgrounds.
+
 ## 7d. Engine scope
 Scene Companion is growing into a full engine on Three.js. `docs/ENGINE.md` is the subsystem checklist (from TheCherno's brief and standard engine architecture) with status and order; ROADMAP Stage 7 builds it.
 

@@ -112,6 +112,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Editor ＋Add menu lists every prefab — new "More prefabs" group from `prefabs/index.json` (kept current by `npm run validate`, test checks it); picking one adds it to the scene's prefabs (undoable). Checked headless: bench added to Sky Steps, no errors
 
 ## Later
+- [ ] 2D/2.5D (SPEC §7f): sprite + sprite-sheet import with slicing and named clip roles, orthographic side/top-down cameras and plane-locked collision, tilemap painting, parallax layers, and a 3D-character → sprite-sheet renderer
 - [ ] Ship anywhere: Capacitor wrapper → iOS/Android builds from a scene; export to Godot `.tscn`, then Unity/Unreal
 - [ ] Pack unlocks: purchase/unlock flow, licence per pack, free starter pack bundled
 - [x] Blender bridge add-on v0 — `tools/blender/scene_companion_bridge.py` (sidebar panel: server, Start/Stop, Send Back per model, Draco toggle) polls the dev server's new `/bridge/*` routes over plain HTTP; editor inspector **→ Blender** (when live); Send Back saves `assets/models/bridge/<id>-<n>.glb` and the editor swaps that one entity to it (pure `replaceModel()`, undoable, keeps height/frontSide). Tests for routes + swap. Checked end to end headless with Blender 5.0 (bpy): kitchen-sink robot → Blender → widened → back → editor shows it, no errors. Not tried in real Blender UI
