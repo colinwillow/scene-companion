@@ -253,7 +253,7 @@ async function start() {
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
   audio.stop();
-  particles?.dispose(); particles = createParticles(world.scene);
+  particles?.dispose(); particles = createParticles(world.scene); particles.loadLibrary();   // + Colin's saved presets
   world.on('fx', req => particles.burst(req));                                 // Emitter → a burst of particles
   trails?.dispose(); trails = createTrails(world.scene);
   world.on('trail', s => trails.add(s));                                       // Trail → a ribbon sample

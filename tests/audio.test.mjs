@@ -70,3 +70,9 @@ test('Emitter.while: a stream only while a behavior property is true, here or on
   for (let i = 0; i < 30; i++) e.update(1 / 60); assert.equal(sent.length, 0);
   player.behaviors[0].charging = true; for (let i = 0; i < 30; i++) e.update(1 / 60); assert.ok(sent.length > 10);
 });
+
+test('VFX workspace: a saved preset is clean (known fields, ordered pairs, in range)', async () => {
+  const { cleanPreset } = await import('../runtime/fxedit.js');
+  const out = cleanPreset({ add: 1, count: 500, speed: [5, 2], life: [0.3, 0.6], size: [0.1, 0.2], grow: 1.23456, grav: 3, drag: 1, up: 1, spread: 1, color: ['#fff', '#f00'], junk: 1 });
+  assert.equal(out.count, 80); assert.deepEqual(out.speed, [2, 5]); assert.equal(out.grow, 1.235); assert.equal(out.junk, undefined); assert.equal(out.add, true);
+});

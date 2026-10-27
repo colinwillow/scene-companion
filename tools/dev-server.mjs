@@ -79,6 +79,18 @@ async function bridgeRoute(req, res, url) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname.startsWith('/bridge/')) return bridgeRoute(req, res, url).catch(e => json(res, 500, { error: e.message }));
+  // the VFX workspace saves a preset: POST /fx/save { name, preset } → assets/fx/<name>.fx.json (+ the list in assets/fx/index.json)
+  if (url.pathname === '/fx/save' && req.method === 'POST') return (async () => {
+    let body = ''; for await (const c of req) body += c;
+    const { name, preset } = JSON.parse(body || '{}');
+    if (!/^[a-z0-9_]+$/.test(name || '') || !preset || typeof preset !== 'object') return json(res, 400, { error: 'name: lowercase_with_underscores, and a preset object' });
+    await mkdir('assets/fx', { recursive: true });
+    await writeFile(`assets/fx/${name}.fx.json`, JSON.stringify(preset, null, 2) + '\n');
+    let list = []; try { list = JSON.parse(await readFile('assets/fx/index.json', 'utf8')); } catch {}
+    if (!list.includes(name)) list.push(name);
+    await writeFile('assets/fx/index.json', JSON.stringify(list.sort(), null, 1) + '\n');
+    return json(res, 200, { ok: true, path: `assets/fx/${name}.fx.json` });
+  })().catch(e => json(res, 500, { error: e.message }));
   // The Forge (Colin's retarget / tuning app, in zap): served from a LOCAL zap checkout at /forge/forge.html, so the editor
   // can open a character in it (?char=/assets/…glb&lib=/motions/clips/). Its export comes back through /bridge/return.
   if (url.pathname.startsWith('/forge/')) {

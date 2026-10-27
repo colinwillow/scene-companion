@@ -22,11 +22,14 @@ function pool(n, additive) {
 export function createParticles(scene, { max = 1500 } = {}) {
   const pools = { add: pool(max, true), soft: pool(max, false) };
   scene.add(pools.add.pts, pools.soft.pts);
-  const rnd = (a, b) => a + Math.random() * (b - a), col = new THREE.Color(), col2 = new THREE.Color();
+  const rnd = (a, b) => a + Math.random() * (b - a), col = new THREE.Color(), col2 = new THREE.Color(), defs = { ...FX };
   return {
+    define(name, def) { defs[name] = def; },   // a library preset (assets/fx/<name>.fx.json) or one being edited
+    async loadLibrary(url = './assets/fx/index.json') { try { const list = await (await fetch(url)).json(); for (const n of list) defs[n] = await (await fetch(`./assets/fx/${n}.fx.json`)).json(); } catch {} },
     // { preset, at: [x, y, z], dir: [x, y, z] (optional bias), count, scale, color }
-    burst({ preset = 'sparks', at, dir = null, count, scale = 1, color = null } = {}) {
-      const F = FX[preset]; if (!F || !at) return 0;
+    burst({ preset = 'sparks', at, dir = null, count, scale = 1, color = null } = {}) {   // preset: a name, or the definition itself
+      if (typeof preset === 'object') { const F = preset; preset = '__inline'; defs.__inline = F; }
+      const F = defs[preset]; if (!F || !at) return 0;
       const P = F.add ? pools.add : pools.soft, n = Math.round((count ?? F.count) * 1);
       col.set(color || F.color[0]); col2.set(F.color[1] || F.color[0]);
       for (let i = 0; i < n; i++) {

@@ -129,3 +129,4 @@
 - 2026-10-27 — Particles part 1 — pooled particles + presets + Emitter; 271 tests; checked headless (live session)
 - 2026-10-27 — Particles part 2 — Trail behavior + runtime/trails.js; 272 tests (live session)
 - 2026-10-27 — Particles part 3 — Emitter.while (grind sparks, charge glow), bolt trail; 273 tests (live session)
+- 2026-10-27 — VFX workspace part 1 — vfx.html, fx library save/load; checked headless (live session)
