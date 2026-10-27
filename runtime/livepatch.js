@@ -29,7 +29,7 @@ export function applyScene(world, prev, next) {
     const o = ent.object3d;
     let moved = false;
     if (!same(old.position, authored.position) && authored.position) { [o.position.x, o.position.y, o.position.z] = authored.position; changed = moved = true; }
-    if (!same(old.rotation, authored.rotation) && authored.rotation) { [o.rotation.x, o.rotation.y, o.rotation.z] = authored.rotation.map(d => d * DEG); changed = true; }
+    if (!same(old.rotation, authored.rotation) && authored.rotation) { [o.rotation.x, o.rotation.y, o.rotation.z] = authored.rotation.map(d => d * DEG); changed = moved = true; }
     if (!same(old.scale, authored.scale) && authored.scale) { [o.scale.x, o.scale.y, o.scale.z] = authored.scale; changed = moved = true; }
     if (!same(old.animation, authored.animation) && authored.animation) { ent.anim?.play(authored.animation); changed = true; }
     // Behaviors: same list of types → push changed params live; otherwise rebuild.

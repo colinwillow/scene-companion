@@ -150,6 +150,14 @@
           "scale": 0.8
         }
       }
+    },
+    "test_house": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/buildings/building_kit_test_visual.glb",
+          "collision": "./assets/models/colin/buildings/building_kit_test_collision.glb"
+        }
+      }
     }
   },
   "entities": [
@@ -1380,6 +1388,15 @@
             "tag": "fountain_coin"
           }
         }
+      ]
+    },
+    {
+      "id": "test_house",
+      "asset": "test_house",
+      "position": [
+        20,
+        0,
+        4
       ]
     }
   ],

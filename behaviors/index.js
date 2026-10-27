@@ -4,6 +4,7 @@ import { WHEN, compare } from '../runtime/reactions.js';
 import { Behavior } from '../runtime/Behavior.js';
 import { roleClip } from '../runtime/character.js';
 import { topAt, walkShape } from '../runtime/collide.js';
+import { placeCollider } from '../runtime/colliders.js';
 export { topAt };
 
 export class Spin extends Behavior {
@@ -185,6 +186,32 @@ export class Solid extends Behavior {
     const y0 = this.params.anchor === 'center' ? p.y - sy / 2 : p.y;
     return { minX: p.x - sx / 2, maxX: p.x + sx / 2, minY: y0, maxY: y0 + sy, minZ: p.z - sz / 2, maxZ: p.z + sz / 2, slope };
   }
+}
+
+// The Solids of a collision GLB (an asset's `collision`, Colin's bld_ / deck_ / ramp_ naming, runtime/colliders.js).
+// World adds this behavior itself when the entity's model has a collision file; `colliders` are fitted at load, in the
+// model's own space, and placed here by the entity's position, yaw and scale (again whenever the entity is moved).
+export class CollisionMesh extends Behavior {
+  static schema = {
+    colliders: { type: 'hidden', default: [] },
+    layer: { type: 'string', default: 'default' },
+  };
+  start() { this.solids = []; this.place(); }
+  place() {
+    const W = this.world, all = (W.solids ||= []);
+    for (const s of this.solids) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); }
+    const o = this.entity.object3d, pos = [o.position.x, o.position.y, o.position.z], k = o.scale?.x ?? 1;
+    this.solids = this.params.colliders.map((col, i) => {
+      const { c, size, yaw } = placeCollider(col, pos, o.rotation?.y || 0, k);
+      const s = Object.create(Solid.prototype);    // a Solid with no entity of its own: queries see it, walking stands on it
+      s.world = W; s.params = { size, anchor: 'center', slope: !!col.slope, shape: 'box', rotated: !col.slope, layer: this.params.layer };
+      s.entity = { id: `${this.entity.id}#${col.name || i}`, owner: this.entity.id, object3d: { position: { x: c[0], y: c[1], z: c[2] }, rotation: { x: 0, y: yaw, z: 0 } } };
+      return s;
+    });
+    all.push(...this.solids);
+  }
+  onMoved() { this.place(); }
+  destroy() { const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); } this.solids = []; }
 }
 
 const STEP_UP = 0.35;   // m: walk up ramps and small steps without jumping; stick to ramps on the way down
@@ -654,6 +681,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

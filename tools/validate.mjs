@@ -12,6 +12,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import { findHardcoded, findSpawnedMeshes } from './codecheck.mjs';
+import { colliderKind } from '../runtime/colliders.js';
 
 // Read clip names straight out of a .glb's JSON chunk (no three needed).
 const glbClips = new Map();
@@ -134,6 +135,12 @@ for (const f of files) {
         ch = characterOf(f, v.character);
         if (!ch) continue;
         v = characterVariant(ch, v);
+      }
+      if (v.collision) {
+        const cp = v.collision.replace(/^\.\//, '');
+        if (!existsSync(cp)) err(f, `${e.id}: collision file not found: ${v.collision}`);
+        else { const b = readFileSync(cp), len = b.readUInt32LE(12), names = (JSON.parse(b.subarray(20, 20 + len).toString()).nodes || []).map(n => n.name);
+          if (!names.some(colliderKind)) warn(f, `${e.id}: ${v.collision} has no collider meshes (name them bld_ / solid_ / prop_ / deck_ / ground_ / road_ / ramp_)`); }
       }
       if (!v.glb) continue;
       const baked = clipsOf(v.glb.replace(/^\.\//, ''));

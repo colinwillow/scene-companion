@@ -17,6 +17,7 @@ import { proceduralTexture } from './textures.js';
 import { characterVariant } from './character.js';
 import { childIdFor, mergeTags, matchesQuery, spawnId } from './tree.js';
 import { createTime, createRng, playSeed } from './time.js';
+import { colliderKind, fitColliders } from './colliders.js';
 
 // A copy of a node tree where every mixamorig_* node is a real THREE.Bone (same name and rest transform).
 function asBones(node) {
@@ -47,7 +48,8 @@ export function markShared(gltf) {
   return gltf;
 }
 // Forget cached models (e.g. a GLB was replaced on disk under the same path).
-export function clearAssetCache() { GLTF_CACHE.clear(); MOTION_CACHE.clear(); }
+export function clearAssetCache() { GLTF_CACHE.clear(); MOTION_CACHE.clear(); COLLIDER_CACHE.clear(); }
+const COLLIDER_CACHE = new Map();   // collision GLB + model transform → fitted colliders (runtime/colliders.js)
 
 export class World {
   constructor(renderer, { tier = 'web' } = {}) {
@@ -215,11 +217,37 @@ export class World {
   }
 
   attachBehaviors(ent) {
+    if (ent.colliders?.length && getBehavior('CollisionMesh')) ent.behaviors.push(new (getBehavior('CollisionMesh'))(ent, { colliders: ent.colliders }, this));
     for (const b of ent.resolved.behaviors || []) {
       const Cls = getBehavior(b.type);
       if (!Cls) { console.warn(`Unknown behavior "${b.type}" on ${ent.id}`); continue; }
       ent.behaviors.push(new Cls(ent, b.params, this));
     }
+  }
+
+  // A collision GLB (an asset variant's `collision`) → fitted colliders in the model's space: every bld_ / solid_ / prop_ /
+  // deck_ / ground_ / road_ / ramp_ mesh (runtime/colliders.js), put through the same scale/offset as the visual model.
+  // Cached per file + model transform; the file is read once (gltfCache).
+  async loadColliders(url, model) {
+    model?.updateMatrix();
+    const key = `${url}|${model ? model.matrix.elements.map(v => v.toFixed(5)).join(',') : ''}`;
+    if (!(this.colliderCache ||= COLLIDER_CACHE).has(key)) this.colliderCache.set(key, (async () => {
+      if (!this.gltfCache.has(url)) this.gltfCache.set(url, this.loader.loadAsync(url).then(markShared));
+      const gltf = await this.gltfCache.get(url);
+      gltf.scene.updateMatrixWorld(true);
+      const meshes = [], v = new THREE.Vector3(), M = new THREE.Matrix4();
+      gltf.scene.traverse(o => {
+        if (!o.isMesh) return;
+        const name = colliderKind(o.name) ? o.name : colliderKind(o.parent?.name) ? o.parent.name : null;
+        if (!name) return;
+        M.copy(o.matrixWorld); if (model) M.premultiply(model.matrix);
+        const pos = o.geometry.attributes.position, pts = new Float32Array(pos.count * 3);
+        for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(M); pts[i * 3] = v.x; pts[i * 3 + 1] = v.y; pts[i * 3 + 2] = v.z; }
+        meshes.push({ name, points: pts });
+      });
+      return fitColliders(meshes);
+    })());
+    return this.colliderCache.get(key);
   }
 
   // One authored entity (prefab merged) and its children, depth-first. Children's transforms are relative to the
@@ -238,6 +266,7 @@ export class World {
       variant = characterVariant(character, variant);
     }
     const obj = e.light ? this.buildLight(e.light) : await this.buildObject(variant);
+    const colliders = variant?.collision && variant.glb ? await this.loadColliders(variant.collision, obj.children[0]) : null;
     obj.name = id;
     obj.userData.entityId = id;
     if (e.position) obj.position.fromArray(e.position);
@@ -248,6 +277,7 @@ export class World {
       parent: parentEnt?.id ?? null, depth: parentEnt ? parentEnt.depth + 1 : 0, tags: mergeTags(pf?.tags || [], authored.tags || []),
       prefab: authored.prefab ?? parentEnt?.prefab ?? null };
     if (spawned) ent.spawned = true;
+    if (colliders) ent.colliders = colliders;   // attachBehaviors adds a CollisionMesh for them
     if (prefix) ent.inherited = true;   // a prefab file's child: not in the scene file, edit the prefab instead
     if (character?.roles) ent.roles = { ...character.roles };
     const baked = new Set((obj.userData.clips || []).map(c => c.name));   // tools/bake-motions.mjs puts them in the GLB
@@ -350,7 +380,7 @@ export class World {
       const ent = await this.buildEntity(e, parent ? this.entities.get(parent) : null);
       applyLookTo(ent.object3d, this.look || 'toon');
     }
-    const KEEP = new Set(['id', 'object3d', 'data', 'resolved', 'behaviors', 'children', 'parent', 'depth', 'tags', 'prefab', 'spawned', 'inherited', 'roles', 'anim']);
+    const KEEP = new Set(['id', 'object3d', 'data', 'resolved', 'behaviors', 'children', 'parent', 'depth', 'tags', 'prefab', 'spawned', 'inherited', 'roles', 'anim', 'colliders']);
     for (const ent of this.entities.values()) {
       for (const k of Object.keys(ent)) if (!KEEP.has(k)) delete ent[k];   // defeated, dormant, hp… set by behaviors
       const a = !ent.inherited && authoredById.get(ent.id);   // the latest authored data (edits since the build)
