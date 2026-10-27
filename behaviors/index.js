@@ -238,12 +238,151 @@ export class CollisionMesh extends Behavior {
 
 const STEP_UP = 0.35;
 
+// SKATING (Roller Girl's stepGround / stepAir, docs/rollergirl-extraction.md) — a whole controller for a skater, used INSTEAD of
+// a PlayerController. Her velocity lives in the frame of the SURFACE she is on: the wheels roll freely along it, the edges bite
+// across it (a grip-limited carve), and gravity's component along the surface is what slows her up a transition and gives it
+// back on the way down — so a half pipe is just the flat at an angle. Pushing (stick ahead) strokes her up to `top`; rolling
+// drag is tiny, so a pipe swings for a long time. Off a lip she flies; off anything steeper than `vertAt` her speed out over the
+// coping is taken away (the vert lock), so a vert air comes straight back down the same wall. Landings keep the speed along the
+// face she lands on. Tap = ollie. Floors: every Surface (set `maxSlope` near 88 on ramps she rides), Solid tops, and `groundY`.
+export class Skater extends Behavior {
+  static schema = {
+    gravity: { type: 'number', default: 20, min: 1, max: 60, step: 1 },
+    push:    { type: 'number', default: 7.4, min: 0, max: 30, step: 0.1 },    // m/s² while the stick pushes ahead
+    top:     { type: 'number', default: 22, min: 1, max: 50, step: 0.5 },     // m/s a push takes her to
+    roll:    { type: 'number', default: 0.04, min: 0, max: 2, step: 0.01 },   // rolling drag, 1/s
+    brake:   { type: 'number', default: 3, min: 0, max: 20, step: 0.1 },      // 1/s with the stick pulled back
+    grip:    { type: 'number', default: 40, min: 1, max: 200, step: 1 },      // m/s²: the most sideways the edges can turn her
+    turn:    { type: 'number', default: 10, min: 0.5, max: 30, step: 0.5 },   // rad/s turning when slow…
+    turnFast:{ type: 'number', default: 3.3, min: 0.2, max: 20, step: 0.1 },  // …and at speed
+    turnRef: { type: 'number', default: 14, min: 1, max: 40, step: 1 },       // m/s where the turn rate has come down to turnFast
+    ollie:   { type: 'number', default: 8, min: 0, max: 25, step: 0.5 },      // m/s up on a tap
+    vertAt:  { type: 'number', default: 65, min: 30, max: 89, step: 1 },      // degrees: leaving steeper than this = a vert air (comes back in)
+    inward:  { type: 'number', default: 0.6, min: 0, max: 5, step: 0.1 },     // m/s back into the pipe on a vert air
+    step:    { type: 'number', default: 0.4, min: 0, max: 2, step: 0.05 },    // m she can roll up onto (a kerb)
+    groundY: { type: 'number', default: 0, min: -50, max: 50, step: 0.1 },
+    killY:   { type: 'number', default: -20, min: -200, max: 0, step: 1 },
+    pushClip:{ type: 'string', default: '' },       // '' = the walk role (casual push); faster = the run role
+    rollClip:{ type: 'string', default: '' },       // '' = idle role
+  };
+  start() {
+    const o = this.entity.object3d, p = o.position;
+    this.v = [0, 0, 0]; this.n = [0, 1, 0]; this.grounded = true; this.heading = yawOf(o); this.spawn = [p.x, p.y, p.z];
+    this.airT = 0; this.pushing = false; this.lift = 0;
+  }
+  onMoved() { const p = this.entity.object3d.position; this.spawn = [p.x, p.y, p.z]; this.v = [0, 0, 0]; }
+  // the floor under (x, z) at or below `below`: { y, n } — Surfaces, Solid tops, the flat ground
+  floor(x, z, below) {
+    let best = { y: this.params.groundY, n: [0, 1, 0] };
+    for (const sf of this.world.surfaces || []) { const g = sf.groundAt(x, z, below); if (g && g.y > best.y) best = g; }
+    for (const so of this.world.solids || []) { const t = walkShape(so).topNear(x, z, 0.15); if (t <= below && t > best.y) best = { y: t, n: [0, 1, 0] }; }
+    return best;
+  }
+  update(dt) {
+    if (dt <= 0 || this.entity.defeated) return;
+    const P = this.params, o = this.entity.object3d, p = o.position, input = this.world.input || {}, move = input.move || [0, 0];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], mag = Math.hypot(move[0], move[1]);
+    const v = this.v;
+    if (input.jump) {
+      input.jump = false;
+      if (this.grounded) { const k = P.ollie; v[0] += this.n[0] * k * 0.3; v[1] += k; v[2] += this.n[2] * k * 0.3; this.leave(); this.world.emit('jump'); }
+    }
+    if (this.grounded) {
+      const n = this.n;
+      // the surface frame: F = her heading laid on the surface, R across it
+      let F = [Math.sin(this.heading), 0, Math.cos(this.heading)]; const fn = dot(F, n); F = [F[0] - n[0] * fn, F[1] - n[1] * fn, F[2] - n[2] * fn];
+      const fl = Math.hypot(...F) || 1; F = F.map(c => c / fl);
+      const R = [F[1] * n[2] - F[2] * n[1], F[2] * n[0] - F[0] * n[2], F[0] * n[1] - F[1] * n[0]];
+      let along = dot(v, F), lat = dot(v, R);
+      // gravity along the surface (slows her up a transition, gives it back on the way down)
+      along += -P.gravity * F[1] * dt; lat += -P.gravity * R[1] * dt;
+      // steer: turn the heading toward the stick (camera-relative world dir), slower at speed
+      const sp = Math.hypot(along, lat), rate = P.turn + (P.turnFast - P.turn) * Math.min(1, sp / P.turnRef);
+      let ahead = 0;
+      if (mag > 0.2) {
+        const want = Math.atan2(move[0], move[1]), lead = along < -0.5 ? this.heading + Math.PI : this.heading;   // rolling backwards: steer the leading end
+        let d = want - lead; d = Math.atan2(Math.sin(d), Math.cos(d));
+        this.heading += Math.max(-rate * dt, Math.min(rate * dt, d)) * Math.min(1, mag * 1.5);
+        ahead = Math.cos(d) * mag;
+      }
+      // the edges: what is across the wheels is turned onto them, at most `grip` m/s² — the rest is a slide
+      const g = P.grip * dt; lat = Math.abs(lat) <= g ? 0 : lat - Math.sign(lat) * g;
+      // push / brake / roll
+      this.pushing = ahead > 0.35 && along > -0.5;
+      if (this.pushing && along < P.top) along = Math.min(P.top, along + P.push * ahead * dt);
+      if (ahead < -0.35) along *= Math.exp(-P.brake * -ahead * dt);
+      along *= Math.exp(-P.roll * dt); lat *= Math.exp(-P.roll * dt);
+      // rolling backwards up and back down a wall: she rides it fakie (heading stays; the clip follows later)
+      // rebuild in the NEW frame (the heading may have turned)
+      let F2 = [Math.sin(this.heading), 0, Math.cos(this.heading)]; const f2n = dot(F2, n); F2 = [F2[0] - n[0] * f2n, F2[1] - n[1] * f2n, F2[2] - n[2] * f2n];
+      const f2l = Math.hypot(...F2) || 1; F2 = F2.map(c => c / f2l);
+      const R2 = [F2[1] * n[2] - F2[2] * n[1], F2[2] * n[0] - F2[0] * n[2], F2[0] * n[1] - F2[1] * n[0]];
+      for (let i = 0; i < 3; i++) v[i] = F2[i] * along + R2[i] * lat;
+      // move, then find the surface again
+      const nx = p.x + v[0] * dt, ny = p.y + v[1] * dt, nz = p.z + v[2] * dt;
+      const g2 = this.floor(nx, nz, Math.max(ny, p.y) + P.step);
+      const vn = dot(v, g2.n);
+      if (g2.y < ny - Math.max(0.05, Math.hypot(...v) * dt * 0.5) || vn > 0.5) {   // the surface fell away / turned away: airborne
+        p.x = nx; p.y = ny; p.z = nz; this.leave(); return this.pose(dt);
+      }
+      p.x = nx; p.z = nz; p.y = g2.y; this.n = g2.n;
+      const vn2 = dot(v, this.n); for (let i = 0; i < 3; i++) v[i] -= this.n[i] * vn2;   // keep her on it
+    } else {
+      this.airT += dt;
+      v[1] -= P.gravity * dt;
+      if (mag > 0.2) { const want = Math.atan2(move[0], move[1]); let d = want - this.heading; d = Math.atan2(Math.sin(d), Math.cos(d)); this.heading += Math.max(-4 * dt, Math.min(4 * dt, d)); }
+      const ny = p.y + v[1] * dt, nx = p.x + v[0] * dt, nz = p.z + v[2] * dt;
+      const g = this.floor(nx, nz, p.y + 0.05);
+      if (v[1] <= 0 && ny <= g.y) {                // touch down: keep the speed along the face
+        p.x = nx; p.z = nz; p.y = g.y; this.n = g.n; this.grounded = true;
+        const vn = dot(v, g.n); for (let i = 0; i < 3; i++) v[i] -= g.n[i] * vn;
+        if (this.airT > 0.25) this.world.emit('land');
+        this.airT = 0;
+      } else { p.x = nx; p.y = ny; p.z = nz; }
+    }
+    // walls: Solid sides push her out and take the speed into them
+    for (const sh of (this.world.solids || []).map(walkShape)) {
+      if (p.y >= sh.top(p.x, p.z) - P.step || p.y + 1.6 <= sh.minY) continue;
+      const { cx, cz, inside } = sh.near(p.x, p.z), r = 0.3, dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
+      if (!inside && d >= r) continue;
+      let ux, uz; if (!inside && d > 1e-6) { ux = dx / d; uz = dz / d; p.x = cx + ux * r; p.z = cz + uz * r; }
+      else { const [ox, oz] = sh.out(p.x, p.z, r); p.x += ox; p.z += oz; const l = Math.hypot(ox, oz) || 1; ux = ox / l; uz = oz / l; }
+      const into = v[0] * ux + v[2] * uz; if (into < 0) { v[0] -= ux * into * 1.3; v[2] -= uz * into * 1.3; }
+    }
+    if (p.y < P.killY) { [p.x, p.y, p.z] = this.spawn; this.v = [0, 0, 0]; this.grounded = true; this.n = [0, 1, 0]; this.world.emit('respawn'); }
+    this.pose(dt);
+  }
+  // leaving the ground: off a face steeper than vertAt, the speed out over the lip goes (she comes back down the same wall)
+  leave() {
+    const n = this.n, P = this.params, v = this.v, h = Math.hypot(n[0], n[2]);
+    if (h > 1e-6 && Math.acos(Math.min(1, n[1])) > P.vertAt * Math.PI / 180) {
+      const ix = n[0] / h, iz = n[2] / h, out = -(v[0] * ix + v[2] * iz);   // n's level part points back INTO the pipe
+      if (out > 0) { v[0] += ix * out; v[2] += iz * out; }
+      v[0] += ix * P.inward; v[2] += iz * P.inward;
+      this.world.emit('vertair', this.entity.id);
+    }
+    this.grounded = false; this.airT = 0; this.n = [0, 1, 0];
+  }
+  pose(dt) {
+    const o = this.entity.object3d, n = this.grounded ? this.n : [0, 1, 0], Q = o.quaternion.constructor, V = o.position.constructor;
+    const tilt = new Q().setFromUnitVectors(new V(0, 1, 0), new V(n[0], n[1], n[2])), yaw = new Q().setFromAxisAngle(new V(0, 1, 0), this.heading);
+    const want = tilt.multiply(yaw);
+    o.quaternion.slerp(want, 1 - Math.exp(-(this.grounded ? 14 : 6) * dt));
+    const a = this.entity.anim; if (!a || this.entity.animHold > 0) return;
+    const R = this.entity.roles, sp = Math.hypot(...this.v), P = this.params;
+    const clip = !this.grounded ? roleClip('', 'jump', R)
+      : this.pushing ? (sp > P.top * 0.6 ? roleClip('', 'run', R) : roleClip(P.pushClip, 'walk', R))
+      : roleClip(P.rollClip, 'idle', R);
+    if (clip) a.play(clip, { fade: 0.2 });
+  }
+}
+
 // A walkable SURFACE made of this object's own triangles (Roller Girl's triangle floor, runtime/trimesh.js): ramps, bowls, hills
 // and stairs from Blender are stood on as drawn, not as boxes. Faces steeper than `maxSlope` are not floors (give walls a Solid).
 // PlayerController (and later the Skater) stands on every Surface in world.surfaces. Rebuilt when the object is moved.
 export class Surface extends Behavior {
   static schema = {
-    maxSlope: { type: 'number', default: 60, min: 5, max: 85, step: 1 },   // degrees: steeper is a wall, not a floor
+    maxSlope: { type: 'number', default: 60, min: 5, max: 89, step: 1 },   // degrees: steeper is a wall, not a floor
     cell:     { type: 'number', default: 2, min: 0.25, max: 20, step: 0.25 },
   };
   start() { this.build(); (this.world.surfaces ||= []).push(this); }
@@ -1343,6 +1482,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

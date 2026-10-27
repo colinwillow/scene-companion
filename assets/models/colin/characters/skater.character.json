@@ -1,0 +1,17 @@
+{
+  "name": "Alien skater (Roller Girl)",
+  "glb": "./assets/models/colin/characters/skater.glb",
+  "height": 1.7,
+  "source": "colinwillow/rollergirl models/alien_rollerskate_blue.glb (RIG.height 1.70; docs/rollergirl-extraction.md)",
+  "roles": {
+    "idle": "idle_normal",
+    "walk": "blade_casual_forward",
+    "run": "blade_hard_forward",
+    "jump": "in_air",
+    "doubleJump": "front_flip",
+    "fall": "in_air",
+    "land": "idle_normal",
+    "hit": "fall_to_knees",
+    "death": "fall_to_face"
+  }
+}
