@@ -11,7 +11,8 @@
       "type": "Chase",
       "params": {
         "radius": 9,
-        "speed": 3
+        "speed": 3,
+        "sight": true
       }
     },
     {

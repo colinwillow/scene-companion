@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { retargetClip } from './retarget.js';
 import { entityMotions, motionsBase, motionUrl } from './motions.js';
+import { raycast, sweep, overlap, lineClear } from './collide.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook, applyLookTo } from './look.js';
@@ -68,6 +69,12 @@ export class World {
     this.rng = createRng(1);       // reseeded per load (= per Play) from settings.seed or a fresh seed
     this.input = { move: [0, 0], jump: false };   // filled by the game page; read by behaviors
   }
+
+  // ---- collision queries for behaviors (runtime/collide.js), against every Solid in the world
+  raycast(origin, dir, opts) { return raycast(this.solids || [], origin, dir, opts); }
+  sweep(origin, dir, radius, opts) { return sweep(this.solids || [], origin, dir, radius, opts); }
+  overlap(center, radius, opts) { return overlap(this.solids || [], center, radius, opts); }
+  lineClear(a, b, opts) { return lineClear(this.solids || [], a, b, opts); }
 
   // ---- events (score, etc.)
   on(name, fn) { (this.listeners[name] ||= []).push(fn); }

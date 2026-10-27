@@ -1,3 +1,4 @@
+import { raycast, sweep, overlap, lineClear } from '../runtime/collide.js';
 import { createTime, createRng } from '../runtime/time.js';
 
 // Minimal stand-ins for the runtime, so behaviors run in plain Node (no three, no browser).
@@ -17,6 +18,10 @@ export function fakeWorld(entities = []) {
     time: createTime(),
     rng: createRng(1),
     getEntity: id => map.get(id),
+    raycast(o, d, opts) { return raycast(this.solids || [], o, d, opts); },
+    sweep(o, d, r, opts) { return sweep(this.solids || [], o, d, r, opts); },
+    overlap(c, r, opts) { return overlap(this.solids || [], c, r, opts); },
+    lineClear(a, b, opts) { return lineClear(this.solids || [], a, b, opts); },
     on(name, fn) { (listeners[name] ||= []).push(fn); },
     emit(name, ...args) { this.emitted.push([name, ...args]); (listeners[name] || []).forEach(fn => fn(...args)); },
   };

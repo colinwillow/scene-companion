@@ -165,6 +165,9 @@ export class Solid extends Behavior {
     size:   { type: 'vec3', default: [1, 1, 1] },        // metres
     anchor: { type: 'string', default: 'bottom' },        // bottom | center
     slope:  { type: 'boolean', default: false },          // a ramp: the top rises from nothing to size.y along the model's +x
+    shape:  { type: 'string', default: 'box' },           // box | sphere | capsule — what raycasts/sweeps see (runtime/collide.js)
+    rotated: { type: 'boolean', default: false },         // queries follow the entity's yaw (walking still uses the upright box)
+    layer:  { type: 'string', default: 'default' },       // collision layer: queries can ask for some layers only
   };
   start() { (this.world.solids ||= []).push(this); }
   destroy() { const s = this.world.solids; if (s) s.splice(s.indexOf(this), 1); }
@@ -311,6 +314,8 @@ export class Chase extends Behavior {
     radius:     { type: 'number', default: 7, min: 0, max: 50, step: 0.5 },   // starts chasing inside this
     speed:      { type: 'number', default: 2.5, min: 0, max: 15, step: 0.1 },
     returnHome: { type: 'boolean', default: true },
+    sight:      { type: 'boolean', default: false },   // only chase what it can see: a wall (Solid) in between hides the target
+    eyeHeight:  { type: 'number', default: 1.5, min: 0, max: 5, step: 0.1 },
   };
   start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; }
   onMoved() { this.start(); }
@@ -318,7 +323,11 @@ export class Chase extends Behavior {
     if (this.entity.object3d.visible === false || this.entity.defeated || this.entity.dormant) return;
     const t = this.world.getEntity(this.params.targetId); if (!t) return;
     const p = this.entity.object3d.position, q = t.object3d.position;
-    const near = Math.hypot(q.x - p.x, q.z - p.z) < this.params.radius;
+    let near = Math.hypot(q.x - p.x, q.z - p.z) < this.params.radius;
+    if (near && this.params.sight && this.world.lineClear) {   // look from my eyes to theirs, ignoring my own and their colliders
+      const h = this.params.eyeHeight;
+      near = this.world.lineClear([p.x, p.y + h, p.z], [q.x, q.y + h, q.z], { ignore: [this.entity.id, t.id] });
+    }
     const goal = near ? [q.x, q.z] : this.params.returnHome ? this.home : null;
     if (!goal) return;
     const dx = goal[0] - p.x, dz = goal[1] - p.z, d = Math.hypot(dx, dz), step = this.params.speed * dt;
