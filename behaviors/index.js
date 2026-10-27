@@ -340,6 +340,8 @@ export class Stompable extends Behavior {
     defeatClip: { type: 'string', default: '' },   // played once when stomped ('' = the character's death role; none = vanish at once)
     hideAfter:  { type: 'number', default: 1.5, min: 0, max: 10, step: 0.1 },  // s the defeat clip shows before it vanishes
     hitStop:    { type: 'number', default: 0, min: 0, max: 0.3, step: 0.01 },  // s the whole game freezes on a stomp (impact punch; 0.05–0.08 feels good)
+    slowMo:     { type: 'number', default: 0, min: 0, max: 3, step: 0.1 },     // s of slow motion after a stomp (KO moment; 0 = off)
+    slowMoScale: { type: 'number', default: 0.3, min: 0.05, max: 1, step: 0.05 }, // game speed during it
   };
   update(dt) {
     if (this.entity.dormant) return;
@@ -360,6 +362,7 @@ export class Stompable extends Behavior {
       if (defeat && anim?.clips.includes(defeat)) { anim.play(defeat, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
       else this.entity.object3d.visible = false;
       if (P.hitStop > 0) this.world.time?.hitStop(P.hitStop);
+      if (P.slowMo > 0) this.world.time?.slowMo(P.slowMoScale, P.slowMo);
       this.world.emit('stomp', this.entity.id);
       this.world.emit('score', P.points);
       this.world.emit('bounce', 0.7);
@@ -398,6 +401,7 @@ export class Footsteps extends Behavior {
   static schema = {
     stride:    { type: 'number', default: 0.75, min: 0.2, max: 3, step: 0.05 },  // metres per step at walk speed
     runStride: { type: 'number', default: 1.3, min: 0.2, max: 4, step: 0.05 },   // metres per step at full speed
+    pitchJitter: { type: 'number', default: 0.08, min: 0, max: 0.5, step: 0.01 }, // ± random pitch per step (world.rng), so steps don't machine-gun
   };
   start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.dist = 0; }
   update(dt) {
@@ -408,7 +412,11 @@ export class Footsteps extends Behavior {
     if (!pc || !pc.grounded || push < 0.05 || dt <= 0) { this.dist = Math.min(this.dist, this.params.stride * 0.5); return; }
     this.dist += d;
     const stride = this.params.stride + (this.params.runStride - this.params.stride) * push;
-    if (this.dist >= stride) { this.dist -= stride; this.world.emit('step', this.entity.id); }
+    if (this.dist >= stride) {
+      this.dist -= stride;
+      const j = this.params.pitchJitter, r = this.world.rng;
+      this.world.emit('step', this.entity.id, { pitch: j > 0 && r ? 1 + (r() * 2 - 1) * j : 1 });
+    }
   }
 }
 

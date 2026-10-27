@@ -20,15 +20,20 @@ export function createTime({ step = STEP, maxSteps = 60 } = {}) {
     stopFor: 0,         // real seconds of hit-stop left
     acc: 0,
     hitStop(seconds) { this.stopFor = Math.max(this.stopFor, Math.max(0, +seconds || 0)); },
+    // Slow motion for `seconds` of REAL time at `scale` (a KO moment), on top of time.scale; then back to normal.
+    slowFor: 0, slowScale: 1,
+    slowMo(scale, seconds) { this.slowScale = Math.min(1, Math.max(0, +scale || 0)); this.slowFor = Math.max(0, +seconds || 0); },
+    get rate() { return Math.max(0, this.scale) * (this.slowFor > 0 ? this.slowScale : 1); },
     // How much animation (mixers, visual-only effects) should advance for `realDt` of wall-clock time.
-    visualDt(realDt) { return this.paused || this.stopFor > 0 ? 0 : realDt * Math.max(0, this.scale); },
+    visualDt(realDt) { return this.paused || this.stopFor > 0 ? 0 : realDt * this.rate; },
     // Feed wall-clock seconds; → how many fixed steps to run now. Caps the backlog at maxSteps (1 s) so the game
     // slows down instead of spiralling (the pages also clamp a frame to 0.05 s).
     advance(realDt) {
       realDt = Math.max(0, +realDt || 0);
-      if (this.stopFor > 0) { this.stopFor = Math.max(0, this.stopFor - realDt); return 0; }
+      if (this.stopFor > 0) { this.stopFor -= realDt; if (this.stopFor < 1e-9) this.stopFor = 0; return 0; }
       if (this.paused) return 0;
-      this.acc += realDt * Math.max(0, this.scale);
+      this.acc += realDt * this.rate;
+      if (this.slowFor > 0) { this.slowFor -= realDt; if (this.slowFor < 1e-9) this.slowFor = 0; }
       let n = Math.floor(this.acc / this.step + 1e-9);
       if (n > this.maxSteps) { n = this.maxSteps; this.acc = n * this.step; }
       this.acc -= n * this.step;

@@ -937,6 +937,14 @@
         0,
         -90,
         0
+      ],
+      "behaviors": [
+        {
+          "type": "Stompable",
+          "params": {
+            "slowMo": 1.2
+          }
+        }
       ]
     },
     {

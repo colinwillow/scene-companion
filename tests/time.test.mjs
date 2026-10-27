@@ -61,3 +61,32 @@ test('Stompable hitStop freezes game time on a stomp', () => {
   assert.ok(Math.abs(w.time.stopFor - 0.07) < 1e-9);
   assert.equal(w.time.advance(0.05), 0);
 });
+
+test('slowMo: game runs at its scale for that many real seconds, then back to normal', () => {
+  const t = createTime();
+  t.slowMo(0.25, 0.5);
+  let n = 0; for (let i = 0; i < 30; i++) n += t.advance(1 / 60);   // 0.5 s real
+  assert.ok(n >= 7 && n <= 8, `n=${n}`);                              // ≈ a quarter of 30
+  assert.equal(t.slowFor, 0);
+  n = 0; for (let i = 0; i < 30; i++) n += t.advance(1 / 60);
+  assert.ok(n >= 29 && n <= 31, `n=${n}`);
+  t.slowMo(0.5, 1); assert.equal(t.visualDt(0.1), 0.05);
+});
+
+test('Stompable slowMo + Footsteps pitch jitter use world.time / world.rng', async () => {
+  const { Footsteps } = await import('../behaviors/index.js');
+  const player = fakeEntity('player', [0, 0, 0]), w = fakeWorld([player]);
+  w.input = { move: [1, 0], jump: false };
+  const health = new Health(player, { max: 3 }, w); player.behaviors.push(health); health.start();
+  const pc = attach(PlayerController, player, {}, w);
+  const st = attach(Stompable, fakeEntity('enemy', [0.5, 0, 0]), { height: 1, slowMo: 1, slowMoScale: 0.2 }, w);
+  player.object3d.position.y = 0.8; pc.vy = -3; st.update(0.016);
+  assert.equal(w.time.slowFor, 1); assert.ok(Math.abs(w.time.rate - 0.2) < 1e-9);
+  const fs = attach(Footsteps, player, { stride: 0.5, runStride: 0.5, pitchJitter: 0.1 }, w);
+  pc.grounded = true;
+  for (let i = 0; i < 6; i++) { player.object3d.position.x += 0.3; fs.update(1 / 60); }
+  const steps = w.emitted.filter(e => e[0] === 'step');
+  assert.ok(steps.length >= 2);
+  for (const [, , o] of steps) assert.ok(o.pitch >= 0.9 && o.pitch <= 1.1);
+  assert.notEqual(steps[0][2].pitch, steps[1][2].pitch);
+});

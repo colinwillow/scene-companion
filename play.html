@@ -32,6 +32,9 @@
   #hint { position:fixed; left:0; right:0; bottom:calc(130px + env(safe-area-inset-bottom)); text-align:center; color:#fffc; font-size:14px; text-shadow:0 1px 3px #000; z-index:2; pointer-events:none; transition:opacity 1s; }
   #msg { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:#0008; z-index:3; font-size:30px; }
   #msg button { font:700 18px system-ui; padding:12px 22px; border-radius:14px; border:none; background:#ff8a3d; color:#111; }
+  #pauseMenu { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:#000a; z-index:3; font-size:30px; }
+  #pauseMenu button { font:700 18px system-ui; padding:12px 22px; min-width:160px; border-radius:14px; border:none; background:#ff8a3d; color:#111; }
+  #pauseMenu button.ghost { background:transparent; color:inherit; border:2px solid #fff6; }
   #err { position:fixed; left:8px; right:8px; top:calc(50px + env(safe-area-inset-top)); z-index:4; background:#5a1d1d; color:#ffd9d9; border-radius:10px; padding:10px; font:12px/1.4 ui-monospace,monospace; white-space:pre-wrap; }
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
@@ -45,11 +48,12 @@
 </script>
 </head>
 <body>
-<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="mute">🔊</button> <a id="edit" href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
+<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="pause" title="Pause">⏸</button> <button id="mute">🔊</button> <a id="edit" href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
 <div class="pad" id="stkL" data-side="left"><div class="ring"></div><div class="knob"></div></div>
 <div class="pad" id="stkR" data-side="right"><div class="ring"></div><div class="knob"></div></div>
 <div id="hint">Left stick: move · Right stick: turn camera, tap to jump · Jump on enemies</div>
 <div id="msg"><div id="msgText"></div><button id="again">Play again</button></div>
+<div id="pauseMenu"><div>Paused</div><button id="resume">Resume</button><button id="restart" class="ghost">Restart</button></div>
 <div id="err" hidden></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <script>
@@ -149,12 +153,23 @@ async function start() {
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
   world.on('gameover', () => { sfx.play('gameover'); end('Game over'); });
   world.on('health', () => { sfx.play('hurt'); hud(); });
-  for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['step', 'step'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
+  for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
+  world.on('step', (_id, o) => sfx.play('step', { pitch: o?.pitch || 1 }));   // Footsteps varies the pitch (world.rng)
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
   resize(); hud();
 }
 $('again').onclick = start;
+// ---- pause: ⏸ (or the page going to the background) freezes game time (world.time.paused); animation stops too
+function setPaused(on) {
+  if (!world || (on && over)) return;
+  world.time.paused = on; $('pauseMenu').style.display = on ? 'flex' : 'none';
+}
+$('pause').addEventListener('pointerdown', e => { e.stopPropagation(); setPaused(true); });
+$('resume').onclick = () => setPaused(false);
+$('restart').onclick = () => { setPaused(false); start(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
+addEventListener('keydown', e => { if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!world?.time.paused); });
 
 // ---- camera: behind and above the player, smoothed; pulls in when a solid is in the way
 const focus = new THREE.Vector3(), camPos = new THREE.Vector3();
@@ -250,7 +265,7 @@ renderer.setAnimationLoop(() => {
     liveWs.send(JSON.stringify(buildState(world, { url: SCENE_URL, fps: fps.fps, errors: window.__errQueue.splice(0), selectedId })));
   }
   updateMarker(clock.elapsedTime);
-  if (!over) { readInput(); turnCamera(dt); world.update(dt); hud(); }
+  if (!over && !world.time.paused) { readInput(); turnCamera(dt); world.update(dt); hud(); }
   world.animate(dt);
   updateCamera(dt);
   world.followFocus(focus);

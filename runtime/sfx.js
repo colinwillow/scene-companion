@@ -21,7 +21,7 @@ export function createSfx({ muted = false } = {}) {
       if (!ctx && AC) ctx = new AC();
       if (ctx?.state === 'suspended') ctx.resume();
     },
-    play(name) {
+    play(name, { pitch = 1 } = {}) {   // pitch: frequency / playback-rate multiplier (footstep variety)
       const parts = SOUNDS[name];
       if (!parts || sfx.muted || !ctx || ctx.state !== 'running') return;
       const now = ctx.currentTime;
@@ -33,11 +33,11 @@ export function createSfx({ muted = false } = {}) {
         let src;
         if (s.type === 'noise') {
           if (!noise) { noise = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate); const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-          src = ctx.createBufferSource(); src.buffer = noise;
+          src = ctx.createBufferSource(); src.buffer = noise; src.playbackRate.value = pitch;
         } else {
           src = ctx.createOscillator(); src.type = s.type;
-          src.frequency.setValueAtTime(s.f0, t);
-          src.frequency.exponentialRampToValueAtTime(s.f1, t + s.dur);
+          src.frequency.setValueAtTime(s.f0 * pitch, t);
+          src.frequency.exponentialRampToValueAtTime(s.f1 * pitch, t + s.dur);
         }
         src.connect(g); src.start(t); src.stop(t + s.dur + 0.02);
       }
