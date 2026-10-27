@@ -577,6 +577,54 @@ export class Skater extends Behavior {
   }
 }
 
+// Trick points (Roller Girl's SCORE, THPS's shape): every trick in one line goes into a COMBO; once she has been on the ground
+// `bankAfter` s it is BANKED × the number of tricks (≤ multMax); a respawn LOSES it. Listens to the Skater's events on this entity
+// (trick / landtrick / grind / vertair, held grinds tick). Totals go into world variables (`total`, `combo` names) so Reactions
+// and the HUD can read them; each trick pops up through 'hud'.
+export class TrickScore extends Behavior {
+  static schema = {
+    flip: { type: 'number', default: 100, min: 0, max: 1000, step: 5 },     // a flip landed round
+    spin: { type: 'number', default: 50, min: 0, max: 1000, step: 5 },      // a 360
+    boost:{ type: 'number', default: 10, min: 0, max: 1000, step: 5 },
+    grind:{ type: 'number', default: 10, min: 0, max: 1000, step: 5 },      // the catch…
+    grindTick: { type: 'number', default: 5, min: 0, max: 100, step: 1 },   // …and every half second on it
+    vert: { type: 'number', default: 25, min: 0, max: 1000, step: 5 },      // a vert air
+    bankAfter: { type: 'number', default: 0.6, min: 0, max: 5, step: 0.05 },
+    multMax:   { type: 'number', default: 8, min: 1, max: 20, step: 1 },
+    total: { type: 'string', default: 'score' },   // world variable names
+    combo: { type: 'string', default: 'combo' },
+  };
+  start() {
+    this.c = 0; this.n = 0; this.ground = 0; this.tick = 0;
+    const me = this.entity.id, W = this.world; W.vars ||= {}; W.vars[this.params.total] ??= 0; W.vars[this.params.combo] = 0;
+    W.on('trick', (id, name) => { if (id !== me) return; if (name === 'BOOST') this.add('BOOST', this.params.boost); });
+    W.on('landtrick', (id, kind) => { if (id === me) this.add(kind === 'front' ? 'FRONT FLIP' : kind === 'back' ? 'BACK FLIP' : '360', /front|back/.test(kind) ? this.params.flip : this.params.spin); });
+    W.on('grind', (id, side) => { if (id === me) this.add(side === 'right' ? 'RIGHT GRIND' : 'LEFT GRIND', this.params.grind); });
+    W.on('vertair', id => { if (id === me) this.add('VERT AIR', this.params.vert); });
+    W.on('respawn', () => this.lose());
+  }
+  add(name, pts, quiet) {
+    if (!(pts > 0)) return;
+    this.c += pts; this.ground = 0; this.world.vars[this.params.combo] = this.c;
+    if (quiet) return;
+    this.n++; this.world.emit('hud', `+${pts} ${name}`, 0.9); this.world.emit('trickpoints', this.entity.id, name, pts);
+  }
+  bank() {
+    if (!this.c) return;
+    const m = Math.max(1, Math.min(this.n, this.params.multMax)), got = this.c * m;
+    this.world.vars[this.params.total] = (this.world.vars[this.params.total] || 0) + got;
+    this.world.emit('hud', `${m > 1 ? `×${m}  ` : ''}+${got}`, 1.4); this.world.emit('score', got);
+    this.c = 0; this.n = 0; this.world.vars[this.params.combo] = 0;
+  }
+  lose() { if (this.c) this.world.emit('hud', 'BAILED', 1.2); this.c = 0; this.n = 0; if (this.world.vars) this.world.vars[this.params.combo] = 0; }
+  update(dt) {
+    const sk = this.entity.behaviors.find(b => b instanceof Skater); if (!sk) return;
+    if (sk.grind) { if ((this.tick += dt) >= 0.5) { this.tick -= 0.5; this.add('GRIND', this.params.grindTick, true); } this.ground = 0; return; }
+    this.tick = 0;
+    if (sk.grounded) { if ((this.ground += dt) >= this.params.bankAfter) this.bank(); } else this.ground = 0;
+  }
+}
+
 // A walkable SURFACE made of this object's own triangles (Roller Girl's triangle floor, runtime/trimesh.js): ramps, bowls, hills
 // and stairs from Blender are stood on as drawn, not as boxes. Faces steeper than `maxSlope` are not floors (give walls a Solid).
 // PlayerController (and later the Skater) stands on every Surface in world.surfaces. Rebuilt when the object is moved.
@@ -1729,6 +1777,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

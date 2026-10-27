@@ -25,6 +25,10 @@
         "threshold": 0.85
       },
       "vignette": 0.25
+    },
+    "variables": {
+      "score": 0,
+      "combo": 0
     }
   },
   "assets": {
@@ -277,6 +281,9 @@
         },
         {
           "type": "TailWave"
+        },
+        {
+          "type": "TrickScore"
         }
       ]
     },

@@ -145,3 +145,18 @@ test('ground left flick: up = boost (a stroke of +8 m/s, once per cooldown), dow
   w.input.trick = [0, 1]; for (let i = 0; i < 40; i++) sk.update(1 / 60);
   assert.ok(Math.hypot(...sk.v) < 0.5, `skidded to a stop, ${Math.hypot(...sk.v).toFixed(2)} m/s`);
 });
+
+test('TrickScore: tricks build a combo, landing banks it × the trick count; a respawn loses it', async () => {
+  const { w, sk } = await run(railScene(), 0.01);
+  const { TrickScore } = await import('../behaviors/index.js');
+  const e = w.getEntity('player'), ts = new TrickScore(e, {}, w); e.behaviors.push(ts); ts.start();
+  const huds = []; w.on('hud', t => huds.push(t));
+  sk.grind = null; sk.grounded = false;
+  w.emit('grind', 'player', 'left'); w.emit('landtrick', 'player', 'front');
+  assert.equal(w.vars.combo, 110);
+  sk.grounded = true; for (let i = 0; i < 40; i++) ts.update(1 / 60);
+  assert.equal(w.vars.score, 220, '110 × 2 tricks'); assert.equal(w.vars.combo, 0);
+  assert.ok(huds.includes('×2  +220'));
+  sk.grounded = false; w.emit('landtrick', 'player', 'back'); w.emit('respawn');
+  assert.equal(w.vars.combo, 0); assert.equal(w.vars.score, 220, 'lost, not banked'); assert.ok(huds.includes('BAILED'));
+});
