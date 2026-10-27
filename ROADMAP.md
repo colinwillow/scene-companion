@@ -39,7 +39,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [ ] Live link: tap an object in the running game to select it in the editor (needs a 'select mode' toggle so it doesn't fight the joystick)
 
 ## Stage 5 — MCP server
-- [ ] MCP server exposing: list entities, get selection, spawn/move/delete, attach behavior, set param, play/stop, screenshot, read errors
+- [ ] [IN PROGRESS 2026-10-27 00:06 UTC] MCP server exposing: list entities, get selection, spawn/move/delete, attach behavior, set param, play/stop, screenshot, read errors
 - [ ] Finish-line test: Claude builds a small game (e.g. Tetris or a tiny platformer) through MCP alone
 
 ## Later
