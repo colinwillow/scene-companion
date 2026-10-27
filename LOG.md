@@ -53,3 +53,4 @@
 - 2026-10-27 — Blocked: accounts/cloud save, Publish, hosted connector, Connect GitHub (need Colin's accounts, docs/cloud-setup.md); Motion library + Inventory (no add_repo in build runs) (build run)
 - 2026-10-27 — character.json + clip roles — runtime/character.js, World loader, Animator/Stompable read roles, validator; Zap/skeleton/mutant converted; 115 tests; headless ✓; route ✓ Sky Steps (build run)
 - 2026-10-27 — Characters follow-ups — Blender/Replace via character variants, Library › Characters from character index, Motions role labels; 116 tests; headless ✓ (build run)
+- 2026-10-27 — Pack format — runtime/packs.js, validator, packs/colin-starter, Library › Packs tab, Library render race fix; 119 tests; headless ✓ (build run)

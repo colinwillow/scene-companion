@@ -3,6 +3,7 @@
 // Usage: node tools/validate.mjs [scenes/*.scene.json ...]   (defaults to every scene in scenes/)
 import { LIGHT_FIELDS } from '../runtime/editing.js';
 import { characterVariant, checkCharacter } from '../runtime/character.js';
+import { checkPack } from '../runtime/packs.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -155,6 +156,25 @@ for (const cf of codeFiles) {
   for (const h of findHardcoded(src)) err(cf, `line ${h.line}: hardcoded placement (${h.why}) — put it in the scene file: ${h.text}`);
   if (cf.startsWith('behaviors')) for (const h of findSpawnedMeshes(src)) err(cf, `line ${h.line}: behaviors must not create meshes: ${h.text}`);
   else for (const h of findSpawnedMeshes(src)) warn(cf, `line ${h.line}: creates a mesh in code — if it's a placed object, it belongs in the scene file`);
+}
+// Packs: packs/<id>/pack.json (runtime/packs.js); packs/index.json lists the installed ones.
+if (existsSync('packs')) {
+  const rel = p => String(p).replace(/^\.\//, '');
+  const has = { file: p => existsSync(rel(p)), prefab: n => existsSync(join('prefabs', `${n}.prefab.json`)), behavior: n => !!getBehavior(n) };
+  const dirs = readdirSync('packs', { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name);
+  let installed = [];
+  if (existsSync('packs/index.json')) { try { installed = JSON.parse(readFileSync('packs/index.json', 'utf8')); } catch { err('packs/index.json', 'bad JSON'); } }
+  for (const id of installed) if (!dirs.includes(id)) err('packs/index.json', `no pack folder "${id}"`);
+  for (const id of dirs) {
+    const pf = join('packs', id, 'pack.json');
+    if (!existsSync(pf)) { err(pf, 'missing'); continue; }
+    let pack; try { pack = JSON.parse(readFileSync(pf, 'utf8')); } catch (x) { err(pf, `bad JSON: ${x.message}`); continue; }
+    const before = errors;
+    for (const pr of checkPack(pack, id, has)) (pr.level === 'error' ? err : warn)(pf, pr.msg);
+    for (const c of pack.characters || []) if (has.file(c)) characterOf(pf, c);   // character files get checked too
+    if (!installed.includes(id)) warn(pf, 'not listed in packs/index.json, so the editor won\'t show it');
+    if (errors === before) console.log(`✓ ${pf} — ${['characters', 'prefabs', 'behaviors', 'scenes'].map(k => `${(pack[k] || []).length} ${k}`).join(', ')}`);
+  }
 }
 if (warnings) console.log(`${warnings} warning(s)`);
 

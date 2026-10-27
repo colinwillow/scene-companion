@@ -60,6 +60,7 @@
   #tree ul, #lib ul { list-style:none; margin:0; padding:0; overflow:auto; touch-action:pan-y; flex:1; }
   #tree li, #lib li { padding:9px 8px; border-radius:8px; display:flex; gap:8px; align-items:baseline; cursor:pointer; }
   #tree li.sel { background:var(--accent); color:#111; }
+  #lib li.head { cursor:default; font-weight:700; padding-top:12px; border-bottom:1px solid var(--line); border-radius:0; }
   #tree li.sel small { color:#111a; }
   #tree li small, #lib li small { color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #tree .count, #lib .count { color:var(--dim); font-size:12px; margin:0 0 4px 2px; }
@@ -106,7 +107,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
@@ -127,6 +128,7 @@ import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
 import { clipRoles, characterEntries } from './runtime/character.js';
+import { packItems } from './runtime/packs.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -776,24 +778,42 @@ async function addCharacterFrom(i) {
 
 // ---- Libraries panel: characters / props (every prefab + scene model; tap to add at the view centre) and
 // motions (the selected object's clips; tap to play and keep). Prefab files are fetched once, on first open.
-var libTab = 'characters', libPrefabs = null;   // var: select() can run before this line (early live picks)
+var libTab = 'characters', libPrefabs = null, libPacks = null, libSeq = 0, libPrefabsLoad = null;   // libPacks: installed packs (packs/index.json), fetched on first open   // var: select() can run before this line (early live picks)
 async function renderLib() {
   if (!$('lib').classList.contains('open') || !world) return;
+  const seq = ++libSeq;                           // a newer render (tab switch, search) wins over this one
   const wide = matchMedia('(orientation: landscape) and (min-width: 600px)').matches;
   $('lib').style.top = wide ? '' : $('bar').getBoundingClientRect().bottom + 'px';
-  if (!libPrefabs) {
-    libPrefabs = {};
-    const names = [...new Set([...prefabLibrary, ...Object.keys(data.prefabs || {})])];
+  libPrefabsLoad ||= (async () => {                // one shared load, so a second render never sees a half-filled map
+    const out = {}, names = [...new Set([...prefabLibrary, ...Object.keys(data.prefabs || {})])];
     await Promise.all(names.map(async n => {
       const url = data.prefabs?.[n] || `./prefabs/${n}.prefab.json`;
-      try { libPrefabs[n] = await (await fetch(url)).json(); } catch {}
+      try { out[n] = await (await fetch(url)).json(); } catch {}
     }));
-  }
-  const q = $('libSearch').value.trim(), ul = $('libList'); ul.innerHTML = '';
+    return (libPrefabs = out);
+  })();
+  await libPrefabsLoad;
+  if (seq !== libSeq) return;
+  const q = $('libSearch').value.trim(), ul = $('libList');
   let items;
-  if (libTab === 'motions') {
+  if (libTab === 'packs') {
+    if (!libPacks) {
+      let ids = []; try { ids = await (await fetch('./packs/index.json')).json(); } catch {}
+      libPacks = (await Promise.all((Array.isArray(ids) ? ids : []).map(async id => { try { return await (await fetch(`./packs/${id}/pack.json`)).json(); } catch { return null; } }))).filter(Boolean);
+      if (seq !== libSeq) return;
+    }
+    items = [];
+    for (const pk of libPacks) {
+      const its = filterNames(packItems(pk), q);
+      if (!its.length && q) continue;
+      items.push({ name: `📦 ${pk.name}`, sub: `v${pk.version} · ${pk.tier}${pk.tier === 'unlock' ? ' 🔒' : ''} · ${packItems(pk).length} items`, header: true });
+      for (const i of its) items.push({ name: i.name, sub: i.kind === 'character' ? 'character' : 'prefab',
+        pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom('prefab', i.name); if (!wide) closeLib(); } });
+    }
+    $('libCount').textContent = playing ? 'Stop play to add things' : `${libPacks.length} installed pack${libPacks.length === 1 ? '' : 's'} — tap an item to add it at the view centre`;
+  } else if (libTab === 'motions') {
     const ent = world.getEntity(selectedId);
-    if (!ent?.anim) { $('libCount').textContent = 'Select an animated object to see its motions'; return; }
+    if (!ent?.anim) { $('libCount').textContent = 'Select an animated object to see its motions'; ul.innerHTML = ''; return; }
     const roleOf = clipRoles(ent.roles);   // character.json roles this clip plays, e.g. "jump · fall"
     items = filterNames(ent.anim.clips, q).map(c => ({ name: c, sub: [(roleOf[c] || []).join(' · '), c === (ent.data.animation || ent.anim.current) ? 'playing' : ''].filter(Boolean).join(' — '), pick: () => {
       if (playing) return;
@@ -807,11 +827,13 @@ async function renderLib() {
       pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom(i.kind, i.name); if (!wide) closeLib(); } }));
     $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to add at the view centre`;
   }
+  if (seq !== libSeq) return;
+  ul.innerHTML = '';
   for (const it of items) {
     const li = document.createElement('li');
     li.innerHTML = '<span></span><small></small>';
     li.firstChild.textContent = it.name; li.lastChild.textContent = it.sub;
-    li.onclick = it.pick;
+    if (it.header) li.className = 'head'; else li.onclick = it.pick;
     ul.append(li);
   }
 }
