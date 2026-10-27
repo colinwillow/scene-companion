@@ -344,7 +344,7 @@ async function treeDragEnd() {
   const before = structuredClone(data);
   try { reparent(data, id, over || null); } catch (x) { showErr(x.message); renderTree(); return; }
   hist.record(before); updateUndo();
-  await rebuild(); select(id); renderTree();
+  await refresh(before); select(id); renderTree();
 }
 // iOS: once a drag is live, stop the list scrolling under the thumb.
 $('treeList').addEventListener('touchmove', ev => { if (treeDrag.active) ev.preventDefault(); }, { passive: false });
@@ -544,7 +544,7 @@ function renderPanel() {
       sel.value = at.parent?.id || '';
       sel.onchange = async () => {
         try { record(); reparent(data, e.id, sel.value || null); } catch (x) { alert(x.message); return; }
-        await rebuild(); select(e.id);
+        await refresh(); select(e.id);
       };
       panel.append(row);
     }

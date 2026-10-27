@@ -54,32 +54,48 @@ export async function patchScene(world, prev, next) {
   const withParent = d => { const m = new Map(); walkEntities(d.entities, (e, { parent }) => m.set(e.id, { e, parent: parent?.id ?? null })); return m; };
   const P = withParent(prev), N = withParent(next);
   const removed = [...P.keys()].filter(id => !N.has(id)), added = [...N.keys()].filter(id => !P.has(id));
-  if (!removed.length && !added.length) return applyScene(world, prev, next);
-  for (const [id, n] of N) if (P.has(id) && P.get(id).parent !== n.parent) return 'rebuild';          // re-parented
+  const moved = [...N.keys()].filter(id => P.has(id) && P.get(id).parent !== N.get(id).parent);
+  if (!removed.length && !added.length && !moved.length) return applyScene(world, prev, next);
   if (!same(prev.assets, next.assets) || !same(prev.settings, next.settings)) return 'rebuild';
   const prefabsOk = Object.entries(prev.prefabs || {}).every(([k, v]) => same(next.prefabs?.[k], v));     // only new prefabs listed
   if (!prefabsOk) return 'rebuild';
-  if ([...removed.map(id => P.get(id).e), ...added.map(id => N.get(id).e)].some(e => e.light)) return 'rebuild';
+  if ([...removed.map(id => P.get(id).e), ...added.map(id => N.get(id).e)].some(e => e.light)) return 'rebuild';   // the editor draws light markers at build
   world.data = next;
   for (const [k, url] of Object.entries(next.prefabs || {})) if (!prev.prefabs?.[k] && typeof url === 'object') (world.prefabs ||= {})[k] = url;
   // remove roots of removed subtrees (children go with them)
   for (const id of removed) if (!removed.includes(P.get(id).parent)) world.destroy(id);
-  // add roots of new subtrees, in scene order (world.add builds their authored children too)
+  // re-parent: move the object under its new parent (its scene-file transform is already relative to it — tree.reparent)
+  for (const id of moved) {
+    const ent = world.getEntity(id), np = N.get(id).parent, host = np ? world.getEntity(np) : null;
+    if (!ent || (np && !host) || ent.inherited) return 'rebuild';
+    (host ? host.object3d : world.scene).add(ent.object3d);
+    const old = ent.parent && world.getEntity(ent.parent); if (old) old.children = old.children.filter(c => c !== id);
+    ent.parent = np; if (host) host.children.push(id);
+    const depth = (x, d) => { x.depth = d; x.children.forEach(c => { const k = world.getEntity(c); if (k) depth(k, d + 1); }); };
+    depth(ent, host ? host.depth + 1 : 0);
+  }
+  // add roots of new subtrees (world.add builds their authored children too)
   for (const id of added) {
     const { e, parent } = N.get(id);
     if (added.includes(parent)) continue;
     try { await world.add(e, parent); } catch { return 'rebuild'; }
   }
-  // what's left: edits to entities that existed before (moves, params…), compared against prev without the add/remove
-  const keep = structuredClone(prev);
-  const drop = list => list?.filter(x => !removed.includes(x.id)).map(x => (x.children ? { ...x, children: drop(x.children) } : x));
-  keep.entities = drop(keep.entities);
-  for (const id of added) {
-    const { e, parent } = N.get(id); if (added.includes(parent)) continue;
-    if (!parent) keep.entities.push(structuredClone(e));
-    else { let host = null; walkEntities(keep.entities, x => { if (x.id === parent) host = x; }); if (!host) return 'rebuild'; (host.children ||= []).push(structuredClone(e)); }
-  }
-  keep.prefabs = next.prefabs;
+  // the rest (moves, params…): compare `next` against itself with each pre-existing entity's OLD fields swapped in,
+  // so the structure matches and only real edits show (new entities compare equal to themselves).
+  const keep = structuredClone(next);
+  walkEntities(keep.entities, x => {
+    const old = P.get(x.id)?.e; if (!old) return;
+    for (const k of Object.keys(x)) if (k !== 'children') delete x[k];
+    for (const [k, v] of Object.entries(old)) if (k !== 'children') x[k] = structuredClone(v);
+  });
   const r = applyScene(world, keep, next);
-  return r === 'rebuild' ? 'rebuild' : 'patched';
+  if (r === 'rebuild') return 'rebuild';
+  for (const id of moved) {   // re-apply the (re-based) transform even if the numbers happen to be equal
+    const ent = world.getEntity(id), e = N.get(id).e, o = ent.object3d;
+    if (e.position) o.position.fromArray?.(e.position) ?? ([o.position.x, o.position.y, o.position.z] = e.position);
+    if (e.rotation) [o.rotation.x, o.rotation.y, o.rotation.z] = e.rotation.map(d => d * DEG);
+    if (e.scale) [o.scale.x, o.scale.y, o.scale.z] = e.scale;
+    ent.behaviors.forEach(b => b.onMoved?.());
+  }
+  return 'patched';
 }

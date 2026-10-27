@@ -27,14 +27,18 @@ test('patchScene: adds and removes objects in place (no rebuild), keeps the rest
   assert.equal(bObj.position.x, 4, '…and was moved');
 });
 
-test('patchScene: still rebuilds for re-parenting, settings and lights', async () => {
+test('patchScene: re-parents in place; still rebuilds for settings and lights', async () => {
   const prev = scene(), w = await loaded(structuredClone(prev));
   const moved = structuredClone(prev); const hat = moved.entities[0].children.pop(); moved.entities.push(hat);
-  assert.equal(await patchScene(w, prev, moved), 'rebuild', 're-parented');
+  const hatObj = w.getEntity('a_hat').object3d;
+  assert.equal(await patchScene(w, prev, moved), 'patched', 're-parented in place');
+  assert.equal(hatObj.parent, w.scene, 'the hat now hangs off the scene root');
+  assert.equal(w.getEntity('a_hat').parent, null);
+  assert.deepEqual(w.getEntity('a').children, []);
+  const w2 = await loaded(structuredClone(prev));
   const look = structuredClone(prev); look.settings.look = 'toon';
-  assert.equal(await patchScene(w, prev, look), 'rebuild', 'settings');
+  assert.equal(await patchScene(w2, prev, look), 'rebuild', 'settings');
   const lamp = structuredClone(prev); lamp.entities.push({ id: 'lamp', light: { type: 'point' }, position: [0, 2, 0] });
-  assert.equal(await patchScene(w, prev, lamp), 'rebuild', 'lights');
-  const none = structuredClone(prev);
-  assert.equal(await patchScene(w, prev, none), 'none');
+  assert.equal(await patchScene(w2, prev, lamp), 'rebuild', 'lights');
+  assert.equal(await patchScene(w2, prev, structuredClone(prev)), 'none');
 });
