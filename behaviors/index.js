@@ -366,6 +366,17 @@ export class Skater extends Behavior {
     grindLeft: { type: 'string', default: 'grind_left' },
     grindRight:{ type: 'string', default: 'grind_right' },
   };
+  // Ready-made sets of params (an agent or the editor writes them into the scene; nothing reads them at run time).
+  // board: Shred World's skateboard (SK8 in colinwillow/city @797e32b) with Colin's board clips — 10 m/s in about a second,
+  // settling near 20, the c169 ollie (3.97 m), a board that coasts like a vehicle.
+  static presets = {
+    board: {
+      push: 9, top: 20, roll: 0.052, brake: 1.5, grip: 30, ollie: 12.6, fakieAt: 2.2,
+      idleClip: 'skate_idol_standing', rollClip: 'skate_idol_standing', pushClip: 'skate_push_standing', hardClip: 'skate_push_crouch',
+      hardAt: 14, rateRef: 8, airClip: 'skate_ollie_air', backPush: '', backRoll: '', backIdle: '',
+      tuckClip: 'skate_ollie_air', grindLeft: 'skate_idol_crouch', grindRight: 'skate_idol_crouch',
+    },
+  };
   start() {
     const o = this.entity.object3d, p = o.position;
     this.v = [0, 0, 0]; this.n = [0, 1, 0]; this.grounded = true; this.heading = yawOf(o); this.spawn = [p.x, p.y, p.z];
@@ -670,6 +681,47 @@ export class Mount extends Behavior {
     }
   }
   destroy() { if (this.bone && this.home && this.entity.object3d.parent === this.bone) this.home.add(this.entity.object3d); }
+}
+
+// A skateboard under the rider (Shred World's BOARD, docs/shredworld-extraction.md). Put this on the board entity, a CHILD of
+// the rider: the board turns and tilts with him for free. It sizes the deck to `length` metres along its own long axis (local Z,
+// as Colin's skateboard.glb is built), sets the wheels on the rider's floor, and raises the rider's model by the deck's top
+// (`lift` -1 = measured off the board; Shred World typed 0.11). Everything is measured off the geometry, so any board fits.
+export class Deck extends Behavior {
+  static schema = {
+    length: { type: 'number', default: 0.8, min: 0.1, max: 3, step: 0.01 },     // m nose to tail (Shred World's BOARD.len)
+    lift:   { type: 'number', default: -1, min: -1, max: 1, step: 0.01 },       // m the rider stands up; -1 = the measured deck top
+  };
+  // the model's extents in its own frame (mesh bounding boxes through the node chain, no three import) → { min, max } or null
+  static extents(model) {
+    let min = null, max = null;
+    model.updateMatrixWorld?.(true);
+    model.traverse?.(m => {
+      if (!m.isMesh || !m.geometry?.attributes?.position) return;
+      m.geometry.boundingBox || m.geometry.computeBoundingBox();
+      const M = m.matrix.clone(); for (let q = m.parent; q && q !== model; q = q.parent) M.premultiply(q.matrix);
+      const b = m.geometry.boundingBox, V = b.min.constructor;
+      for (let i = 0; i < 8; i++) {
+        const c = new V(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(M);
+        if (!min) { min = c.clone(); max = c.clone(); } else { min.min(c); max.max(c); }
+      }
+    });
+    return min && { min: [min.x, min.y, min.z], max: [max.x, max.y, max.z] };
+  }
+  start() {
+    const o = this.entity.object3d, model = o.children.find(c => !c.userData?.entityId); if (!model) return;
+    const e = Deck.extents(model); if (!e) { this.world.emit?.('warn', 'Deck: the board has no mesh'); return; }
+    const k = this.params.length / Math.max(1e-6, e.max[2] - e.min[2]);
+    model.scale.setScalar(k);
+    model.position.x = -k * (e.min[0] + e.max[0]) / 2; model.position.z = -k * (e.min[2] + e.max[2]) / 2;
+    model.position.y = -k * e.min[1];                                   // wheels on the floor
+    this.top = k * (e.max[1] - e.min[1]);
+    const rider = this.world.getEntity?.(this.entity.parent)?.object3d, rm = rider?.children.find(c => !c.userData?.entityId);
+    if (!rm) return;
+    this.riderModel = rm; rm.userData.deckHome ??= rm.position.y;
+    rm.position.y = rm.userData.deckHome + (this.params.lift >= 0 ? this.params.lift : this.top);
+  }
+  destroy() { const rm = this.riderModel; if (rm?.userData.deckHome !== undefined) rm.position.y = rm.userData.deckHome; }
 }
 
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
@@ -1777,6 +1829,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

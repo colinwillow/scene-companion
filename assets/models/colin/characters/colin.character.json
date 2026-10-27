@@ -1,0 +1,17 @@
+{
+  "name": "Colin (Shred World)",
+  "glb": "./assets/models/colin/characters/colin.glb",
+  "height": 1.8,
+  "source": "colinwillow/city models/colin.glb @797e32b (68 joints; board clips skate_*; docs/shredworld-extraction.md)",
+  "roles": {
+    "idle": "Neutral_Idle",
+    "walk": "walk_fwd_neutral",
+    "run": "run_fwd",
+    "jump": "jump_going_up",
+    "doubleJump": "front_flip",
+    "fall": "jump_coming_down",
+    "land": "landing_roll",
+    "hit": "fall_to_back",
+    "death": "fall_to_face_down"
+  }
+}
