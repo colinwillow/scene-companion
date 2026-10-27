@@ -260,6 +260,75 @@ export class Mount extends Behavior {
   destroy() { if (this.bone && this.home && this.entity.object3d.parent === this.bone) this.home.add(this.entity.object3d); }
 }
 
+// Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
+// catches the lip — he hangs (`hangClip`). Tap: climb up over it (`climbClip`) and stand on top. Stick pulled away: let go.
+// Every distance is a share of his height (the PlayerController's `height`), so it fits any body.
+export class Ledge extends Behavior {
+  static schema = {
+    hangClip:  { type: 'string', default: 'ledge_hang_idle' },
+    climbClip: { type: 'string', default: 'ledge_hang_to_get_up_over_ledge' },
+    climbTime: { type: 'number', default: 1.0, min: 0.2, max: 3, step: 0.05 },   // s from hanging to standing on top
+    hang:  { type: 'number', default: 0.86, min: 0.3, max: 1.5, step: 0.01 },    // × height: his feet hang this far under the lip
+    out:   { type: 'number', default: 0.17, min: 0, max: 0.6, step: 0.01 },      // × height: his body sits this far off the face
+    band:  { type: 'number', default: 0.3, min: 0.05, max: 1, step: 0.01 },      // × height: how far off his hands the lip may be
+    reach: { type: 'number', default: 0.5, min: 0, max: 2, step: 0.05 },         // m off the face (beyond his radius) that still grabs
+    want:  { type: 'number', default: 0.35, min: 0, max: 1, step: 0.05 },        // stick INTO the face needed (0 = grab anything)
+    inset: { type: 'number', default: 0.4, min: 0.1, max: 1.5, step: 0.05 },     // × height: how far onto the top a climb sets him
+    tall:  { type: 'number', default: 0.9, min: 0, max: 5, step: 0.05 },         // m: a block shorter than this is a kerb, not a ledge
+  };
+  start() { this.pc = this.entity.behaviors.find(b => b instanceof PlayerController); this.hold = null; this.coolT = 0; this.clip = this.params.hangClip; }
+  destroy() { if (this.entity.mover === this) this.entity.mover = null; }
+  h() { return this.pc?.params.height ?? 1.75; }
+  r() { return this.pc?.params.radius ?? 0.35; }
+  find(move) {
+    const p = this.entity.object3d.position, P = this.params, H = this.h(), mag = Math.hypot(move[0], move[1]);
+    let best = null;
+    for (const solid of this.world.solids || []) {
+      if ((solid.params?.shape && solid.params.shape !== 'box') || solid.params?.slope) continue;
+      const sh = walkShape(solid), lip = sh.maxY;
+      if (sh.maxY - sh.minY < P.tall || Math.abs(lip - p.y - P.hang * H) > P.band * H) continue;
+      const { cx, cz, inside } = sh.near(p.x, p.z); if (inside) continue;
+      const d = Math.hypot(p.x - cx, p.z - cz); if (d < 1e-6 || d > this.r() + P.reach || (best && d >= best.d)) continue;
+      const nx = (p.x - cx) / d, nz = (p.z - cz) / d;
+      if (P.want > 0 && (mag < 0.2 || -(move[0] * nx + move[1] * nz) / mag < P.want)) continue;   // only when he asks for it
+      // headroom: nothing solid standing on the lip where he would climb to
+      const ux = cx - nx * P.inset * H, uz = cz - nz * P.inset * H;
+      if ((this.world.solids || []).some(o => o !== solid && walkShape(o).topNear(ux, uz, this.r()) > lip + 0.1 && walkShape(o).minY < lip + H)) continue;
+      best = { solid, shape: sh, d, nx, nz, cx, cz, lip };
+    }
+    return best;
+  }
+  update(dt) {
+    this.coolT = Math.max(0, this.coolT - dt);
+    const pc = this.pc; if (!pc || dt <= 0) return;
+    const o = this.entity.object3d, p = o.position, P = this.params, H = this.h(), input = this.world.input || {}, move = input.move || [0, 0];
+    const L = this.hold;
+    if (!L) {
+      if (this.entity.mover || pc.grounded || pc.vy > 0 || this.coolT > 0 || this.entity.defeated) return;
+      const W = this.find(move); if (!W) return;
+      this.hold = { ...W, t: 0, climb: -1 };
+      p.x = W.cx + W.nx * (this.r() * 0.5 + P.out * H); p.z = W.cz + W.nz * (this.r() * 0.5 + P.out * H); p.y = W.lip - P.hang * H;
+      setYaw(o, Math.atan2(-W.nx, -W.nz), 0);
+      this.clip = P.hangClip; this.entity.mover = this; pc.vy = 0; pc.carry = null;
+      this.world.emit('ledge', this.entity.id);
+      return;
+    }
+    L.t += dt;
+    if (L.climb < 0) {
+      if (input.jump) { input.jump = false; L.climb = 0; L.from = [p.x, p.y, p.z]; L.to = [L.cx - L.nx * P.inset * H, L.lip, L.cz - L.nz * P.inset * H]; this.clip = P.climbClip; this.world.emit('climb', this.entity.id); return; }
+      if (L.t > 0.25 && move[0] * L.nx + move[1] * L.nz > 0.62) { this.let(); return; }   // pulled away: let go
+      return;
+    }
+    // climbing: up to the lip first, then over it
+    L.climb = Math.min(1, L.climb + dt / P.climbTime);
+    const ease = x => x * x * (3 - 2 * x), up = ease(Math.min(1, L.climb / 0.6)), over = ease(Math.max(0, (L.climb - 0.4) / 0.6));
+    p.y = L.from[1] + (L.to[1] - L.from[1]) * up;
+    p.x = L.from[0] + (L.to[0] - L.from[0]) * over; p.z = L.from[2] + (L.to[2] - L.from[2]) * over;
+    if (L.climb >= 1) { this.hold = null; this.entity.mover = null; pc.grounded = true; pc.vy = 0; pc.sinceGround = 0; pc.airJumpCount = 0; }
+  }
+  let() { this.hold = null; this.coolT = 0.4; if (this.entity.mover === this) this.entity.mover = null; this.pc.vy = 0; this.pc.grounded = false; this.pc.sinceGround = 1; }
+}
+
 // Wall run (zap's WRUN, docs/goblin-extraction.md): TAP beside a tall wall while moving along it → run along the face on a
 // low arc (feet on it, body rolled off it); heading INTO it → run up the face. Tap again on the wall → kick off it (a wall
 // jump, carrying some speed — onto the opposite wall with another tap). It ends at the wall's end, its top, the time
@@ -839,6 +908,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Mount, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Mount, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
