@@ -40,3 +40,4 @@
 - 2026-10-27 — Libraries panel v0 — 📚 Characters/Props/Motions, runtime/library.js; 92 tests; headless ✓ on Tiny Hop (build run)
 - 2026-10-27 — Add at view centre — screen-centre raycast to ground/Solids for ＋Add, Library, MCP spawn; Duplicate screen-right; 94 tests; headless ✓ (build run)
 - 2026-10-27 — Quieter selection — highlight box + name chip, inspector opens from ✎ Edit, ground tap deselects; 95 tests; headless ✓ portrait + landscape (build run)
+- 2026-10-27 — Twin-stick controls — runtime/sticks.js (rollergirl bindStick port), right tap = jump, yaw-only right stick, jumpTap setting; 98 tests; headless ✓; check:full unchanged (build run)

@@ -97,6 +97,8 @@ for (const f of files) {
   for (const r of scene.settings?.route || []) if (!ids.has(r)) err(f, `settings.route: no entity "${r}"`);
   const known = scene.settings?.routeKnownIssue;
   if (known !== undefined && (typeof known !== 'string' || !known.trim())) err(f, 'settings.routeKnownIssue must be a short reason (string)');
+  const jt = scene.settings?.controls?.jumpTap;
+  if (jt !== undefined && !['right', 'either'].includes(jt)) err(f, `settings.controls.jumpTap must be "right" or "either" (got ${JSON.stringify(jt)})`);
   if (known && !scene.settings?.route?.length) warn(f, 'settings.routeKnownIssue without a settings.route');
   if (errors === errorsBefore) console.log(`✓ ${f} — ${ids.size} entities`);
 }

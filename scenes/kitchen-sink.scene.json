@@ -26,6 +26,9 @@
         "threshold": 0.85
       },
       "vignette": 0.25
+    },
+    "controls": {
+      "jumpTap": "right"
     }
   },
   "assets": {
