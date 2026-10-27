@@ -1,0 +1,32 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "primitive": "ramp",
+        "pivot": "bottom",
+        "size": [
+          2,
+          1,
+          1.5
+        ],
+        "texture": "sand",
+        "repeat": 1,
+        "color": "#9fd18b",
+        "roughness": 0.85
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          2,
+          1,
+          1.5
+        ],
+        "slope": true
+      }
+    }
+  ]
+}

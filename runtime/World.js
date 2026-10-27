@@ -89,6 +89,12 @@ export class World {
       cylinder: () => new THREE.CylinderGeometry(s[0] / 2, s[0] / 2, s[1], 24),
       capsule: () => new THREE.CapsuleGeometry(s[0] / 2, s[1] - s[0], 8, 16),
       plane: () => new THREE.PlaneGeometry(s[0], s[2]).rotateX(-Math.PI / 2),
+      ramp: () => {   // a wedge rising toward +x (Solid slope: true matches it)
+        const g = new THREE.BoxGeometry(...s), pos = g.attributes.position;
+        for (let i = 0; i < pos.count; i++) if (pos.getY(i) > 0 && pos.getX(i) < 0) pos.setY(i, -s[1] / 2);
+        g.computeVertexNormals();
+        return g;
+      },
     }[variant.primitive]?.() || new THREE.BoxGeometry(...s);
     if (variant.pivot === 'bottom' && variant.primitive !== 'plane') geo.translate(0, s[1] / 2, 0);   // origin at the base: sits on what it's dropped on
     const mat = new THREE.MeshStandardMaterial({

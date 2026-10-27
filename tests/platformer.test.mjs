@@ -182,3 +182,21 @@ test('airJumps default 0: no jumping in mid-air', () => {
   w.input.jump = true; run(pc, 1);
   assert.ok(pc.vy < 0); assert.equal(pc.airJumpCount, 0);
 });
+
+test('ramps: walk up a slope without jumping, stay on it going down, turned ramps follow rotation', async () => {
+  const { topAt } = await import('../behaviors/index.js');
+  const { w, pc, p } = setup();
+  const ramp = fakeEntity('ramp', [2, 0, 0]); w.entities?.set?.('ramp', ramp);
+  attach(Solid, ramp, { size: [2, 1, 2], slope: true }, w);              // rises from x=1 (0 m) to x=3 (1 m)
+  const b = w.solids[0].box();
+  assert.equal(topAt(b, 1, 0), 0); assert.equal(topAt(b, 2, 0), 0.5); assert.equal(topAt(b, 3, 0), 1);
+  w.input.move = [1, 0];
+  run(pc, 30);                                                           // 2.5 m in: x = 2.5 → on the ramp
+  assert.ok(pc.grounded, 'walked up, still grounded');
+  assert.ok(Math.abs(p.y - topAt(b, p.x, p.z)) < 0.1, `y=${p.y} at x=${p.x}`);
+  w.input.move = [-1, 0]; let air = 0;
+  for (let i = 0; i < 18; i++) { run(pc, 1); if (!pc.grounded) air++; }   // back down
+  assert.equal(air, 0, 'never leaves the slope going down');
+  ramp.object3d.rotation.y = Math.PI / 2;                                // now rises toward -z, footprint swapped
+  assert.equal(w.solids[0].box().slope, '-z');
+});

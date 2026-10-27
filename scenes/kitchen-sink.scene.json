@@ -1143,6 +1143,15 @@
         5,
         -5
       ]
+    },
+    {
+      "id": "kit_ramp_01",
+      "prefab": "kit_ramp",
+      "position": [
+        -10.5,
+        0,
+        -5.5
+      ]
     }
   ],
   "prefabs": {
@@ -1169,6 +1178,7 @@
     "kit_platform": "./prefabs/kit_platform.prefab.json",
     "kit_wall": "./prefabs/kit_wall.prefab.json",
     "kit_block": "./prefabs/kit_block.prefab.json",
-    "trigger_zone": "./prefabs/trigger_zone.prefab.json"
+    "trigger_zone": "./prefabs/trigger_zone.prefab.json",
+    "kit_ramp": "./prefabs/kit_ramp.prefab.json"
   }
 }

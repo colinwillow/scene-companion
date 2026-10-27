@@ -159,15 +159,31 @@ export class Solid extends Behavior {
   static schema = {
     size:   { type: 'vec3', default: [1, 1, 1] },        // metres
     anchor: { type: 'string', default: 'bottom' },        // bottom | center
+    slope:  { type: 'boolean', default: false },          // a ramp: the top rises from nothing to size.y along the model's +x
   };
   start() { (this.world.solids ||= []).push(this); }
   destroy() { const s = this.world.solids; if (s) s.splice(s.indexOf(this), 1); }
   box() {
-    const p = this.entity.object3d.position, [sx, sy, sz] = this.params.size;
+    const p = this.entity.object3d.position;
+    let [sx, sy, sz] = this.params.size, slope;
+    if (this.params.slope) {        // ramps follow the entity's turn, snapped to 90°: +x, -z, -x, +z
+      const q = ((Math.round((this.entity.object3d.rotation?.y || 0) / (Math.PI / 2)) % 4) + 4) % 4;
+      slope = ['+x', '-z', '-x', '+z'][q];
+      if (q % 2) [sx, sz] = [sz, sx];
+    }
     const y0 = this.params.anchor === 'center' ? p.y - sy / 2 : p.y;
-    return { minX: p.x - sx / 2, maxX: p.x + sx / 2, minY: y0, maxY: y0 + sy, minZ: p.z - sz / 2, maxZ: p.z + sz / 2 };
+    return { minX: p.x - sx / 2, maxX: p.x + sx / 2, minY: y0, maxY: y0 + sy, minZ: p.z - sz / 2, maxZ: p.z + sz / 2, slope };
   }
 }
+
+// Height of a solid's top at (x, z): maxY for boxes, along the incline for ramps.
+export function topAt(b, x, z) {
+  if (!b.slope) return b.maxY;
+  const c = (v, lo, hi) => Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
+  const t = { '+x': c(x, b.minX, b.maxX), '-x': 1 - c(x, b.minX, b.maxX), '+z': c(z, b.minZ, b.maxZ), '-z': 1 - c(z, b.minZ, b.maxZ) }[b.slope];
+  return b.minY + t * (b.maxY - b.minY);
+}
+const STEP_UP = 0.35;   // m: walk up ramps and small steps without jumping; stick to ramps on the way down
 
 // Third-person platformer movement. Reads world.input = { move: [x, z] (world space, length ≤ 1), jump: bool }.
 // The game page fills world.input (joystick, keys); this behavior never touches the DOM.
@@ -234,7 +250,7 @@ export class PlayerController extends Behavior {
     p.z += move[1] * P.speed * ms * dt;
     if (Math.hypot(move[0], move[1]) > 0.05) o.rotation.y = Math.atan2(move[0], move[1]);
     for (const b of solids) {
-      if (p.y >= b.maxY - 0.05 || p.y + P.height <= b.minY) continue;      // above or below it
+      if (p.y >= (b.slope ? topAt(b, p.x, p.z) - STEP_UP : b.maxY - 0.05) || p.y + P.height <= b.minY) continue;      // above or below it (on a ramp: walk up it)
       const cx = Math.max(b.minX, Math.min(p.x, b.maxX)), cz = Math.max(b.minZ, Math.min(p.z, b.maxZ));
       const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
       if (d >= P.radius) continue;
@@ -265,12 +281,14 @@ export class PlayerController extends Behavior {
     const ny = p.y + this.vy * dt;
     let support = P.groundY, supportIdx = -1;
     solids.forEach((b, i) => {
-      if (b.maxY <= p.y + 0.05 && b.maxY > support && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { support = b.maxY; supportIdx = i; }
+      const top = topAt(b, p.x, p.z);
+      if (top <= p.y + (b.slope ? STEP_UP : 0.05) && top > support && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { support = top; supportIdx = i; }
     });
     if (this.vy > 0) for (const b of solids) {
       if (b.minY >= p.y + P.height - 0.01 && b.minY < ny + P.height && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { this.vy = 0; break; }
     }
-    if (ny <= support && this.vy <= 0) {
+    const onRamp = supportIdx >= 0 && solids[supportIdx].slope;
+    if ((ny <= support || (onRamp && this.grounded && p.y - support < STEP_UP)) && this.vy <= 0) {   // ramps: stay stuck to the slope going down
       if (!this.grounded && this.airTime > 0.15) this.world.emit('land');
       p.y = support; this.vy = 0; this.grounded = true; this.airTime = 0; this.airJumpCount = 0;
       if (supportIdx >= 0) { const b = solids[supportIdx]; this.ride = { solid: all[supportIdx], x: b.minX, y: b.maxY, z: b.minZ }; }
