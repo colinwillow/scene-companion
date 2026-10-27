@@ -75,7 +75,7 @@ import { applyScene } from './runtime/livepatch.js';
 import { clipCamera } from './runtime/camera.js';
 import { bindStick } from './runtime/sticks.js';
 import { createSfx } from './runtime/sfx.js';
-import { createFpsMeter, buildState, sameScene } from './runtime/livestate.js';
+import { createFpsMeter, buildState, sameScene, overBudget, BUDGETS } from './runtime/livestate.js';
 import './behaviors/index.js';
 import { solidOutline } from './runtime/collide.js';
 
@@ -190,11 +190,14 @@ $('cols').onclick = () => {
 // every pass (post-processing renders more than once), so it is reset by hand each frame.
 renderer.info.autoReset = false;
 let statT = 0;
+let frameStats = { draws: 0, tris: 0 };
 function showStats(dt) {
-  const el = $('stats'); el.hidden = !colView;
+  const el = $('stats'), r = renderer.info.render; el.hidden = !colView;
+  frameStats = { draws: r.calls, tris: r.triangles };            // last frame's totals, for the chip and the editor's LIVE badge
   if (colView && (statT -= dt) <= 0) {
-    statT = 0.5; const r = renderer.info.render;
-    el.textContent = `${fps.fps | 0} fps\n${r.calls} draws\n${(r.triangles / 1000).toFixed(0)}k tris\n${(world.solids || []).length} solids`;
+    statT = 0.5; const over = overBudget(frameStats, { ...BUDGETS.web, ...(data.settings?.budget || {}) });
+    el.textContent = `${fps.fps | 0} fps\n${r.calls} draws\n${(r.triangles / 1000).toFixed(0)}k tris\n${(world.solids || []).length} solids${over.length ? '\n⚠ ' + over.join('\n⚠ ') : ''}`;
+    el.style.color = over.length ? '#ffb4a8' : '';
   }
   renderer.info.reset();
 }
@@ -365,7 +368,7 @@ renderer.setAnimationLoop(() => {
   // report state to the editor twice a second (FPS, new errors, where the selected object really is)
   if ((reportIn -= raw) <= 0 && liveWs?.readyState === 1) {
     reportIn = 0.5;
-    liveWs.send(JSON.stringify(buildState(world, { url: SCENE_URL, fps: fps.fps, errors: window.__errQueue.splice(0), selectedId })));
+    liveWs.send(JSON.stringify(buildState(world, { url: SCENE_URL, fps: fps.fps, errors: window.__errQueue.splice(0), selectedId, ...frameStats })));
   }
   updateMarker(clock.elapsedTime);
   if (!over && !world.time.paused) { readInput(); turnCamera(dt); world.update(dt); hud(); }

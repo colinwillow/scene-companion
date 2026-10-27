@@ -28,3 +28,14 @@ test('badge text and scene matching', () => {
   assert.ok(sameScene('./scenes/a.json', 'scenes/a.json'));
   assert.ok(!sameScene('./scenes/a.json', undefined));
 });
+
+test('budgets: the frame stats ride the state; the LIVE badge shows draws and warns over the tier budget', async () => {
+  const { buildState, describeState, overBudget, BUDGETS } = await import('../runtime/livestate.js');
+  const world = { getEntity: () => null, solids: [1, 2, 3] };
+  const s = buildState(world, { fps: 58.6, draws: 412, tris: 120000 });
+  assert.equal(s.draws, 412); assert.equal(s.solids, 3);
+  assert.equal(describeState(s), '● LIVE · 59 fps · 412 draws ⚠');
+  assert.deepEqual(overBudget(s), ['draws 412 > 300']);
+  assert.deepEqual(overBudget({ draws: 100, tris: 900000 }, BUDGETS.web), ['tris 900k > 500k']);
+  assert.equal(describeState(buildState(world, { fps: 60 })), '● LIVE · 60 fps', 'no stats sent: as before');
+});
