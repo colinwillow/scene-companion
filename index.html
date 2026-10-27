@@ -206,7 +206,7 @@ async function rebuild() {
   gizmo?.detach();
   world?.dispose();
   world = new World(renderer, { tier: $('tier').value });
-  window.__sc = { world, data, camera, orbit }; // debug/test hook (headless checks, future MCP)
+  window.__sc = { world, data, camera, orbit, rebuild }; // debug/test hook (headless checks, timing)
   await world.load(data);
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
@@ -891,7 +891,7 @@ async function renderLib() {
         record(); addMotion(ent.data, m.stem); ent.data.animation = m.stem;
         await rebuild(); select(selectedId); renderLib();
         const errs = world.motionErrors || []; if (errs.length) showErr('Motion library: ' + errs.join('; '));
-      } }));
+      } });
     } else items.push({ name: '🎞 Motion library not connected', sub: 'run `npm run dev` next to a retarget-anims checkout (or set SC_MOTIONS)', header: true });
     $('libCount').textContent = `${selectedId}: ${ent.anim.clips.length} motion${ent.anim.clips.length === 1 ? '' : 's'}`;
   } else {
