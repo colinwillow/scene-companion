@@ -517,6 +517,7 @@ renderer.setAnimationLoop(() => {
   if (!over && !world.time.paused) { readInput(); turnCamera(dt); world.update(dt); hud(); }
   world.animate(dt);
   updateCamera(dt);
+  world.view = { pos: camera.position.toArray() };   // behaviors that follow the lens (Parallax) read it next frame
   world.followFocus(focus);
   placeBubbles();
   drawColliders(dt);

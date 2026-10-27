@@ -2703,6 +2703,26 @@ export class SpriteAnimator extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, SpriteAnimator, Trigger, Dormant, Spawner, Reactions })) {
+// A backdrop layer that keeps up with the camera by a fraction of its movement (world.view.pos, set by the game page):
+// follow 0 = an ordinary object, 0.5 = moves half as fast as the lens (reads far away), 1 = glued to the screen (the sky).
+// The classic 2D parallax: hills at 0.6, clouds at 0.85, the play plane at 0.
+export class Parallax extends Behavior {
+  static schema = {
+    follow: { type: 'number', default: 0.6, min: 0, max: 1, step: 0.05 },
+    axes:   { type: 'string', default: 'x' },          // x | xy | xz | xyz: which of the camera's moves it copies
+  };
+  start() { const p = this.entity.object3d.position; this.home = [p.x, p.y, p.z]; this.cam0 = null; }
+  onMoved() { this.start(); }
+  update() {
+    const c = this.world.view?.pos; if (!c) return;
+    this.cam0 ||= [...c];
+    const p = this.entity.object3d.position, k = this.params.follow, ax = this.params.axes;
+    if (ax.includes('x')) p.x = this.home[0] + (c[0] - this.cam0[0]) * k;
+    if (ax.includes('y')) p.y = this.home[1] + (c[1] - this.cam0[1]) * k;
+    if (ax.includes('z')) p.z = this.home[2] + (c[2] - this.cam0[2]) * k;
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, SpriteAnimator, Parallax, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

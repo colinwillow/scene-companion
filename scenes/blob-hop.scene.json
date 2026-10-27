@@ -134,6 +134,36 @@
      }
     }
    }
+  },
+  "hill_far": {
+   "variants": {
+    "web": {
+     "primitive": "sphere",
+     "size": [
+      1,
+      1,
+      1
+     ],
+     "color": "#4a5f86",
+     "roughness": 1,
+     "castShadow": false
+    }
+   }
+  },
+  "hill_near": {
+   "variants": {
+    "web": {
+     "primitive": "sphere",
+     "size": [
+      1,
+      1,
+      1
+     ],
+     "color": "#3f7a52",
+     "roughness": 1,
+     "castShadow": false
+    }
+   }
   }
  },
  "prefabs": {
@@ -641,6 +671,14 @@
     0,
     10.5,
     -14
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.8
+     }
+    }
    ]
   },
   {
@@ -650,6 +688,14 @@
     11,
     9.0,
     -14
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.8
+     }
+    }
    ]
   },
   {
@@ -659,6 +705,14 @@
     22,
     10.5,
     -14
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.8
+     }
+    }
    ]
   },
   {
@@ -668,6 +722,256 @@
     33,
     9.0,
     -14
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.8
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_far_01",
+   "asset": "hill_far",
+   "position": [
+    -10,
+    -3,
+    -40
+   ],
+   "scale": [
+    22,
+    14,
+    4
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_far_02",
+   "asset": "hill_far",
+   "position": [
+    6,
+    -3,
+    -40
+   ],
+   "scale": [
+    22,
+    18,
+    4
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_far_03",
+   "asset": "hill_far",
+   "position": [
+    22,
+    -3,
+    -40
+   ],
+   "scale": [
+    22,
+    14,
+    4
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_far_04",
+   "asset": "hill_far",
+   "position": [
+    38,
+    -3,
+    -40
+   ],
+   "scale": [
+    22,
+    18,
+    4
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_far_05",
+   "asset": "hill_far",
+   "position": [
+    54,
+    -3,
+    -40
+   ],
+   "scale": [
+    22,
+    14,
+    4
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_near_01",
+   "asset": "hill_near",
+   "position": [
+    -6,
+    -2,
+    -22
+   ],
+   "scale": [
+    14,
+    6,
+    3
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_near_02",
+   "asset": "hill_near",
+   "position": [
+    5,
+    -2,
+    -22
+   ],
+   "scale": [
+    14,
+    8,
+    3
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_near_03",
+   "asset": "hill_near",
+   "position": [
+    16,
+    -2,
+    -22
+   ],
+   "scale": [
+    14,
+    10,
+    3
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_near_04",
+   "asset": "hill_near",
+   "position": [
+    27,
+    -2,
+    -22
+   ],
+   "scale": [
+    14,
+    6,
+    3
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_near_05",
+   "asset": "hill_near",
+   "position": [
+    38,
+    -2,
+    -22
+   ],
+   "scale": [
+    14,
+    8,
+    3
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "hill_near_06",
+   "asset": "hill_near",
+   "position": [
+    49,
+    -2,
+    -22
+   ],
+   "scale": [
+    14,
+    10,
+    3
+   ],
+   "behaviors": [
+    {
+     "type": "Parallax",
+     "params": {
+      "follow": 0.35
+     }
+    }
    ]
   }
  ]

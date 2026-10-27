@@ -148,3 +148,4 @@
 - 2026-10-27 — 2D part 1 — settings.camera2d (side/top, narrow lens, follows), PlayerController plane: side (z pinned, walls push in x), Side Hop scene; 294 tests; checked headless (live session)
 - 2026-10-27 — 2D part 2 — sprite variant (sheet, frames, clips) + SpriteAnimator, Blob Hop scene, tools/make-sprite.mjs; 299 tests; checked headless (live session)
 - 2026-10-27 — 2D part 2b — editor sprite slicer (Library 2D tab, grid preview, clip text, device PNG); assets/sprites/index.json from npm run assets; 300 tests; slice → add checked headless (live session)
+- 2026-10-27 — 2D part 3a — Parallax behavior + world.view; hills and clouds in the 2D scenes; 301 tests; checked headless (live session)
