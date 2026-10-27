@@ -74,3 +74,4 @@
 - 2026-10-27 — In-place add/delete — patchScene + world.add; Duplicate 130 s → 3 s headless, undo 2.4 s; 175 tests (live session)
 - 2026-10-27 — Re-parent in place — patchScene re-parents without a rebuild; Parent picker + List drag use it (live session)
 - 2026-10-27 — Reactions v1 — frame/struck/var triggers, hud/shake/end/load actions, Variables tab, node-graph view; 176 tests; checked headless (live session)
+- 2026-10-27 — Animation timeline v0 — scrub/play/loop/speed, frame readout, front/side/top views; checked headless (live session)

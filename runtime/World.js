@@ -398,6 +398,7 @@ export class World {
       events: events || {},
       get current() { return L.base.name; },
       layer: part => L[part]?.name ?? null,
+      action: (part = 'base') => L[part]?.action ?? null,   // the running AnimationAction (the editor's timeline drives it)
       play(name, { layer = 'base', fade = 0.2, once = false, speed = 1, restart = false } = {}) {
         const l = L[layer]; if (!l) return;
         if (name === l.name && !restart) return;
