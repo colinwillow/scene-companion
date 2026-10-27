@@ -39,6 +39,15 @@ test('validator catches duplicate ids, unknown behaviors, bad params, missing pr
     assert.ok(r.stderr.includes(msg), `expected: ${msg}\n${r.stderr}`);
 });
 
+test('validator checks settings.routeKnownIssue', () => {
+  const bad = validate(tmpScene({ settings: { route: ['a'], routeKnownIssue: 3 }, entities: [{ id: 'a' }] }));
+  assert.equal(bad.status, 1);
+  assert.ok(bad.stderr.includes('settings.routeKnownIssue must be a short reason'), bad.stderr);
+  const lone = validate(tmpScene({ settings: { routeKnownIssue: 'guard too mean' }, entities: [{ id: 'a' }] }));
+  assert.equal(lone.status, 0, lone.stderr);
+  assert.ok(lone.stderr.includes('routeKnownIssue without a settings.route'), lone.stderr);
+});
+
 test('validator checks prefab files and removeBehaviors', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sc-pf-'));
   writeFileSync(join(dir, 'bad.prefab.json'), JSON.stringify({ id: 'x', position: [0, 0, 0], behaviors: [{ type: 'Spin', params: { speed: 99 } }] }));

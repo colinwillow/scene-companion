@@ -32,7 +32,8 @@
       "plat_03",
       "plat_mover",
       "plat_top"
-    ]
+    ],
+    "routeKnownIssue": "the flying guard (chaser_03) knocks the bot off plat_mover while it waits; Colin to judge if that's too mean"
   },
   "assets": {
     "ground": {

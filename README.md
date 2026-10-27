@@ -14,7 +14,7 @@ A visual editor that lives alongside AI-built Three.js games: vibe-code it, then
 ## Tests
 `npm install` once (three as a dev dependency, same version as the CDN import map), then `npm test` — node's built-in runner, no browser.
 Covers every behavior, prefab merging, the validator (including that it catches bad scenes), behavior purity, and World loading a scene with real three.
-`npm run check` runs validate + tests. Add a test with every new behavior.
+`npm run check` runs validate + tests. Add a test with every new behavior. `npm run check:full` also runs the route bot (headless, needs playwright) on every scene with a `settings.route`.
 
 ## Saving from the editor
 **⇪ Save** commits the open scene to GitHub. First time it asks for `owner/repo`, branch and a fine-grained token
