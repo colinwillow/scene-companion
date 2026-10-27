@@ -5,6 +5,7 @@ import { Behavior } from '../runtime/Behavior.js';
 import { roleClip } from '../runtime/character.js';
 import { topAt, walkShape } from '../runtime/collide.js';
 import { mergeMeshes } from '../runtime/batch.js';
+import { NavGrid } from '../runtime/nav.js';
 import { placeCollider } from '../runtime/colliders.js';
 import { ik2 } from '../runtime/ik.js';
 import { yawOf } from '../runtime/yaw.js';
@@ -2249,8 +2250,15 @@ export class Chase extends Behavior {
     returnHome: { type: 'boolean', default: true },
     sight:      { type: 'boolean', default: false },   // only chase what it can see: a wall (Solid) in between hides the target
     eyeHeight:  { type: 'number', default: 1.5, min: 0, max: 5, step: 0.1 },
+    navigate:   { type: 'boolean', default: true },   // walk AROUND walls (the world's walk grid, runtime/nav.js) instead of into them
   };
-  start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; }
+  start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; this.route = null; this.repath = 0; }
+  // the world's shared walk grid, rebuilt when the solids change (a wall broke, a door shut)
+  nav() {
+    const W = this.world, n = (W.solids || []).length;
+    if (!W.nav || W.nav.count !== n) W.nav = new NavGrid().build(W.solids || []);
+    return W.nav;
+  }
   onMoved() { this.start(); }
   update(dt) {
     if (this.entity.object3d.visible === false || this.entity.defeated || this.entity.dormant) return;
@@ -2261,8 +2269,13 @@ export class Chase extends Behavior {
       const h = this.params.eyeHeight;
       near = this.world.lineClear([p.x, p.y + h, p.z], [q.x, q.y + h, q.z], { ignore: [this.entity.id, t.id] });
     }
-    const goal = near ? [q.x, q.z] : this.params.returnHome ? this.home : null;
+    let goal = near ? [q.x, q.z] : this.params.returnHome ? this.home : null;
     if (!goal) return;
+    if (this.params.navigate && (this.world.solids || []).length) {   // the next corner of a path round the walls
+      if ((this.repath -= dt) <= 0 || !this.route?.length) { this.repath = 0.4; this.route = this.nav().path([p.x, p.z], goal) || [goal]; }
+      while (this.route.length > 1 && Math.hypot(this.route[0][0] - p.x, this.route[0][1] - p.z) < 0.3) this.route.shift();
+      goal = this.route[0];
+    }
     const dx = goal[0] - p.x, dz = goal[1] - p.z, d = Math.hypot(dx, dz), step = this.params.speed * dt;
     if (d < 0.05) return;
     const k = Math.min(step, d) / d;
