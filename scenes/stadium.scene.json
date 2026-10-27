@@ -283,6 +283,13 @@
           "roughness": 0.85
         }
       }
+    },
+    "katana": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/props/katana.glb"
+        }
+      }
     }
   },
   "entities": [
@@ -373,6 +380,21 @@
         },
         {
           "type": "Melee"
+        }
+      ],
+      "children": [
+        {
+          "id": "katana",
+          "asset": "katana",
+          "behaviors": [
+            {
+              "type": "Mount",
+              "params": {
+                "bone": "weapon_root_right",
+                "unit": 0.01321
+              }
+            }
+          ]
         }
       ]
     },

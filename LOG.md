@@ -82,3 +82,4 @@
 - 2026-10-27 — Collision follow-ups — collision GLB → Solids (colliders.js, CollisionMesh), walking against turned boxes/spheres/capsules; Colin's test house in kitchen sink; 191 tests; checked headless (live session)
 - 2026-10-27 — Goblin samurai step 2 — goblin character + stadium scene; checked headless (live session)
 - 2026-10-27 — Goblin step 3a — WallRun behavior (side run, run up, wall jump) + mover/jumpTaps/carry hand-offs + setYaw fix; stadium wall-run lane; 197 tests; checked headless (live session)
+- 2026-10-27 — Goblin step 3b — katana.glb (make-katana) + Mount behavior; katana in the goblin's hand in the stadium; 199 tests; checked headless (live session)

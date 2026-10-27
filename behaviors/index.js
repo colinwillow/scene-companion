@@ -232,6 +232,34 @@ export class CollisionMesh extends Behavior {
 
 const STEP_UP = 0.35;
 
+// Hang this object on a named bone of another entity's model — a katana in the goblin's hand, a hat on a head. The prop
+// is authored in that bone's frame (Colin's weapons are built round `weapon_root_right`), so it parents with identity;
+// `unit` sizes it in the world (metres per prop unit, whatever the rig's own scale) — 0 keeps it at the bone's scale.
+export class Mount extends Behavior {
+  static schema = {
+    target: { type: 'string', default: '' },                    // entity id ('' = my parent in the scene)
+    bone:   { type: 'string', default: 'weapon_root_right' },   // bone / node name in its model
+    unit:   { type: 'number', default: 0, min: 0, max: 1, step: 0.0001 },
+    offset: { type: 'vec3', default: [0, 0, 0] },               // nudge in the bone's frame (prop units)
+    turn:   { type: 'vec3', default: [0, 0, 0] },               // degrees, in the bone's frame
+  };
+  start() {
+    const o = this.entity.object3d, id = this.params.target || this.entity.parent, t = id && this.world.getEntity?.(id);
+    const bone = t?.object3d?.getObjectByName?.(this.params.bone);
+    if (!bone) { this.world.emit?.('warn', `Mount: no bone "${this.params.bone}" on ${id || '(no target)'}`); return; }
+    this.home = this.home || o.parent; this.bone = bone;
+    bone.add(o);
+    const [ox, oy, oz] = this.params.offset, [rx, ry, rz] = this.params.turn.map(d => d * Math.PI / 180);
+    o.position.set(ox, oy, oz); o.rotation.set(rx, ry, rz);
+    if (this.params.unit > 0) {
+      t.object3d.updateMatrixWorld?.(true);
+      const e = bone.matrixWorld.elements, ws = Math.hypot(e[0], e[1], e[2]) || 1;
+      o.scale.x = o.scale.y = o.scale.z = this.params.unit / ws;
+    }
+  }
+  destroy() { if (this.bone && this.home && this.entity.object3d.parent === this.bone) this.home.add(this.entity.object3d); }
+}
+
 // Wall run (zap's WRUN, docs/goblin-extraction.md): TAP beside a tall wall while moving along it → run along the face on a
 // low arc (feet on it, body rolled off it); heading INTO it → run up the face. Tap again on the wall → kick off it (a wall
 // jump, carrying some speed — onto the opposite wall with another tap). It ends at the wall's end, its top, the time
@@ -811,6 +839,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Mount, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
