@@ -234,5 +234,9 @@
  "4cda82e5-d55d": {
   "path": "assets/sprites/tiles/tiles.png",
   "sha": "531c02a9d6c3af9c"
+ },
+ "8ae4747b-973f": {
+  "path": "assets/sprites/zap_2d/zap_2d.png",
+  "sha": "653b12c9ec82ee0f"
  }
 }

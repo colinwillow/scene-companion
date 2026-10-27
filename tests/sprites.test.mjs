@@ -54,3 +54,12 @@ test('slicer: grid guess, clip text both ways, the variant it writes', async () 
   assert.deepEqual(parseClipText(clipText(c)), c);
   assert.deepEqual(spriteVariant({ path: 'a.png', cols: 4, rows: 2, imgW: 256, imgH: 64, height: 2, clips: c }).size, [4, 2]);
 });
+
+test('bakePlan: a row per clip, frames spread over the clip, rates that match its length', async () => {
+  const { bakePlan } = await import('../runtime/sprites.js');
+  const p = bakePlan([{ role: 'run', clip: 'run_fwd', duration: 0.8 }, { role: 'jump', clip: 'in_air', duration: 1, loop: false }], 4);
+  assert.deepEqual([p.cols, p.rows, p.shots.length], [4, 2, 8]);
+  assert.deepEqual(p.shots.slice(0, 4).map(s => +s.t.toFixed(3)), [0, 0.2, 0.4, 0.6]);      // a loop leaves out its last instant
+  assert.deepEqual(p.shots.slice(4).map(s => +s.t.toFixed(3)), [0, 0.333, 0.667, 1]);   // a one-shot ends on its last
+  assert.deepEqual(p.clips, { run: [0, 3, 5], jump: [4, 7, 4, false] });
+});

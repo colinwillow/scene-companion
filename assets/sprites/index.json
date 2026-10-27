@@ -1,4 +1,5 @@
 [
  "./assets/sprites/blob/blob.png",
- "./assets/sprites/tiles/tiles.png"
+ "./assets/sprites/tiles/tiles.png",
+ "./assets/sprites/zap_2d/zap_2d.png"
 ]

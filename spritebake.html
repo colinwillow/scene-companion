@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Sprite bake</title>
+<style>
+  :root { --bg:#0e1218; --panel:#151a22; --line:#2a3340; --text:#dde3ea; --accent:#ff8a3d; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font:14px system-ui, sans-serif; touch-action:manipulation; }
+  main { max-width:760px; margin:0 auto; padding:12px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  input, select, button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font:inherit; }
+  button.go { background:var(--accent); color:#111; }
+  #sheet { width:100%; image-rendering:pixelated; background:repeating-conic-gradient(#333 0 25%,#222 0 50%) 0 0/16px 16px; border-radius:8px; }
+  #msg { opacity:.8; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h3 style="margin:4px 0">🎞 Sprite bake — a 3D character into a 2D sheet</h3>
+  <div class="row"><label>character <select id="char"></select></label><label>size <select id="size"><option>64</option><option selected>128</option><option>256</option></select> px</label><label>frames/clip <input id="n" type="number" value="8" min="1" max="24" style="width:56px"></label></div>
+  <div class="row"><label>roles <input id="roles" value="idle, run, jump, fall" style="width:220px"></label><label>view <select id="view"><option value="side">side (faces right)</option><option value="front">front</option><option value="iso">¾</option></select></label><button class="go" id="bake">Bake</button></div>
+  <canvas id="sheet" width="8" height="8"></canvas>
+  <div class="row"><button id="dl" disabled>⬇ PNG</button><button id="save" disabled title="Needs npm run dev: writes assets/sprites/&lt;name&gt;/">💾 Save to project</button><span id="msg"></span></div>
+</main>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { World } from './runtime/World.js';
+import { bakePlan } from './runtime/sprites.js';
+import './behaviors/index.js';
+const $ = id => document.getElementById(id), qs = new URLSearchParams(location.search);
+const say = t => ($('msg').textContent = t);
+let last = null;
+const STUDIO = { sun: [2, 4, 5] };   // the bake's own light: up, right and in front of him
+
+// The characters this project has (the Library's list), else Zap.
+let chars = ['./assets/models/colin/characters/zap.character.json'];
+try { const l = (await (await fetch('./assets/models/colin/characters/index.json')).json()).map(c => c.path || c).filter(p => typeof p === 'string' && p.endsWith('.character.json')); if (l.length) chars = l; } catch {}
+if (qs.get('char') && !chars.includes(qs.get('char'))) chars.unshift(qs.get('char'));
+$('char').innerHTML = chars.map(c => `<option value="${c}">${c.split('/').pop().replace('.character.json', '')}</option>`).join('');
+for (const k of ['size', 'n', 'roles', 'view']) if (qs.get(k)) $(k).value = qs.get(k);
+if (qs.get('char')) $('char').value = qs.get('char');
+
+async function bake() {
+  const size = +$('size').value, n = Math.max(1, Math.min(24, +$('n').value | 0)), path = $('char').value;
+  say('loading…'); $('dl').disabled = $('save').disabled = true;
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1); renderer.setSize(size, size); renderer.setClearColor(0x000000, 0);
+  const world = new World(renderer, { tier: 'web' });
+  await world.load({ settings: { look: 'pbr' }, assets: { c: { variants: { web: { character: path } } } }, entities: [{ id: 'c', asset: 'c' }] });
+  const ent = world.getEntity('c'), scene = world.scene;
+  scene.background = null; scene.fog = null;
+  scene.add(new THREE.HemisphereLight('#ffffff', '#556070', 1.6));
+  const sun = new THREE.DirectionalLight('#ffffff', 2.2); sun.position.fromArray(STUDIO.sun); scene.add(sun);
+  const clipsByName = new Map((ent.object3d.userData.clips || []).map(c => [c.name, c]));
+  const roles = $('roles').value.split(',').map(s => s.trim()).filter(Boolean);
+  const list = roles.map(role => { const name = ent.roles?.[role] || role, c = clipsByName.get(name); return c && { role, clip: name, duration: c.duration, loop: !/jump|fall|land|hit|death|attack/.test(role) || role === 'fall' }; }).filter(Boolean);
+  if (!list.length) { say(`none of those roles exist on this character (it has: ${Object.keys(ent.roles || {}).join(', ')})`); return; }
+  const plan = bakePlan(list, n), mixer = ent.anim.mixer;
+  // face +x for a side view (the sheet's art faces right), the camera on +z; an orthographic box round the body
+  const o = ent.object3d, view = $('view').value;
+  o.rotation.set(0, view === 'side' ? Math.PI / 2 : view === 'iso' ? Math.PI / 4 : 0, 0);
+  // the World scales a character to its file's `height` (feet on the origin), so that is the box — never the skin's bind bounds
+  let tall = 1.75; try { tall = (await (await fetch(path)).json()).height || tall; } catch {}
+  const h = tall * 1.3, half = h / 2, cy = h * 0.42;
+  const cam = new THREE.OrthographicCamera(-half, half, half, -half, 0.1, 50);
+  cam.position.set(0, cy, 10); cam.lookAt(0, cy, 0);
+  const sheet = $('sheet'); sheet.width = plan.cols * size; sheet.height = plan.rows * size;
+  const g = sheet.getContext('2d'); g.clearRect(0, 0, sheet.width, sheet.height);
+  for (const s of plan.shots) {
+    mixer.stopAllAction();
+    const a = mixer.clipAction(clipsByName.get(s.clip)); a.reset(); a.setEffectiveWeight(1); a.play(); a.time = s.t; mixer.update(0);
+    o.position.setScalar(0); o.updateMatrixWorld(true);   // pinned in the frame: a clip's travel is not the sheet's
+    renderer.render(scene, cam);
+    g.drawImage(renderer.domElement, (s.index % plan.cols) * size, Math.floor(s.index / plan.cols) * size);
+  }
+  const name = path.split('/').pop().replace('.character.json', '') + '_2d';
+  const variant = { sprite: `./assets/sprites/${name}/${name}.png`, frames: [plan.cols, plan.rows], size: [+h.toFixed(3), +h.toFixed(3)], pixel: size <= 64, clips: plan.clips };
+  last = { name, variant, png: sheet.toDataURL('image/png') };
+  window.__bake = { ...last, png: last.png.length, shots: plan.shots.length };
+  $('dl').disabled = false; $('save').disabled = false;
+  say(`${plan.shots.length} frames (${list.map(l => `${l.role}=${l.clip}`).join(', ')}). Asset variant:\n${JSON.stringify(variant)}`);
+  world.dispose?.(); renderer.dispose();
+}
+$('bake').onclick = () => bake().catch(e => say('failed: ' + e.message));
+$('dl').onclick = () => { const a = document.createElement('a'); a.href = last.png; a.download = `${last.name}.png`; a.click(); };
+$('save').onclick = async () => {
+  const r = await fetch('./sprites/save', { method: 'POST', body: JSON.stringify(last) }).catch(() => null);
+  const j = r && await r.json().catch(() => null);
+  say(r?.ok ? `saved ${j.png} — it is in the editor's Library → 2D now` : `could not save (${j?.error || 'run npm run dev'}) — use ⬇ PNG instead`);
+};
+if (qs.has('auto')) $('bake').click();
+</script>
+</body>
+</html>

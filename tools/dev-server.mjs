@@ -103,6 +103,20 @@ const server = createServer(async (req, res) => {
     await writeFile('assets/fx/index.json', JSON.stringify(list.sort(), null, 1) + '\n');
     return json(res, 200, { ok: true, path: `assets/fx/${name}.fx.json` });
   })().catch(e => json(res, 500, { error: e.message }));
+  // the sprite bake page saves a sheet: POST /sprites/save { name, png: dataURL, variant } → assets/sprites/<name>/<name>.png
+  // + <name>.sprite.json (the asset variant), and lists the sheet in assets/sprites/index.json for the Library's 2D tab
+  if (url.pathname === '/sprites/save' && req.method === 'POST') return (async () => {
+    let raw = ''; for await (const c of req) raw += c;
+    const { name, png, variant } = JSON.parse(raw || '{}');
+    if (!/^[a-z0-9_]+$/i.test(name || '') || !/^data:image\/png;base64,/.test(png || '')) return json(res, 400, { error: 'name (letters, digits, _) and a PNG data URL' });
+    const dir = join(ROOT, 'assets/sprites', name); await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, `${name}.png`), Buffer.from(png.split(',')[1], 'base64'));
+    if (variant) await writeFile(join(dir, `${name}.sprite.json`), JSON.stringify(variant, null, 1) + '\n');
+    const idx = join(ROOT, 'assets/sprites/index.json'), rel = `./assets/sprites/${name}/${name}.png`;
+    let list = []; try { list = JSON.parse(await readFile(idx, 'utf8')); } catch {}
+    if (!list.includes(rel)) { list.push(rel); await writeFile(idx, JSON.stringify(list.sort(), null, 1) + '\n'); }
+    return json(res, 200, { png: rel.slice(2) });
+  })().catch(e => json(res, 500, { error: e.message }));
   // The Forge (Colin's retarget / tuning app, in zap): served from a LOCAL zap checkout at /forge/forge.html, so the editor
   // can open a character in it (?char=/assets/…glb&lib=/motions/clips/). Its export comes back through /bridge/return.
   if (url.pathname.startsWith('/forge/')) {

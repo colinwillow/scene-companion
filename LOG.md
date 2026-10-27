@@ -151,3 +151,4 @@
 - 2026-10-27 — 2D part 3a — Parallax behavior + world.view; hills and clouds in the 2D scenes; 301 tests; checked headless (live session)
 - 2026-10-27 — 2D part 3b — Tilemap behavior (text rows, legend, sheet, merged run colliders), World.drawTiles, stand-in tile sheet, tools/png.mjs, Tile Hop scene; 304 tests; checked headless (live session)
 - 2026-10-27 — 2D part 3c — editor tile painting (palette, live paint, erase, undo per stroke); checked headless: drag painted the right cells, saved to the scene (live session)
+- 2026-10-27 — 2D part 4 — spritebake.html (3D character → sprite sheet via the World, ortho side camera), /sprites/save on the dev server, slicer reads <name>.sprite.json, zap_2d baked, Zap Tiles scene; 306 tests; bake + play checked headless (live session)

@@ -1,0 +1,35 @@
+{
+ "sprite": "./assets/sprites/zap_2d/zap_2d.png",
+ "frames": [
+  8,
+  4
+ ],
+ "size": [
+  2.08,
+  2.08
+ ],
+ "pixel": false,
+ "clips": {
+  "idle": [
+   0,
+   7,
+   1.49
+  ],
+  "run": [
+   8,
+   15,
+   10.67
+  ],
+  "jump": [
+   16,
+   23,
+   2.82,
+   false
+  ],
+  "fall": [
+   24,
+   31,
+   2.82
+  ]
+ }
+}

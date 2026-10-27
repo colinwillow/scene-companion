@@ -1232,7 +1232,8 @@ async function renderLib() {
     // Sprite sheets (assets/sprites/index.json, written by `npm run assets`), or a PNG from this device: tap one to slice it.
     let list = []; try { list = await (await fetch('./assets/sprites/index.json', { cache: 'no-store' })).json(); } catch {}
     if (seq !== libSeq) return;
-    items = [{ name: '＋ A sprite sheet from this device…', sub: 'PNG; it is kept inside the scene file', pick: () => {
+    items = [{ name: '🎞 Bake a 3D character into a sheet…', sub: 'opens the Sprite bake page', pick: () => window.open('./spritebake.html', '_blank') },
+      { name: '＋ A sprite sheet from this device…', sub: 'PNG; it is kept inside the scene file', pick: () => {
       const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/png,image/webp';
       f.onchange = () => { const file = f.files[0]; if (!file) return; const r = new FileReader(); r.onload = () => openSlicer(r.result, file.name.replace(/\.\w+$/, '')); r.readAsDataURL(file); };
       f.click();
@@ -1325,9 +1326,12 @@ function openSlicer(src, name) {
     const fw = cv.width / cols, fh = cv.height / rows;
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { g.strokeRect(c * fw + 0.5, r * fh + 0.5, fw - 1, fh - 1); g.fillText(r * cols + c, c * fw + 3, r * fh + 12 * Math.max(1, k / 2)); }
   };
-  img.onload = () => {
+  img.onload = async () => {
     const [c, r] = guessGrid(img.width, img.height); q('.c').value = c; q('.r').value = r;
     const n = c * r; q('.t').value = clipText(n >= 8 ? { idle: [0, 1, 3], run: [2, 5, 10], jump: [6, 6, 1], fall: [7, 7, 1] } : { idle: [0, n - 1, 6] });
+    // a sheet the Sprite bake page made carries its own variant next to it (<name>.sprite.json): grid, clips and size from that
+    if (!src.startsWith('data:')) try { const v = await (await fetch(src.replace(/\.\w+$/, '.sprite.json'))).json();
+      if (v.frames) { q('.c').value = v.frames[0]; q('.r').value = v.frames[1]; } if (v.clips) q('.t').value = clipText(v.clips); if (v.size) q('.h').value = v.size[1]; } catch {}
     draw();
   };
   img.onerror = () => { q('.nm').textContent = name + ' — could not load'; };

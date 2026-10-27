@@ -63,5 +63,10 @@
   "file": "./scenes/tile-hop.scene.json",
   "title": "Tile Hop (2D tiles)",
   "note": "a tilemap level: grass, dirt, bricks, water gaps"
+ },
+ {
+  "file": "./scenes/zap-tiles.scene.json",
+  "title": "Zap Tiles (baked sprite)",
+  "note": "Zap rendered from 3D into a sprite sheet, on the tile level"
  }
 ]

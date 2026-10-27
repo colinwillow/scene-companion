@@ -63,3 +63,15 @@ export function spriteVariant({ path, cols, rows, imgW, imgH, height = 1.5, clip
   const fw = imgW / cols, fh = imgH / rows;
   return { sprite: path, frames: [cols, rows], size: [+(height * fw / fh).toFixed(3), +height], pixel, clips };
 }
+
+// Baking a 3D character into a sheet: one ROW per clip, `n` frames each, sampled evenly over the clip (a loop leaves out
+// its last instant, which is its first again). → { cols, rows, shots: [{ clip, role, t, index }], clips } where clips is
+// the sprite variant's clips table, each played at the rate that matches the clip's real length.
+export function bakePlan(list, n = 8) {
+  const shots = [], clips = {};
+  list.forEach(({ role, clip, duration, loop = true }, r) => {
+    for (let i = 0; i < n; i++) shots.push({ role, clip, index: r * n + i, t: duration * (loop ? i / n : n > 1 ? i / (n - 1) : 0) });
+    clips[role] = [r * n, r * n + n - 1, +(n / Math.max(duration, 1e-3)).toFixed(2), ...(loop ? [] : [false])];
+  });
+  return { cols: n, rows: list.length, shots, clips };
+}
