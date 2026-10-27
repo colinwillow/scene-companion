@@ -327,6 +327,28 @@
           }
         }
       ]
+    },
+    {
+      "id": "street_cam",
+      "position": [
+        30,
+        0,
+        -9.5
+      ],
+      "behaviors": [
+        {
+          "type": "CameraRig",
+          "params": {
+            "mode": "rail",
+            "path": "-2,5.5,-13.2; 62,5.5,-13.2",
+            "zone": 34,
+            "priority": 1,
+            "height": 1.1,
+            "shakeOn": "blast",
+            "shake": 0.18
+          }
+        }
+      ]
     }
   ],
   "prefabs": {

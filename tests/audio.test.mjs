@@ -123,3 +123,11 @@ test('CameraRig: the active rig with the highest priority wins; a zone rig only 
   handlers.blast(); assert.deepEqual(sent[0], ['shake', 0.25, 0.3]);
   room.destroy(); assert.equal(pickRig(world), main);
 });
+
+test('CameraRig rail: the point of its path nearest the target, height along the path', async () => {
+  const { CameraRig } = await import('../behaviors/index.js');
+  const r = new CameraRig({ id: 'c', object3d: { position: { x: 0, y: 0, z: 0 } } }, { mode: 'rail', path: '0,4,10; 20,6,10' }, { on() {}, emit() {} });
+  assert.deepEqual(r.railPoint([5, 0, 0]), [5, 4.5, 10]);
+  assert.deepEqual(r.railPoint([-9, 0, 0]), [0, 4, 10]);
+  assert.deepEqual(r.railPoint([40, 0, 3]), [20, 6, 10]);
+});

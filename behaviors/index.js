@@ -1451,7 +1451,8 @@ export class Checkpoint extends Behavior {
 // target is within it of this entity; the active rig with the highest `priority` wins. Shakes on `shakeOn` (a world event).
 export class CameraRig extends Behavior {
   static schema = {
-    mode:     { type: 'string', default: 'follow' },        // follow | fixed
+    mode:     { type: 'string', default: 'follow' },        // follow | fixed | rail
+    path:     { type: 'string', default: '' },              // rail: "x,y,z; x,y,z; …" — the camera slides along it, kept nearest the target
     target:   { type: 'string', default: 'player' },
     distance: { type: 'number', default: 7, min: 1, max: 60, step: 0.5 },
     height:   { type: 'number', default: 1.3, min: 0, max: 10, step: 0.1 },
@@ -1468,6 +1469,18 @@ export class CameraRig extends Behavior {
     if (this.params.shakeOn) this.world.on?.(this.params.shakeOn, () => this.world.emit('shake', this.params.shake, 0.3));
   }
   destroy() { const l = this.world.cameraRigs; if (l) { const i = l.indexOf(this); if (i >= 0) l.splice(i, 1); } }
+  // rail: the point of the path nearest the target (in plan), or null
+  railPoint([tx, , tz]) {
+    if (this.pathSrc !== this.params.path) { this.pathSrc = this.params.path; this.pts = String(this.params.path).split(';').map(t => t.split(',').map(Number)).filter(a => a.length === 3 && a.every(Number.isFinite)); }
+    const P = this.pts; if (!P.length) return null; if (P.length === 1) return P[0];
+    let best = null, bd = Infinity;
+    for (let i = 0; i + 1 < P.length; i++) {
+      const [ax, ay, az] = P[i], [bx, by, bz] = P[i + 1], dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((tx - ax) * dx + (tz - az) * dz) / L)), x = ax + dx * t, z = az + dz * t, d = (x - tx) ** 2 + (z - tz) ** 2;
+      if (d < bd) { bd = d; best = [x, ay + (by - ay) * t, z]; }
+    }
+    return best;
+  }
   active() {
     if (!this.params.zone) return true;
     const t = this.world.getEntity?.(this.params.target)?.object3d?.position, p = this.entity.object3d?.position;

@@ -137,3 +137,4 @@
 - 2026-10-27 — Game flow part 1 — Checkpoint + settings.save progress; Sky Steps checkpoints; 278 tests; checked headless (live session)
 - 2026-10-27 — Game flow part 2 — title cards, pause menu Scenes / Start over, one-line top bar (live session)
 - 2026-10-27 — Camera entities part 1 — CameraRig (follow / fixed / zone / priority / shakeOn); 279 tests; checked headless (live session)
+- 2026-10-27 — Camera part 2 — rail mode, sticks follow the showing camera, editor markers for logic entities; 280 tests (live session)
