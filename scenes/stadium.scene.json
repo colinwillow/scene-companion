@@ -1,0 +1,788 @@
+{
+  "settings": {
+    "look": "pbr",
+    "background": "#dfe6ee",
+    "fog": [
+      40,
+      140
+    ],
+    "sky": {
+      "elevation": 22,
+      "azimuth": 135,
+      "turbidity": 5,
+      "rayleigh": 1.4,
+      "exposure": 0.55,
+      "sunColor": "#ffeedd",
+      "sunIntensity": 3.2,
+      "envIntensity": 1.0
+    },
+    "fogColor": "#e6ecf2",
+    "post": {
+      "ao": true,
+      "bloom": {
+        "strength": 0.35,
+        "radius": 0.5,
+        "threshold": 0.85
+      },
+      "vignette": 0.25
+    }
+  },
+  "assets": {
+    "floor": {
+      "variants": {
+        "web": {
+          "primitive": "plane",
+          "size": [
+            90,
+            1,
+            90
+          ],
+          "color": "#e9edf1",
+          "roughness": 0.9
+        }
+      }
+    },
+    "goblin": {
+      "variants": {
+        "web": {
+          "character": "./assets/models/colin/characters/goblin.character.json"
+        }
+      }
+    },
+    "ring": {
+      "variants": {
+        "web": {
+          "primitive": "cylinder",
+          "size": [
+            7,
+            0.03,
+            7
+          ],
+          "color": "#f4c4a2",
+          "roughness": 0.8
+        }
+      }
+    },
+    "stand_0_0": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            39,
+            0.6,
+            1.5
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#cfd5dd",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_0_1": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            39,
+            0.6,
+            1.5
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#cfd5dd",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_0_2": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.5,
+            0.6,
+            36
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#cfd5dd",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_0_3": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.5,
+            0.6,
+            36
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#cfd5dd",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_1_0": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            42.0,
+            1.2,
+            1.5
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#c2c9d2",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_1_1": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            42.0,
+            1.2,
+            1.5
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#c2c9d2",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_1_2": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.5,
+            1.2,
+            39.0
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#c2c9d2",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_1_3": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.5,
+            1.2,
+            39.0
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#c2c9d2",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_2_0": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            45,
+            1.8,
+            1.5
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#b5bdc7",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_2_1": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            45,
+            1.8,
+            1.5
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#b5bdc7",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_2_2": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.5,
+            1.8,
+            42
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#b5bdc7",
+          "roughness": 0.85
+        }
+      }
+    },
+    "stand_2_3": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.5,
+            1.8,
+            42
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#b5bdc7",
+          "roughness": 0.85
+        }
+      }
+    }
+  },
+  "entities": [
+    {
+      "id": "sun",
+      "light": {
+        "type": "directional",
+        "intensity": 2.4
+      },
+      "position": [
+        8,
+        14,
+        6
+      ]
+    },
+    {
+      "id": "sky_fill",
+      "light": {
+        "type": "hemisphere",
+        "color": "#dfeaff",
+        "groundColor": "#8a8f99",
+        "intensity": 1.1
+      }
+    },
+    {
+      "id": "floor",
+      "asset": "floor",
+      "position": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "centre_ring",
+      "asset": "ring",
+      "position": [
+        0,
+        0.01,
+        0
+      ]
+    },
+    {
+      "id": "player",
+      "asset": "goblin",
+      "position": [
+        0,
+        0,
+        4
+      ],
+      "behaviors": [
+        {
+          "type": "Health",
+          "params": {
+            "max": 5
+          }
+        },
+        {
+          "type": "PlayerController",
+          "params": {
+            "speed": 6,
+            "jumpSpeed": 8,
+            "height": 1.35,
+            "radius": 0.3,
+            "airJumps": 1,
+            "airJumpSpeed": 7.5
+          }
+        },
+        {
+          "type": "Animator",
+          "params": {
+            "runSpeed": 4,
+            "jumpRate": 1,
+            "jumpHold": 0.4,
+            "doubleJumpRate": 1.3,
+            "doubleJumpHold": 0.6,
+            "hardLandSpeed": 12
+          }
+        },
+        {
+          "type": "Squash"
+        },
+        {
+          "type": "Footsteps"
+        },
+        {
+          "type": "Melee"
+        }
+      ]
+    },
+    {
+      "id": "stand_0_0",
+      "asset": "stand_0_0",
+      "position": [
+        0,
+        0,
+        -18.75
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              39,
+              0.6,
+              1.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_0_1",
+      "asset": "stand_0_1",
+      "position": [
+        0,
+        0,
+        18.75
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              39,
+              0.6,
+              1.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_0_2",
+      "asset": "stand_0_2",
+      "position": [
+        -18.75,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.5,
+              0.6,
+              36
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_0_3",
+      "asset": "stand_0_3",
+      "position": [
+        18.75,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.5,
+              0.6,
+              36
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_1_0",
+      "asset": "stand_1_0",
+      "position": [
+        0,
+        0,
+        -20.25
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              42.0,
+              1.2,
+              1.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_1_1",
+      "asset": "stand_1_1",
+      "position": [
+        0,
+        0,
+        20.25
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              42.0,
+              1.2,
+              1.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_1_2",
+      "asset": "stand_1_2",
+      "position": [
+        -20.25,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.5,
+              1.2,
+              39.0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_1_3",
+      "asset": "stand_1_3",
+      "position": [
+        20.25,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.5,
+              1.2,
+              39.0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_2_0",
+      "asset": "stand_2_0",
+      "position": [
+        0,
+        0,
+        -21.75
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              45,
+              1.8,
+              1.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_2_1",
+      "asset": "stand_2_1",
+      "position": [
+        0,
+        0,
+        21.75
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              45,
+              1.8,
+              1.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_2_2",
+      "asset": "stand_2_2",
+      "position": [
+        -21.75,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.5,
+              1.8,
+              42
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stand_2_3",
+      "asset": "stand_2_3",
+      "position": [
+        21.75,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.5,
+              1.8,
+              42
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "pk_wall",
+      "prefab": "kit_wall",
+      "position": [
+        -12,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "pk_block",
+      "prefab": "kit_block_big",
+      "position": [
+        -8,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "pk_ledge",
+      "prefab": "kit_ledge",
+      "position": [
+        -8,
+        2,
+        -14
+      ]
+    },
+    {
+      "id": "pk_beam",
+      "prefab": "kit_beam",
+      "position": [
+        -4,
+        2.4,
+        -12
+      ]
+    },
+    {
+      "id": "pk_pole_a",
+      "prefab": "kit_pole",
+      "position": [
+        -6,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "pk_pole_b",
+      "prefab": "kit_pole",
+      "position": [
+        -2,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "pk_step",
+      "prefab": "kit_step",
+      "position": [
+        -10,
+        0,
+        -9
+      ]
+    },
+    {
+      "id": "pk_ramp",
+      "prefab": "kit_ramp",
+      "position": [
+        -13,
+        0,
+        -7
+      ]
+    },
+    {
+      "id": "pk_block_low",
+      "prefab": "kit_block",
+      "position": [
+        -4,
+        0,
+        -7
+      ]
+    },
+    {
+      "id": "pk_platform",
+      "prefab": "kit_platform",
+      "position": [
+        -11,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "foe_skeleton_1",
+      "prefab": "skeleton",
+      "position": [
+        6,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "foe_skeleton_2",
+      "prefab": "skeleton",
+      "position": [
+        10,
+        0,
+        -2
+      ]
+    },
+    {
+      "id": "foe_mutant",
+      "prefab": "mutant",
+      "position": [
+        9,
+        0,
+        -10
+      ]
+    },
+    {
+      "id": "coin_01",
+      "prefab": "coin",
+      "position": [
+        -8,
+        2.6,
+        -12
+      ]
+    },
+    {
+      "id": "coin_02",
+      "prefab": "coin",
+      "position": [
+        -8,
+        3,
+        -14
+      ]
+    },
+    {
+      "id": "coin_03",
+      "prefab": "coin",
+      "position": [
+        -4,
+        3.3,
+        -12
+      ]
+    },
+    {
+      "id": "coin_04",
+      "prefab": "coin",
+      "position": [
+        0,
+        0.6,
+        -3
+      ]
+    },
+    {
+      "id": "coin_05",
+      "prefab": "coin",
+      "position": [
+        12,
+        0.6,
+        8
+      ]
+    }
+  ],
+  "prefabs": {
+    "coin": "./prefabs/coin.prefab.json",
+    "skeleton": "./prefabs/skeleton.prefab.json",
+    "mutant": "./prefabs/mutant.prefab.json",
+    "kit_wall": "./prefabs/kit_wall.prefab.json",
+    "kit_block_big": "./prefabs/kit_block_big.prefab.json",
+    "kit_ledge": "./prefabs/kit_ledge.prefab.json",
+    "kit_beam": "./prefabs/kit_beam.prefab.json",
+    "kit_pole": "./prefabs/kit_pole.prefab.json",
+    "kit_step": "./prefabs/kit_step.prefab.json",
+    "kit_ramp": "./prefabs/kit_ramp.prefab.json",
+    "kit_block": "./prefabs/kit_block.prefab.json",
+    "kit_platform": "./prefabs/kit_platform.prefab.json"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Goblin samurai",
+  "glb": "./assets/models/colin/characters/goblin.glb",
+  "height": 1.35,
+  "source": "colinwillow/zap models/characters/goblin_game.glb (HERO 'goblin', height 1.35 m; docs/goblin-extraction.md)",
+  "roles": {
+    "idle": "katana_idle",
+    "walk": "katana_walk",
+    "run": "run_fast",
+    "jump": "in_air",
+    "doubleJump": "front_flip",
+    "fall": "in_air",
+    "land": "landing_soft",
+    "hardLand": "landing_hard",
+    "hit": "katana_hit",
+    "death": "take_damage_and_fall_down",
+    "attack": "katana_slash_3"
+  },
+  "events": {
+    "katana_walk": [
+      {
+        "t": 0.315,
+        "name": "foot",
+        "foot": "L"
+      },
+      {
+        "t": 1.003,
+        "name": "foot",
+        "foot": "R"
+      }
+    ],
+    "run_fast": [
+      {
+        "t": 0.165,
+        "name": "foot",
+        "foot": "L"
+      },
+      {
+        "t": 0.43,
+        "name": "foot",
+        "foot": "R"
+      }
+    ]
+  }
+}
