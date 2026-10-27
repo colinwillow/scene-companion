@@ -52,7 +52,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Editor ＋Add menu lists every prefab — new "More prefabs" group from `prefabs/index.json` (kept current by `npm run validate`, test checks it); picking one adds it to the scene's prefabs (undoable). Checked headless: bench added to Sky Steps, no errors
 
 ## Later
-- [ ] Blender bridge add-on (send object to Blender and back)
+- [ ] [IN PROGRESS 03:04 UTC] Blender bridge add-on (send object to Blender and back)
 - [ ] Libraries panel (characters, motions, sounds, props)
 - [ ] Generator plug-ins (image→3D, image gen)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
