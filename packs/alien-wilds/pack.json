@@ -4,5 +4,16 @@
   "version": "0.1.0",
   "tier": "unlock",
   "description": "Demo of an unlock-tier pack: shows greyed out until unlocked. Open the editor with ?unlock=alien-wilds to unlock it on this device.",
-  "prefabs": ["alien_mushroom", "alien_rock", "boulder", "rock_tall"]
+  "prefabs": [
+    "alien_mushroom",
+    "alien_rock",
+    "boulder",
+    "rock_tall"
+  ],
+  "thumbnails": {
+    "alien_mushroom": "./thumbs/prefab/alien_mushroom.png",
+    "alien_rock": "./thumbs/prefab/alien_rock.png",
+    "boulder": "./thumbs/prefab/boulder.png",
+    "rock_tall": "./thumbs/prefab/rock_tall.png"
+  }
 }

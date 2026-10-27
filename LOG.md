@@ -141,3 +141,4 @@
 - 2026-10-27 — AI part 1 — NavGrid + Chase.navigate; 283 tests; checked headless (live session)
 - 2026-10-27 — AI part 2 — Reactions states (go / enter / if.state / move); kitchen-sink guard; 284 tests; checked headless (live session)
 - 2026-10-27 — Asset IDs — assets/ids.json + npm run assets (relink by content); 286 tests (live session)
+- 2026-10-27 — Quality gate (local) — runtime/quality.js + npm run quality; 4 character thumbnails; 287 tests (live session)

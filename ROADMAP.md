@@ -119,7 +119,7 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 
 ## Stage 8 — Community library (SPEC §7e; needs accounts from tier 1)
 - [ ] Share to community toggle: upload an asset to the shared library with licence (CC0/CC-BY/paid), auto-categorized (characters, NPCs, props, weapons, buildings, VFX, animations, levels)
-- [ ] [IN PROGRESS] Quality gate: validator + budgets + thumbnails must pass before an asset goes public; report what to fix
+- [x] Quality gate, local part: `runtime/quality.js` (Colin's house rules — under 20 MB, triangle budgets per kind, Draco, WebP/KTX2 when big, one-sided shells, no BLEND skins, Mixamo rig + clips, a library thumbnail) and `npm run quality` (every model under assets/, what fails and the one-line fix; `--strict` exits 1 for a pre-publish check). Generated the missing thumbnails (goblin, Korajin, skater, Colin). Today: 0 failing; the warnings worth acting on are the generated kit row (not Draco'd, BLEND) and doubleSided on Clancy / the skeleton / the skater / Colin. 1 test. Not yet: texture resolution (needs reading image headers), and the gate on the community upload (needs accounts).
 - [ ] Browse: sections ranked by stars, search, creator profiles, comments, collections; install into a project in one tap
 - [ ] Bounties: post a request with a reward, creators deliver privately or publicly, payouts via a payments provider
 - [ ] Marketplace: paid asset packs + level packs next to the free library

@@ -1,5 +1,9 @@
 {
+ "character:agoblin": "./thumbs/character/agoblin.png",
+ "character:colin": "./thumbs/character/colin.png",
+ "character:goblin": "./thumbs/character/goblin.png",
  "character:mutant": "./thumbs/character/mutant.png",
+ "character:skater": "./thumbs/character/skater.png",
  "character:skeleton": "./thumbs/character/skeleton.png",
  "character:zap": "./thumbs/character/zap.png",
  "prefab:alien_mushroom": "./thumbs/prefab/alien_mushroom.png",
