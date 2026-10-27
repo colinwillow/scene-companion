@@ -1,0 +1,11 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/alien_mushroom_01.glb",
+        "height": 1.4,
+        "frontSide": true
+      }
+    }
+  }
+}

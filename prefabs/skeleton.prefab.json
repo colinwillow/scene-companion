@@ -1,0 +1,40 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/characters/xray_skeleton.glb",
+        "height": 1.7,
+        "frontSide": true
+      }
+    }
+  },
+  "animation": "standing_idle",
+  "behaviors": [
+    {
+      "type": "Chase",
+      "params": {
+        "radius": 7,
+        "speed": 2.4
+      }
+    },
+    {
+      "type": "Stompable",
+      "params": {
+        "height": 1.6,
+        "radius": 0.8,
+        "defeatClip": "Shoulder_Hit_And_Fall",
+        "hideAfter": 1.6
+      }
+    },
+    {
+      "type": "Animator",
+      "params": {
+        "idleClip": "standing_idle",
+        "walkClip": "standing_walk_forward",
+        "runClip": "standing_run_forward",
+        "runSpeed": 2,
+        "jumpClip": ""
+      }
+    }
+  ]
+}

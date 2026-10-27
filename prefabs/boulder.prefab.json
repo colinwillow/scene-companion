@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/e_rock_a.glb",
+        "height": 0.6,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          1.25,
+          0.6,
+          1.16
+        ]
+      }
+    }
+  ]
+}

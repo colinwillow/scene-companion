@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/c_hydrant.glb",
+        "height": 0.78,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          0.44,
+          0.78,
+          0.46
+        ]
+      }
+    }
+  ]
+}

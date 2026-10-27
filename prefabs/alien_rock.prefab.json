@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/alien_rock_01.glb",
+        "height": 1.2,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          1.18,
+          1.2,
+          0.74
+        ]
+      }
+    }
+  ]
+}

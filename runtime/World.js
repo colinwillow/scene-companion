@@ -3,6 +3,7 @@
 // Play builds a fresh runtime from it, Stop throws the runtime away.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook } from './look.js';
@@ -20,6 +21,12 @@ export class World {
     this.entities = new Map();
     this.listeners = {};
     this.loader = new GLTFLoader();
+    // Colin's characters are Draco-compressed. The decoder is vendored next to the pages so it works offline.
+    if (typeof document !== 'undefined') {
+      const draco = new DRACOLoader();
+      draco.setDecoderPath(new URL('../vendor/draco/', import.meta.url).href);
+      this.loader.setDRACOLoader(draco);
+    }
     this.gltfCache = new Map();   // path → Promise<gltf>, so many entities share one download
     this.mixers = [];
     this.t = 0;
@@ -67,6 +74,8 @@ export class World {
       }
       // Optional nudge in metres, e.g. sink a tile's base plate into the ground.
       if (variant.offset) model.position.add(new THREE.Vector3(...variant.offset));
+      // Tripo/generated exports mark every material doubleSided; on a closed shell that is wasted fill on a phone.
+      if (variant.frontSide) model.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { m.side = THREE.FrontSide; }); });
       if (variant.castShadow === false) model.traverse(o => { if (o.isMesh) o.castShadow = false; });
       const root = new THREE.Group();
       root.add(model);

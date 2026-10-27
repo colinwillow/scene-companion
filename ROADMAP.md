@@ -11,7 +11,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Real models: replace primitives with free CC0 models (e.g. Quaternius or Kenney packs from GitHub) — crates, coins, props, trees/rocks, enemies — and dress the kitchen-sink scene so it reads as a small game level.
 - [x] Toon look upgrade: outlines + rim light so `toon` looks stylized and intentional, not flat.
 - [x] Fix toon look: rim light was inverted (lit every pixel → washed grey); toon now cancels the sky's low exposure; outline width is in world metres (rigged robot sits under ×39 bones, which blew its hull into black shards); outline hulls share morph weights; clouds don't cast shadows.
-- [ ] [blocked: build runs can't list Kenney/Quaternius repos — needs Colin to drop a pack in or allow the repo] More CC0 models: rocks, crates, a ground enemy. Only found Kenney starter-kit GLBs by guessing paths (raw.githubusercontent works, GitHub API/jsDelivr are blocked from build runs). Ask Colin to add a pack to the repo, or allow a Kenney repo for read.
+- [x] More models: rocks, crates, a ground enemy — Colin's own instead of CC0 (`assets/models/colin/`, see its README): X-ray skeleton + Clancy mutant ground enemies (Chase + Stompable + Animator, `defeatClip` plays their fall), Plutopia rocks/stepping stone/alien rock/mushroom, Culture War crates/boulder/bench/dumpster/hydrant/lamp; 14 new prefabs; Draco decoder vendored (`vendor/draco/`), `frontSide` variant key for doubleSided generated exports
 
 ## Stage 1 — Format + runtime (v0 done)
 - [x] Scene format, Behavior base + schema, registry, World loader, look profiles, tier variants, validator, editor page v0
@@ -23,7 +23,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Vibe-code a tiny game from scratch following SKILL.md — **Tiny Hop** (`play.html`): third-person, joystick + jump, chasers you stomp, 10 coins, platforms incl. a moving one. New behaviors Solid, PlayerController, Chase, Stompable; SKILL.md got a Game kit section (input, collision, events, game page vs editor).
 - [x] Tiny Hop feel pass: jump/fall animation clips, carry the player on moving platforms, camera collision, sounds — Animator plays `jumpClip`/`fallClip` when airborne (robot uses Jump); PlayerController rides moving solids; camera pulls in front of solids/floor (`runtime/camera.js`); synthesized sfx + 🔊 mute (`runtime/sfx.js`); new `pickup`/`stomp`/`land` events
 - [x] Tiny Hop: landing squash; footstep sounds — new `Squash` (event-driven squash & stretch around the authored scale) and `Footsteps` (a `step` event per stride, longer when running) behaviors; tiny-hop player has both, kitchen-sink player squashes on `score`
-- [ ] [blocked: needs a model with a fall clip — robot.glb has none] Tiny Hop: a proper fall clip (`Animator.fallClip` is ready; set it once a character with a Fall/Falling clip is in assets)
+- [x] Tiny Hop: a proper fall clip — player is now Zap (1.6 m, idle_01/walk_fwd/run_fwd, `in_air` as jump + fall clip)
+- [ ] Tiny Hop: Animator `landClip` (Zap has `landing_soft`/`landing_hard`; Clancy has `jumping_up`/`falling_idle`/`hard_landing`) and try `front_flip` as Zap's jumpClip
 - [x] Validator: catch hardcoded placement more robustly; check prefab references — set/assign/fromArray/copy literals in behaviors + game pages, comment-aware, camera exempt; prefab files (no id/position, asset, behavior params), unused prefabs, removeBehaviors typos, id style
 
 ## Stage 3 — Editor v1

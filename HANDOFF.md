@@ -51,3 +51,7 @@ When recreating them, also attach the asset repos above, so runs can take models
 - The headless browser has no GPU, so it's slow: an editor rebuild takes 10–60 s, so use generous timeouts. Route `cdn.jsdelivr.net/npm/three@0.170.0/*` to `node_modules/three` (the MCP server already does this).
 - `window.__sc` on both pages is the debug hook (world, data, live status).
 - Game pages mark debug meshes with `// sc:overlay` so the validator doesn't flag them.
+
+## Picked up — 2026-10-27 (Claude Code session with the asset repos)
+Confirmed repo names: weirdport → `weirdport`, Shred World → `city`, Peggy → `peggy`, Roller Girl → `rollergirl`, Plutopia → `plutopia`, Zap → `zap`, mocap/motion app → `retarget-anims` (has `mcp/` and the clip library, incl. the Bboy/Breakdance clips). No separate B-boy repo exists.
+Done: real models in (`assets/models/colin/`), both blocked roadmap items cleared, build schedule recreated with the asset repos attached.

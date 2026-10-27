@@ -57,8 +57,8 @@
     "player": {
       "variants": {
         "web": {
-          "glb": "./assets/models/robot.glb",
-          "height": 1.75
+          "glb": "./assets/models/colin/characters/zap.glb",
+          "height": 1.6
         }
       }
     },
@@ -108,7 +108,17 @@
     "chaser": "./prefabs/chaser.prefab.json",
     "tree": "./prefabs/tree.prefab.json",
     "grass_tuft": "./prefabs/grass_tuft.prefab.json",
-    "cloud": "./prefabs/cloud.prefab.json"
+    "cloud": "./prefabs/cloud.prefab.json",
+    "skeleton": "./prefabs/skeleton.prefab.json",
+    "mutant": "./prefabs/mutant.prefab.json",
+    "rock_tall": "./prefabs/rock_tall.prefab.json",
+    "rock_round": "./prefabs/rock_round.prefab.json",
+    "rock_long": "./prefabs/rock_long.prefab.json",
+    "stepping_stone": "./prefabs/stepping_stone.prefab.json",
+    "alien_mushroom": "./prefabs/alien_mushroom.prefab.json",
+    "alien_rock": "./prefabs/alien_rock.prefab.json",
+    "crates": "./prefabs/crates.prefab.json",
+    "boulder": "./prefabs/boulder.prefab.json"
   },
   "entities": [
     {
@@ -149,7 +159,7 @@
         0,
         6
       ],
-      "animation": "Idle",
+      "animation": "idle_01",
       "behaviors": [
         {
           "type": "Health",
@@ -161,16 +171,22 @@
           "type": "PlayerController",
           "params": {
             "speed": 5,
-            "jumpSpeed": 7.5
+            "jumpSpeed": 7.5,
+            "height": 1.6
           }
         },
         {
           "type": "Animator",
           "params": {
-            "runSpeed": 4.5
+            "idleClip": "idle_01",
+            "walkClip": "walk_fwd",
+            "runClip": "run_fwd",
+            "runSpeed": 4.5,
+            "jumpClip": "in_air",
+            "fallClip": "in_air"
           }
-        }
-,        {
+        },
+        {
           "type": "Squash"
         },
         {
@@ -459,20 +475,28 @@
     },
     {
       "id": "chaser_01",
-      "prefab": "chaser",
+      "prefab": "skeleton",
       "position": [
         -5,
-        0.35,
+        0,
         -3
       ]
     },
     {
       "id": "chaser_02",
-      "prefab": "chaser",
+      "prefab": "mutant",
       "position": [
         7,
-        0.35,
+        0,
         3
+      ],
+      "behaviors": [
+        {
+          "type": "Chase",
+          "params": {
+            "radius": 6
+          }
+        }
       ]
     },
     {
@@ -491,6 +515,98 @@
             "speed": 1.5
           }
         }
+      ]
+    },
+    {
+      "id": "rock_01",
+      "prefab": "rock_tall",
+      "position": [
+        -8,
+        0,
+        -2
+      ],
+      "rotation": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "id": "rock_02",
+      "prefab": "rock_round",
+      "position": [
+        9,
+        0,
+        7
+      ]
+    },
+    {
+      "id": "rock_03",
+      "prefab": "rock_long",
+      "position": [
+        -7,
+        0,
+        -9
+      ],
+      "rotation": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "id": "stone_01",
+      "prefab": "stepping_stone",
+      "position": [
+        -6,
+        0,
+        -4
+      ]
+    },
+    {
+      "id": "crates_01",
+      "prefab": "crates",
+      "position": [
+        10,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        -15,
+        0
+      ]
+    },
+    {
+      "id": "boulder_01",
+      "prefab": "boulder",
+      "position": [
+        -3,
+        0,
+        9
+      ]
+    },
+    {
+      "id": "mushroom_01",
+      "prefab": "alien_mushroom",
+      "position": [
+        -11,
+        0,
+        2
+      ]
+    },
+    {
+      "id": "alien_rock_01",
+      "prefab": "alien_rock",
+      "position": [
+        11,
+        0,
+        -7
+      ],
+      "rotation": [
+        0,
+        40,
+        0
       ]
     },
     {

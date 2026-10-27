@@ -217,8 +217,8 @@
           "params": {
             "runSpeed": 4.5
           }
-        }
-,        {
+        },
+        {
           "type": "Squash",
           "params": {
             "landEvent": "score",
@@ -900,6 +900,107 @@
         0.35,
         -6
       ]
+    },
+    {
+      "id": "skeleton_01",
+      "prefab": "skeleton",
+      "position": [
+        -9,
+        0,
+        10
+      ]
+    },
+    {
+      "id": "mutant_01",
+      "prefab": "mutant",
+      "position": [
+        9,
+        0,
+        11
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "id": "bench_01",
+      "prefab": "bench",
+      "position": [
+        -2,
+        0,
+        11
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "id": "hydrant_01",
+      "prefab": "hydrant",
+      "position": [
+        1.5,
+        0,
+        10.5
+      ]
+    },
+    {
+      "id": "lamp_01",
+      "prefab": "street_lamp",
+      "position": [
+        -4,
+        0,
+        10.5
+      ]
+    },
+    {
+      "id": "lamp_02",
+      "prefab": "street_lamp",
+      "position": [
+        4,
+        0,
+        10.5
+      ]
+    },
+    {
+      "id": "dumpster_01",
+      "prefab": "dumpster",
+      "position": [
+        6,
+        0,
+        12
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "id": "crates_01",
+      "prefab": "crates",
+      "position": [
+        -6.5,
+        0,
+        12
+      ],
+      "rotation": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "id": "boulder_01",
+      "prefab": "boulder",
+      "position": [
+        3,
+        0,
+        -13
+      ]
     }
   ],
   "prefabs": {
@@ -909,6 +1010,14 @@
     "grass_tuft": "./prefabs/grass_tuft.prefab.json",
     "cloud": "./prefabs/cloud.prefab.json",
     "wall": "./prefabs/wall.prefab.json",
-    "chaser": "./prefabs/chaser.prefab.json"
+    "chaser": "./prefabs/chaser.prefab.json",
+    "skeleton": "./prefabs/skeleton.prefab.json",
+    "mutant": "./prefabs/mutant.prefab.json",
+    "bench": "./prefabs/bench.prefab.json",
+    "dumpster": "./prefabs/dumpster.prefab.json",
+    "hydrant": "./prefabs/hydrant.prefab.json",
+    "street_lamp": "./prefabs/street_lamp.prefab.json",
+    "crates": "./prefabs/crates.prefab.json",
+    "boulder": "./prefabs/boulder.prefab.json"
   }
 }

@@ -109,6 +109,23 @@ test('Stompable: side touch hurts, landing on top defeats', () => {
   assert.deepEqual(scores, [2], 'only once');
 });
 
+test('Stompable: defeatClip plays the fall, then hides; Chase stands down', () => {
+  const { w, pc, p } = setup();
+  const enemy = fakeEntity('enemy', [0.5, 0, 0]);
+  const played = [];
+  enemy.anim = { clips: ['idle', 'fall'], play: (n, o) => played.push([n, o?.once]) };
+  const chase = attach(Chase, enemy, { radius: 10, speed: 2 }, w);
+  const st = attach(Stompable, enemy, { height: 1, defeatClip: 'fall', hideAfter: 0.5 }, w);
+  p.y = 0.8; pc.vy = -3;
+  st.update(0.016);
+  assert.deepEqual(played, [['fall', true]]);
+  assert.equal(enemy.object3d.visible, true, 'still showing the fall');
+  const x = enemy.object3d.position.x; chase.update(0.1);
+  assert.equal(enemy.object3d.position.x, x, 'defeated enemy stops chasing');
+  run(st, 40);
+  assert.equal(enemy.object3d.visible, false, 'hidden after hideAfter');
+});
+
 test('player rides a moving platform', () => {
   const { pc, p, w } = setup({ solids: [['plat', [0, 1, 0], [2, 0.5, 2]]] });
   p.y = 1.5; pc.update(1 / 60);                     // land on top

@@ -1,0 +1,11 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/sp_stone01.glb",
+        "height": 0.15,
+        "frontSide": true
+      }
+    }
+  }
+}

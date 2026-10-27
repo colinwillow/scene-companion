@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/c_dumpster.glb",
+        "height": 1.71,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          2.06,
+          1.71,
+          1.34
+        ]
+      }
+    }
+  ]
+}

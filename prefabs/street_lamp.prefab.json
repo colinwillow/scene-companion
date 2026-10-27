@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/c_lamp.glb",
+        "height": 5.5,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          0.3,
+          5.5,
+          0.3
+        ]
+      }
+    }
+  ]
+}

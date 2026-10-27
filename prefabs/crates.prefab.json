@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/e_crates.glb",
+        "height": 1.41,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          2.2,
+          1.41,
+          1.4
+        ]
+      }
+    }
+  ]
+}

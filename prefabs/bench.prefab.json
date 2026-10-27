@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/c_bench.glb",
+        "height": 0.88,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          1.8,
+          0.5,
+          0.6
+        ]
+      }
+    }
+  ]
+}

@@ -99,7 +99,7 @@ export class Animator extends Behavior {
   };
   start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.air = 0; }
   update(dt) {
-    const anim = this.entity.anim; if (!anim || dt <= 0) return;
+    const anim = this.entity.anim; if (!anim || dt <= 0 || this.entity.defeated) return;
     const P = this.params, p = this.entity.object3d.position;
     const speed = Math.hypot(p.x - this.last[0], p.z - this.last[1]) / dt;
     this.last = [p.x, p.z];
@@ -249,7 +249,7 @@ export class Chase extends Behavior {
   start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; }
   onMoved() { this.start(); }
   update(dt) {
-    if (this.entity.object3d.visible === false) return;
+    if (this.entity.object3d.visible === false || this.entity.defeated) return;
     const t = this.world.getEntity(this.params.targetId); if (!t) return;
     const p = this.entity.object3d.position, q = t.object3d.position;
     const near = Math.hypot(q.x - p.x, q.z - p.z) < this.params.radius;
@@ -271,9 +271,14 @@ export class Stompable extends Behavior {
     height:   { type: 'number', default: 1.2, min: 0.1, max: 5, step: 0.05 },  // body height from origin
     points:   { type: 'number', default: 1, min: 0, max: 100, step: 1 },
     damage:   { type: 'number', default: 1, min: 0, max: 10, step: 1 },
+    defeatClip: { type: 'string', default: '' },   // played once when stomped ('' = vanish at once)
+    hideAfter:  { type: 'number', default: 1.5, min: 0, max: 10, step: 0.1 },  // s the defeat clip shows before it vanishes
   };
-  update() {
-    if (this.defeated) return;
+  update(dt) {
+    if (this.defeated) {
+      if (this.hideIn > 0 && (this.hideIn -= dt) <= 0) this.entity.object3d.visible = false;
+      return;
+    }
     const t = this.world.getEntity(this.params.targetId); if (!t) return;
     const p = this.entity.object3d.position, q = t.object3d.position, P = this.params;
     if (Math.hypot(q.x - p.x, q.z - p.z) > P.radius) return;
@@ -281,8 +286,10 @@ export class Stompable extends Behavior {
     if (feet > top + 0.2 || feet + bodyH < p.y) return;                       // no vertical overlap
     const falling = (t.behaviors?.find(b => b instanceof PlayerController)?.vy ?? 0) < 0;
     if (falling && feet > p.y + P.height * 0.5) {
-      this.defeated = true;
-      this.entity.object3d.visible = false;
+      this.defeated = this.entity.defeated = true;   // entity.defeated stands Chase + Animator down
+      const anim = this.entity.anim;
+      if (P.defeatClip && anim?.clips.includes(P.defeatClip)) { anim.play(P.defeatClip, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
+      else this.entity.object3d.visible = false;
       this.world.emit('stomp', this.entity.id);
       this.world.emit('score', P.points);
       this.world.emit('bounce', 0.7);

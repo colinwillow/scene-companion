@@ -1,0 +1,23 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "glb": "./assets/models/colin/props/sp_rock03.glb",
+        "height": 0.9,
+        "frontSide": true
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          4.8,
+          0.9,
+          0.84
+        ]
+      }
+    }
+  ]
+}
