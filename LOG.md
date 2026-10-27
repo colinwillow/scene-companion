@@ -132,3 +132,4 @@
 - 2026-10-27 — VFX workspace part 1 — vfx.html, fx library save/load; checked headless (live session)
 - 2026-10-27 — HUD part 1 — HudLabel + HudBar; 276 tests; checked headless (live session)
 - 2026-10-27 — Editor: 🎬 scene picker (scenes/index.json) — Colin couldn't reach any scene but the kitchen sink (live session)
+- 2026-10-27 — play.html scene list (🎬, shown first without ?scene) + validate checks the list (live session)

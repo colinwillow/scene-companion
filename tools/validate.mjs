@@ -184,6 +184,10 @@ for (const f of files) {
   if (errors === errorsBefore) console.log(`✓ ${f} — ${ids.size} entities`);
 }
 
+// scenes/index.json is the scene picker's list (editor + play): every scene file should be in it, or nobody can open it
+{ let list = []; try { list = JSON.parse(readFileSync('scenes/index.json', 'utf8')).map(e => e.file.replace(/^\.\//, '')); } catch {}
+  for (const f of readdirSync('scenes').filter(n => n.endsWith('.scene.json'))) if (!list.includes(`scenes/${f}`)) warn('scenes/index.json', `scenes/${f} is not in the scene picker — add { "file", "title", "note" }`); }
+
 // prefabs/index.json lists every prefab file, so the editor's ＋Add menu can offer them (it can't list a folder).
 // Kept up to date here, so adding a prefab file and running validate is enough.
 {

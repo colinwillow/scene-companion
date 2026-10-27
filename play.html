@@ -46,6 +46,14 @@
   #mixer label { display:flex; align-items:center; gap:8px; justify-content:space-between; }
   #mixer input { width:130px; }
   #mixer button { background:#3ddc84; color:#0b3d1f; border:none; border-radius:8px; padding:6px 10px; font-weight:700; }
+  #scenes { position:fixed; inset:0; z-index:9; background:#000b; display:flex; align-items:center; justify-content:center; touch-action:manipulation; }
+  #scenes[hidden] { display:none; }
+  #scenes .sbox { background:#1b212b; border-radius:16px; width:min(420px, 92vw); max-height:84vh; overflow:auto; padding:12px; }
+  #scenes .shead { display:flex; justify-content:space-between; align-items:center; font:800 18px system-ui,sans-serif; margin:4px 6px 10px; }
+  #scenes .shead button { background:#2b3442; color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size:16px; }
+  #sceneList a { display:block; padding:14px 12px; margin:6px 0; border-radius:12px; background:#2b3442; color:#fff; text-decoration:none; font:700 16px system-ui,sans-serif; }
+  #sceneList a.here { background:#3ddc84; color:#0b3d1f; }
+  #sceneList a small { display:block; font-weight:600; opacity:.75; margin-top:3px; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
@@ -56,7 +64,7 @@
 </script>
 </head>
 <body>
-<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="pause" title="Pause">⏸</button> <button id="mute">🔊</button> <button id="cols" title="Show colliders">▦</button> <a id="edit" href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
+<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="scenesBtn" title="Other scenes">🎬</button> <button id="pause" title="Pause">⏸</button> <button id="mute">🔊</button> <button id="cols" title="Show colliders">▦</button> <a id="edit" href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
 <div class="pad" id="stkL" data-side="left"><div class="ring"></div><div class="knob"></div></div>
 <div class="pad" id="stkR" data-side="right"><div class="ring"></div><div class="knob"></div></div>
 <div id="hint">Left stick: move · Right stick: turn camera, tap to jump · Jump on enemies</div>
@@ -65,6 +73,7 @@
 <div id="err" hidden></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="stats" hidden></div>
+<div id="scenes" hidden><div class="sbox"><div class="shead">Scenes <button id="scenesX">✕</button></div><div id="sceneList"></div></div></div>
 <div id="mixer" hidden><button id="mixMute">Sound on</button><label>All <input type="range" min="0" max="1" step="0.05" data-bus="master"></label><label>Music <input type="range" min="0" max="1" step="0.05" data-bus="music"></label><label>Effects <input type="range" min="0" max="1" step="0.05" data-bus="sfx"></label></div>
 <script>
 window.__errQueue=[];
@@ -92,6 +101,19 @@ const $ = id => document.getElementById(id);
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/tiny-hop.scene.json';
 const TIER = new URLSearchParams(location.search).get('tier') || 'web';
 $('edit').href = `./index.html?scene=${encodeURIComponent(SCENE_URL)}`;
+// 🎬 every example scene (scenes/index.json); opening play.html with no ?scene shows the list first
+fetch('./scenes/index.json').then(r => r.json()).then(list => {
+  const here = SCENE_URL.replace(/^\.\//, '');
+  for (const sc of list) {
+    const a = document.createElement('a'); a.href = `./play.html?scene=${encodeURIComponent(sc.file)}`;
+    a.className = sc.file.replace(/^\.\//, '') === here ? 'here' : '';
+    a.innerHTML = `${sc.title}${sc.note ? `<small>${sc.note}</small>` : ''}`;
+    $('sceneList').append(a);
+  }
+  if (!new URLSearchParams(location.search).has('scene')) $('scenes').hidden = false;
+}).catch(() => {});
+$('scenesBtn').addEventListener('pointerdown', e => { e.stopPropagation(); $('scenes').hidden = false; });
+$('scenesX').onclick = () => { $('scenes').hidden = true; };
 let data = await (await fetch(SCENE_URL)).json();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });

@@ -1,42 +1,52 @@
 [
  {
   "file": "./scenes/kitchen-sink.scene.json",
-  "title": "Kitchen sink (everything)"
+  "title": "Kitchen sink (everything)",
+  "note": "every system at once; the test house breaks"
  },
  {
   "file": "./scenes/tiny-hop.scene.json",
-  "title": "Tiny Hop"
+  "title": "Tiny Hop",
+  "note": "the first little platformer"
  },
  {
   "file": "./scenes/sky-steps.scene.json",
-  "title": "Sky Steps"
+  "title": "Sky Steps",
+  "note": "Zap, double jump flip"
  },
  {
   "file": "./scenes/stadium.scene.json",
-  "title": "Goblin stadium (wall run, katana, duel)"
+  "title": "Goblin stadium (wall run, katana, duel)",
+  "note": "goblin: wall run, ledge, vault, high bar, katana, duel"
  },
  {
   "file": "./scenes/skatepark.scene.json",
-  "title": "Skate park (Roller Girl alien)"
+  "title": "Skate park (Roller Girl alien)",
+  "note": "half pipe, grinds, flips, trails, score"
  },
  {
   "file": "./scenes/skatepark-kit.scene.json",
-  "title": "Skate kit park"
+  "title": "Skate kit park",
+  "note": "her ramp kit as a park"
  },
  {
   "file": "./scenes/skateboard.scene.json",
-  "title": "Skateboard (Colin, Shred World)"
+  "title": "Skateboard (Colin, Shred World)",
+  "note": "kickflips, fun boxes, grind any box edge"
  },
  {
   "file": "./scenes/blaster.scene.json",
-  "title": "Blaster vs the house (Zap)"
+  "title": "Blaster vs the house (Zap)",
+  "note": "hold right stick up, let go: break walls and glass"
  },
  {
   "file": "./scenes/dna.scene.json",
-  "title": "DNA gun (Zap)"
+  "title": "DNA gun (Zap)",
+  "note": "shoot the skeleton, become it"
  },
  {
   "file": "./scenes/kit-row.scene.json",
-  "title": "Breakable kit row (weirdport)"
+  "title": "Breakable kit row (weirdport)",
+  "note": "your generated buildings, all breakable (\u25a6 for stats)"
  }
 ]
