@@ -57,3 +57,21 @@ test('Blaster auto: held = a small bolt every `rate`; while aiming (and `hold` a
   world.input.fire = false; for (let i = 0; i < 30; i++) b.update(1 / 60);
   assert.equal(me.aimYaw, null, 'let go: back to facing where he runs');
 });
+
+test('Disguise: a DNA bolt of mine on a body wears its asset; X (revert) or `duration` puts him back; DNA bolts do not hurt', async () => {
+  const calls = [], handlers = {}, me = { id: 'player', object3d: new THREE.Group() };
+  const world = { input: {}, on: (n, f) => { handlers[n] = f; }, emit() {}, getEntity: id => id === 'sk' ? { id: 'sk', prefab: 'skeleton', data: {} } : me,
+    wear: async (id, asset) => { calls.push([id, asset]); me.worn = asset ? {} : null; return true; } };
+  const { Disguise } = await import('../behaviors/index.js');
+  const d = new Disguise(me, { duration: 1 }, world); d.start();
+  handlers.dna('someone-else', 'sk'); await new Promise(r => setTimeout(r, 0)); assert.equal(calls.length, 0);
+  handlers.dna('player', 'sk'); await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(calls, [['player', 'skeleton']]);
+  for (let i = 0; i < 70; i++) d.update(1 / 60);
+  assert.deepEqual(calls.at(-1), ['player', null], 'back after `duration`');
+  const w2 = worldWith(), o = new THREE.Group(); o.position.set(0, 1, 0); const e = { id: 'b', object3d: o }; w2.entities.set('b', e);
+  const dummy = { id: 'dummy', behaviors: [{ constructor: { hittable: true } }], object3d: new THREE.Group() }; dummy.object3d.position.set(2, 0, 0); w2.entities.set('dummy', dummy);
+  const p = new Projectile(e, {}, w2); p.start(); p.launch({ vel: [44, 0, 0], size: 0.5, blast: 1, damage: 2, owner: 'player', dna: true });
+  for (let i = 0; i < 30 && !p.gone; i++) p.update(1 / 60);
+  assert.ok(w2.emitted.some(a => a[0] === 'dna' && a[2] === 'dummy')); assert.ok(!w2.emitted.some(a => a[0] === 'struck' || a[0] === 'blast'));
+});

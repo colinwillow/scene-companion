@@ -104,7 +104,7 @@ const input = { move: [0, 0], jump: false, attack: null };
 const stickL = { x: 0, y: 0, down: false }, stickR = { x: 0, y: 0, down: false };
 const YAW_RATE = 2.9;                        // rad/s at full right-stick deflection (rollergirl's CAM.yawRate)
 
-addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; if (e.code === 'KeyC') input.charge = true; if (e.code === 'KeyR') input.trick = [0, -1]; if (e.code === 'KeyV') input.trick = [0, 1]; });
+addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; if (e.code === 'KeyC') input.charge = true; if (e.code === 'KeyR') input.trick = [0, -1]; if (e.code === 'KeyV') input.trick = [0, 1]; if (e.code === 'KeyX') world.input.revert = true; });
 addEventListener('keyup', e => { keys.delete(e.code); if (e.code === 'KeyC') input.charge = false; });
 
 // Twin sticks: left = move, right = orbit (yaw only); a TAP jumps — right stick, or either (settings.controls.jumpTap).

@@ -307,6 +307,39 @@ export class World {
     return ent;
   }
 
+  // Wear another asset's body (zap's DNA gun, `Disguise`): `asset` is a scene asset key (or a prefab id whose asset is used).
+  // The entity keeps its object, position, behaviors and collider; its model, clips and roles become the asset's. The old model
+  // is kept aside (with anything mounted on its bones) and `wear(id, null)` puts it back. → true when worn.
+  async wear(id, asset) {
+    const ent = this.entities.get(id); if (!ent) return false;
+    const o = ent.object3d, isModel = c => !c.userData?.entityId;
+    if (!asset) {                                       // back to his own
+      const w = ent.worn; if (!w) return false;
+      const cur = o.children.find(isModel); if (cur) o.remove(cur);
+      this.mixers = this.mixers.filter(m => m !== ent.anim?.mixer); this.animators = (this.animators || []).filter(a => a !== ent.anim);
+      o.add(w.model); ent.anim = w.anim; ent.roles = w.roles; if (w.anim?.mixer) this.mixers.push(w.anim.mixer); if (w.anim) (this.animators ||= []).push(w.anim);
+      ent.worn = null; this.emit('wear', id, null); return true;
+    }
+    let def = typeof asset === 'object' ? asset : this.data?.assets?.[asset];
+    if (!def && typeof asset === 'string') { const pf = await this.loadPrefab(asset).catch(() => null); def = typeof pf?.asset === 'object' ? pf.asset : this.data?.assets?.[pf?.asset]; }
+    let variant = this.resolveVariant(def), character = null;
+    if (!variant) return false;
+    if (variant.character) {
+      if (!this.characterCache.has(variant.character)) this.characterCache.set(variant.character, fetch(variant.character).then(r => r.json()));
+      character = await this.characterCache.get(variant.character); variant = characterVariant(character, variant);
+    }
+    const root = await this.buildObject(variant);
+    if (ent.worn) await this.wear(id, null);           // one disguise at a time
+    const own = o.children.find(isModel);
+    ent.worn = { model: own, anim: ent.anim, roles: ent.roles };
+    if (own) o.remove(own);
+    this.mixers = this.mixers.filter(m => m !== ent.anim?.mixer); this.animators = (this.animators || []).filter(a => a !== ent.anim);
+    o.add(root);
+    ent.roles = character?.roles ? { ...character.roles } : null;
+    ent.anim = root.userData.clips?.length ? this.makeAnimator(root, root.userData.clips, ent.roles?.idle, { masks: character?.masks, events: character?.events, emit: (name, info) => this.emit(name, id, info) }) : null;
+    this.emit('wear', id, asset); return true;
+  }
+
   // A prefab by name: the scene's own list first, else prefabs/<name>.prefab.json (children and spawns may use
   // prefabs the scene doesn't list).
   async loadPrefab(name) {

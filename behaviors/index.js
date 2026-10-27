@@ -1028,6 +1028,7 @@ export class Blaster extends Behavior {
     damage0:    { type: 'number', default: 1, min: 0, max: 100, step: 0.5 },
     damage1:    { type: 'number', default: 3, min: 0, max: 100, step: 0.5 },
     auto:       { type: 'boolean', default: false },       // zap's AUTO mode: held = rapid fire of small bolts
+    dna:        { type: 'boolean', default: false },       // zap's DNA mode: the bolt SAMPLES the body it hits (a Disguise wears it)
     rate:       { type: 'number', default: 0.12, min: 0.03, max: 1, step: 0.01 },   // s between auto shots
     aimClip:    { type: 'string', default: 'idle_rifle' }, // upper body while the trigger is held (and `hold` after a shot)
     shootClip:  { type: 'string', default: 'shoot' },      // upper body on each shot
@@ -1077,7 +1078,7 @@ export class Blaster extends Behavior {
     let d = a && (a[0] || a[a.length - 1]) ? (a.length === 3 ? a : [a[0], 0, a[1]]) : [Math.sin(yaw), 0, Math.cos(yaw)];
     const l = Math.hypot(...d) || 1; d = d.map(v => v / l);
     const at = this.muzzle(), lerp = (x, y) => x + (y - x) * c;
-    const shot = { vel: d.map(v => v * P.speed), size: lerp(P.size0, P.size1), blast: lerp(P.blast0, P.blast1), damage: lerp(P.damage0, P.damage1), owner: this.entity.id };
+    const shot = { vel: d.map(v => v * P.speed), size: lerp(P.size0, P.size1), blast: lerp(P.blast0, P.blast1), damage: lerp(P.damage0, P.damage1), owner: this.entity.id, dna: P.dna };
     this.world.emit('shoot', this.entity.id, c);
     return this.world.spawn?.(P.projectile, { position: at }).then(e => {
       const pr = e.behaviors.find(b => b instanceof Projectile); if (!pr) return e;
@@ -1111,11 +1112,12 @@ export class Projectile extends Behavior {
       const q = e.object3d.position; if (Math.hypot(q.x - at[0], q.z - at[2]) < S.size / 2 + 0.4 && at[1] > q.y - 0.2 && at[1] < q.y + 2.2) { body = e; break; }
     }
     p.x = at[0]; p.y = at[1]; p.z = at[2];
-    if (hit || body || at[1] <= P.groundY || this.t >= P.life) this.burst(at, this.t < P.life || !!hit);
+    if (hit || body || at[1] <= P.groundY || this.t >= P.life) this.burst(at, this.t < P.life || !!hit, body);
   }
-  burst(at, loud) {
+  burst(at, loud, body) {
     const S = this.shot; this.gone = true;
-    if (loud) {
+    if (S.dna) { if (body) this.world.emit('dna', S.owner, body.id); }      // a DNA bolt samples, it does not hurt
+    else if (loud) {
       this.world.emit('blast', at[0], at[1], at[2], S.blast, S.damage);
       for (const e of this.world.entities?.values?.() || []) {
         if (e.id === S.owner || e.defeated || !e.behaviors?.some(b => b instanceof Stompable || b.constructor.hittable)) continue;
@@ -1124,6 +1126,28 @@ export class Projectile extends Behavior {
     }
     this.world.destroy?.(this.entity.id);
   }
+}
+
+// Zap's DNA gun (MORPH / morphGo, docs/zap-blaster-extraction.md): when a DNA bolt this entity fired hits a body ('dna'), he
+// WEARS that body — its model, clips and roles (World.wear) — and keeps his own collider, speeds and behaviors. `revert` in the
+// input (key X), or `duration` seconds (0 = until reverted), puts him back. Anything mounted on his own bones (the gun) is set
+// aside with his model and comes back with it.
+export class Disguise extends Behavior {
+  static schema = {
+    duration: { type: 'number', default: 30, min: 0, max: 600, step: 1 },
+  };
+  start() { this.t = 0; this.world.on?.('dna', (owner, target) => { if (owner === this.entity.id) this.sample(target); }); }
+  async sample(target) {
+    const t = this.world.getEntity?.(target); if (!t) return;
+    const asset = typeof t.data?.asset === 'string' ? t.data.asset : t.prefab || t.data?.prefab;
+    if (asset && await this.world.wear?.(this.entity.id, asset)) { this.t = this.params.duration; this.as = target; this.world.emit('disguise', this.entity.id, target); }
+  }
+  update(dt) {
+    const input = this.world.input || {};
+    if (!this.entity.worn) return;
+    if (input.revert || (this.params.duration > 0 && (this.t -= dt) <= 0)) { input.revert = false; this.world.wear?.(this.entity.id, null); this.world.emit('revert', this.entity.id); }
+  }
+  destroy() { if (this.entity.worn) this.world.wear?.(this.entity.id, null); }
 }
 
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
@@ -2235,6 +2259,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, Blaster, Projectile, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, Blaster, Projectile, Disguise, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
