@@ -131,3 +131,17 @@ test('flips: a flick up in the air front-flips her, timed to land round; too lit
   sk.v = [0, 1, 0]; sk.grounded = false; o.position.y = 0.05;
   w.input.trick = [0, -1]; sk.update(1 / 60); assert.equal(sk.flip, null, 'no air left: no flip');
 });
+
+test('ground left flick: up = boost (a stroke of +8 m/s, once per cooldown), down = skid stop, sideways = swivel to fakie', async () => {
+  const { w, sk } = await run(railScene(), 0.01);
+  const o = w.getEntity('player').object3d; o.position.set(20, 0, 0); sk.grind = null; sk.grounded = true; sk.heading = Math.PI / 2; sk.v = [5, 0, 0];
+  w.input.trick = [0, -1]; for (let i = 0; i < 40; i++) sk.update(1 / 60);
+  assert.ok(sk.v[0] > 12, `boosted 5 → ${sk.v[0].toFixed(2)} m/s`);
+  const v1 = sk.v[0]; w.input.trick = [0, -1]; for (let i = 0; i < 10; i++) sk.update(1 / 60);
+  assert.ok(sk.v[0] <= v1 + 0.01, 'a second flick inside the cooldown does nothing');
+  w.input.trick = [1, 0]; sk.update(1 / 60);
+  for (let i = 0; i < 10; i++) sk.update(1 / 60);
+  assert.ok(sk.v[0] > 10 && sk.fakie, 'swivelled: same travel, rolling fakie');
+  w.input.trick = [0, 1]; for (let i = 0; i < 40; i++) sk.update(1 / 60);
+  assert.ok(Math.hypot(...sk.v) < 0.5, `skidded to a stop, ${Math.hypot(...sk.v).toFixed(2)} m/s`);
+});

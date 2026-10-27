@@ -356,6 +356,12 @@ export class Skater extends Behavior {
     minCos:   { type: 'number', default: 0.35, min: 0, max: 1, step: 0.05 },
     grindDrag:{ type: 'number', default: 0.08, min: 0, max: 3, step: 0.01 },
     tuckClip: { type: 'string', default: 'tuck' },       // held during a flip
+    // the left flick ON THE GROUND (her r80/r84 map): up = boost, down = skid stop, sideways = swivel to fakie and back
+    boost:    { type: 'number', default: 8, min: 0, max: 30, step: 0.5 },      // m/s added, spread over boostTime (a stroke, not a jolt)
+    boostTime:{ type: 'number', default: 0.45, min: 0.05, max: 2, step: 0.05 },
+    boostCap: { type: 'number', default: 36, min: 1, max: 80, step: 1 },
+    boostCool:{ type: 'number', default: 1.1, min: 0, max: 5, step: 0.05 },
+    stopTime: { type: 'number', default: 0.4, min: 0.05, max: 3, step: 0.05 }, // s a skid stop takes from any speed
     flipShare:{ type: 'number', default: 0.85, min: 0.3, max: 1, step: 0.05 },   // the flip takes this share of the air she has left
     grindLeft: { type: 'string', default: 'grind_left' },
     grindRight:{ type: 'string', default: 'grind_right' },
@@ -375,7 +381,8 @@ export class Skater extends Behavior {
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], mag = Math.hypot(move[0], move[1]);
     const v = this.v;
     if (this.grind) { this.stepGrind(dt, input); return this.pose(dt); }
-    if (input.trick) { const t = input.trick; input.trick = null; if (!this.grounded) this.startFlip(t); }
+    if (input.trick) { const t = input.trick; input.trick = null; if (!this.grounded) this.startFlip(t); else this.groundTrick(t); }
+    this.boostCoolT = Math.max(0, (this.boostCoolT || 0) - dt);
     if (this.flip) this.flip.t += dt;
     if (input.jump) {
       input.jump = false;
@@ -406,6 +413,12 @@ export class Skater extends Behavior {
       if (this.pushing) along = along < -0.5 ? Math.max(-P.top, along - P.push * ahead * dt) : Math.min(P.top, along + P.push * ahead * dt);
       if (ahead < -0.35) along *= Math.exp(-P.brake * -ahead * dt);
       along *= Math.exp(-P.roll * dt); lat *= Math.exp(-P.roll * dt);
+      if (this.boostT > 0) {                              // a half-sine stroke: the whole `boost` arrives over boostTime
+        const u0 = 1 - this.boostT / P.boostTime; this.boostT = Math.max(0, this.boostT - dt); const u1 = 1 - this.boostT / P.boostTime;
+        const add = P.boost * (Math.cos(Math.PI * u0) - Math.cos(Math.PI * u1)) / 2, dir = along < -0.5 ? -1 : 1;
+        along = dir > 0 ? Math.min(P.boostCap, along + add) : Math.max(-P.boostCap, along - add);
+      }
+      if (this.stopT > 0) { this.stopT -= dt; along *= Math.exp(-6 / P.stopTime * dt); lat *= Math.exp(-6 / P.stopTime * dt); if (Math.hypot(along, lat) < 0.3) { along = lat = 0; this.stopT = 0; } }
       // rolling backwards up and back down a wall: she rides it fakie (heading stays; the clip follows later)
       // rebuild in the NEW frame (the heading may have turned)
       let F2 = [Math.sin(this.heading), 0, Math.cos(this.heading)]; const f2n = dot(F2, n); F2 = [F2[0] - n[0] * f2n, F2[1] - n[1] * f2n, F2[2] - n[2] * f2n];
@@ -448,6 +461,17 @@ export class Skater extends Behavior {
     }
     if (p.y < P.killY) { [p.x, p.y, p.z] = this.spawn; this.v = [0, 0, 0]; this.grounded = true; this.n = [0, 1, 0]; this.world.emit('respawn'); }
     this.pose(dt);
+  }
+  // the left flick on the ground: up = BOOST, down = a skid STOP, sideways = SWIVEL (her body turns 180, her travel does not —
+  // the same line, the other way up: fakie ↔ forward)
+  groundTrick([fx, fy]) {
+    const P = this.params;
+    if (Math.abs(fy) >= Math.abs(fx) && fy < 0) {
+      if (this.boostCoolT > 0) return;
+      if (Math.hypot(...this.v) < 1) { this.v[0] += Math.sin(this.heading) * 0.6; this.v[2] += Math.cos(this.heading) * 0.6; }   // a direction to go in
+      this.boostT = P.boostTime; this.boostCoolT = P.boostCool; this.world.emit('boost', this.entity.id); this.world.emit('trick', this.entity.id, 'BOOST');
+    } else if (Math.abs(fy) >= Math.abs(fx)) { this.stopT = P.stopTime; this.world.emit('stop', this.entity.id); }
+    else { this.heading += Math.PI; this.world.emit('trick', this.entity.id, 'SWIVEL'); }
   }
   // FLIPS (her FLIPP / startFlip): a left flick in the air — up a front flip, down a back flip, sideways a 360 — timed to the
   // air she has LEFT (flipShare of the time to come back down), so a late flick is quick and an early one takes its time. Too
