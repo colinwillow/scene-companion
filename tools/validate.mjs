@@ -3,7 +3,7 @@
 // Usage: node tools/validate.mjs [scenes/*.scene.json ...]   (defaults to every scene in scenes/)
 import { LIGHT_FIELDS } from '../runtime/editing.js';
 import { characterVariant, checkCharacter } from '../runtime/character.js';
-import { checkPack } from '../runtime/packs.js';
+import { checkPack, checkScenePacks } from '../runtime/packs.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -126,6 +126,8 @@ for (const f of files) {
     checkBehaviors(f, e.id, e.behaviors);
   }
   for (const r of scene.settings?.route || []) if (!ids.has(r)) err(f, `settings.route: no entity "${r}"`);
+  { let cat = []; try { cat = JSON.parse(readFileSync('packs/index.json', 'utf8')); } catch {}
+    for (const m of checkScenePacks(scene, Array.isArray(cat) ? cat : [])) err(f, m); }
   const known = scene.settings?.routeKnownIssue;
   if (known !== undefined && (typeof known !== 'string' || !known.trim())) err(f, 'settings.routeKnownIssue must be a short reason (string)');
   const jt = scene.settings?.controls?.jumpTap;
@@ -157,7 +159,7 @@ for (const cf of codeFiles) {
   if (cf.startsWith('behaviors')) for (const h of findSpawnedMeshes(src)) err(cf, `line ${h.line}: behaviors must not create meshes: ${h.text}`);
   else for (const h of findSpawnedMeshes(src)) warn(cf, `line ${h.line}: creates a mesh in code — if it's a placed object, it belongs in the scene file`);
 }
-// Packs: packs/<id>/pack.json (runtime/packs.js); packs/index.json lists the installed ones.
+// Packs: packs/<id>/pack.json (runtime/packs.js); packs/index.json is the catalog; a scene's "packs" says what that project installed.
 if (existsSync('packs')) {
   const rel = p => String(p).replace(/^\.\//, '');
   const has = { file: p => existsSync(rel(p)), prefab: n => existsSync(join('prefabs', `${n}.prefab.json`)), behavior: n => !!getBehavior(n) };
@@ -172,7 +174,7 @@ if (existsSync('packs')) {
     const before = errors;
     for (const pr of checkPack(pack, id, has)) (pr.level === 'error' ? err : warn)(pf, pr.msg);
     for (const c of pack.characters || []) if (has.file(c)) characterOf(pf, c);   // character files get checked too
-    if (!installed.includes(id)) warn(pf, 'not listed in packs/index.json, so the editor won\'t show it');
+    if (!installed.includes(id)) warn(pf, 'not listed in packs/index.json (the catalog), so no project can install it');
     if (errors === before) console.log(`✓ ${pf} — ${['characters', 'prefabs', 'behaviors', 'scenes'].map(k => `${(pack[k] || []).length} ${k}`).join(', ')}`);
   }
 }

@@ -1,0 +1,8 @@
+{
+  "id": "alien-wilds",
+  "name": "Alien wilds (unlock demo)",
+  "version": "0.1.0",
+  "tier": "unlock",
+  "description": "Demo of an unlock-tier pack: shows greyed out until unlocked. Open the editor with ?unlock=alien-wilds to unlock it on this device.",
+  "prefabs": ["alien_mushroom", "alien_rock", "boulder", "rock_tall"]
+}

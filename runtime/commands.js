@@ -5,6 +5,7 @@
 //   schemas: { BehaviorName: schema }   prefabs: { name: prefabJson }   (both supplied by the host)
 import { addEntity, deleteEntity, addLight, setLightValue, LIGHT_FIELDS } from './editing.js';
 import { mergeEntity, setOverride } from './prefabs.js';
+import { libraryPacks, setInstalled } from './packs.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
 const isVec3 = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n));
@@ -180,6 +181,21 @@ export const COMMANDS = {
       else e.animation = clip;
       return { id, animation: e.animation ?? null };
     },
+  },
+  list_packs: {
+    mutates: false,
+    run(data, _args, ctx) {
+      return libraryPacks(ctx.packs || [], data, ctx.unlocks || []).map(r => ({ id: r.pack.id, name: r.pack.name, version: r.pack.version,
+        tier: r.pack.tier, installed: r.installed, locked: r.locked, items: r.items.map(i => `${i.kind}:${i.name}`) }));
+    },
+  },
+  install_pack: {
+    mutates: true,
+    run(data, { id }, ctx) { return { packs: setInstalled(data, ctx.packs || [], id, true) }; },
+  },
+  uninstall_pack: {
+    mutates: true,
+    run(data, { id }, ctx) { return { packs: setInstalled(data, ctx.packs || [], id, false), note: 'objects already placed from it stay in the scene' }; },
   },
   // Several edits in one go: one undo step, one rebuild (spawning 40 things one by one is slow on a phone).
   // All or nothing: if any call fails, nothing changes and the error names the failing call.

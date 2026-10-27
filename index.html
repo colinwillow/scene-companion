@@ -62,6 +62,8 @@
   #tree li.sel { background:var(--accent); color:#111; }
   #lib li.thumb { align-items:center; padding:5px 8px; }
   #lib li img { width:44px; height:44px; flex:none; border-radius:9px; background:#262e40; object-fit:contain; }
+  #lib li.locked { opacity:.45; cursor:not-allowed; }
+  #lib li .packbtn { margin-left:auto; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; font-size:12px; font-weight:400; }
   #lib li.head { cursor:default; font-weight:700; padding-top:12px; border-bottom:1px solid var(--line); border-radius:0; }
   #tree li.sel small { color:#111a; }
   #tree li small, #lib li small { color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -130,7 +132,7 @@ import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
 import { clipRoles, characterEntries } from './runtime/character.js';
-import { packItems } from './runtime/packs.js';
+import { libraryPacks, setInstalled, parseUnlocks } from './runtime/packs.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -676,7 +678,8 @@ var sendSelect, liveOn = () => false;
 // are undoable like any other edit, and show up on screen (and in live games) immediately.
 async function editorCommand(op, args) {
   if (COMMANDS[op]) {
-    const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs, library: {} };
+    const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs, library: {},
+      packs: /pack/.test(op) || op === 'batch' ? await loadPacks() : libPacks || [], unlocks: packUnlocks() };
     // spawning a prefab the scene doesn't list yet: fetch it from prefabs/ (commands.js adds it to the scene)
     const placing = t => t === 'spawn' || t === 'add_light';
     const spawns = placing(op) ? [args] : op === 'batch' ? (args.calls || []).filter(c => placing(c?.tool)).map(c => c.args || {}) : [];
@@ -734,7 +737,8 @@ async function travel(dir) {
   $('look').value = data.settings?.look || 'toon';
   updateUndo();
   if (selectedId && !data.entities.some(e => e.id === selectedId)) selectedId = null;
-  await rebuild(); renderPanel();
+  if (libTab === "packs") renderLib();   // pack installs are scene data too
+  await rebuild(); renderPanel(); renderLib();
 }
 $('undo').onclick = () => travel(-1);
 $('redo').onclick = () => travel(1);
@@ -782,7 +786,28 @@ async function addCharacterFrom(i) {
 
 // ---- Libraries panel: characters / props (every prefab + scene model; tap to add at the view centre) and
 // motions (the selected object's clips; tap to play and keep). Prefab files are fetched once, on first open.
-var libTab = 'characters', libPrefabs = null, libPacks = null, libSeq = 0, libPrefabsLoad = null;   // libPacks: installed packs (packs/index.json), fetched on first open   // var: select() can run before this line (early live picks)
+var libTab = 'characters', libPrefabs = null, libPacks = null, libSeq = 0, libPrefabsLoad = null;   // libPacks: the pack catalog (packs/index.json), fetched on first use   // var: select() can run before this line (early live picks)
+// Packs: the catalog is packs/index.json (fetched once); the scene's "packs" field is what's installed in this project.
+// Unlock-tier packs stay greyed until unlocked — for now a per-device list (?unlock=id adds one) until Pack unlocks.
+var libPacksLoad = null;
+function loadPacks() {
+  return (libPacksLoad ||= (async () => {
+    let ids = []; try { ids = await (await fetch('./packs/index.json')).json(); } catch {}
+    const packs = await Promise.all((Array.isArray(ids) ? ids : []).map(async id => { try { return await (await fetch(`./packs/${id}/pack.json`)).json(); } catch { return null; } }));
+    return (libPacks = packs.filter(Boolean));
+  })());
+}
+function packUnlocks() {
+  let saved = []; try { saved = parseUnlocks(JSON.parse(localStorage.getItem('sc.unlocks') || '[]')); } catch {}
+  const add = parseUnlocks(new URLSearchParams(location.search).get('unlock'));
+  const all = [...new Set([...saved, ...add])];
+  if (add.length) try { localStorage.setItem('sc.unlocks', JSON.stringify(all)); } catch {}
+  return all;
+}
+async function togglePack(id, on) {
+  if (playing) return;
+  record(); setInstalled(data, libPacks, id, on); renderLib();
+}
 async function renderLib() {
   if (!$('lib').classList.contains('open') || !world) return;
   const seq = ++libSeq;                           // a newer render (tab switch, search) wins over this one
@@ -801,20 +826,21 @@ async function renderLib() {
   const q = $('libSearch').value.trim(), ul = $('libList');
   let items;
   if (libTab === 'packs') {
-    if (!libPacks) {
-      let ids = []; try { ids = await (await fetch('./packs/index.json')).json(); } catch {}
-      libPacks = (await Promise.all((Array.isArray(ids) ? ids : []).map(async id => { try { return await (await fetch(`./packs/${id}/pack.json`)).json(); } catch { return null; } }))).filter(Boolean);
-      if (seq !== libSeq) return;
-    }
+    await loadPacks();
+    if (seq !== libSeq) return;
     items = [];
-    for (const pk of libPacks) {
-      const its = filterNames(packItems(pk), q);
-      if (!its.length && q) continue;
-      items.push({ name: `📦 ${pk.name}`, sub: `v${pk.version} · ${pk.tier}${pk.tier === 'unlock' ? ' 🔒' : ''} · ${packItems(pk).length} items`, header: true });
-      for (const i of its) items.push({ name: i.name, thumb: thumbIndex[`${i.kind}:${i.name}`], sub: i.kind === 'character' ? 'character' : 'prefab',
-        pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom('prefab', i.name); if (!wide) closeLib(); } });
+    const rows = libraryPacks(libPacks, data, packUnlocks());
+    for (const r of rows) {
+      const pk = r.pack, its = r.installed ? filterNames(r.items, q) : [];
+      if (q && !its.length && !filterNames([{ name: pk.name }], q).length) continue;
+      items.push({ name: `📦 ${pk.name}`, header: true,
+        sub: `v${pk.version} · ${pk.tier}${r.locked ? ' 🔒 locked' : ''} · ${r.items.length} items`,
+        btn: r.installed ? 'Uninstall' : 'Install', act: () => togglePack(pk.id, !r.installed) });
+      for (const i of its) items.push({ name: i.name, sub: i.locked ? '🔒 unlock this pack to use it' : i.kind, locked: i.locked, thumb: thumbIndex[`${i.kind}:${i.name}`],
+        pick: () => { if (i.locked) return; i.kind === 'character' ? addCharacterFrom(i) : addFrom('prefab', i.name); if (!wide) closeLib(); } });
     }
-    $('libCount').textContent = playing ? 'Stop play to add things' : `${libPacks.length} installed pack${libPacks.length === 1 ? '' : 's'} — tap an item to add it at the view centre`;
+    const n = rows.filter(r => r.installed).length;
+    $('libCount').textContent = playing ? 'Stop play to add things' : `${n} of ${rows.length} pack${rows.length === 1 ? '' : 's'} installed in this project — tap an item to add it at the view centre`;
   } else if (libTab === 'motions') {
     const ent = world.getEntity(selectedId);
     if (!ent?.anim) { $('libCount').textContent = 'Select an animated object to see its motions'; ul.innerHTML = ''; return; }
@@ -839,6 +865,9 @@ async function renderLib() {
     li.firstChild.textContent = it.name; li.lastChild.textContent = it.sub;
     if (it.thumb) { const img = new Image(); img.src = it.thumb; img.alt = ''; img.loading = 'lazy'; li.prepend(img); li.classList.add('thumb'); }
     if (it.header) li.className = 'head'; else li.onclick = it.pick;
+    if (it.locked) li.classList.add('locked');
+    if (it.btn) { const b = document.createElement('button'); b.className = 'packbtn'; b.textContent = it.btn;
+      b.onclick = ev => { ev.stopPropagation(); it.act(); }; li.append(b); }
     ul.append(li);
   }
 }

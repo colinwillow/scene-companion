@@ -31,6 +31,10 @@
       "jumpTap": "right"
     }
   },
+  "packs": [
+    "colin-starter",
+    "alien-wilds"
+  ],
   "assets": {
     "ground": {
       "variants": {

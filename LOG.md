@@ -55,3 +55,4 @@
 - 2026-10-27 — Characters follow-ups — Blender/Replace via character variants, Library › Characters from character index, Motions role labels; 116 tests; headless ✓ (build run)
 - 2026-10-27 — Pack format — runtime/packs.js, validator, packs/colin-starter, Library › Packs tab, Library render race fix; 119 tests; headless ✓ (build run)
 - 2026-10-27 — Thumbnail studio — tools/thumbs.mjs + thumbs.html, 34 thumbs + 3 turntables, Library rows show them, pack thumbnails filled; 122 tests; headless ✓ (live session)
+- 2026-10-27 — Pack install/uninstall + unlock greying — scene `packs`, Library › Packs Install/Uninstall, MCP list/install/uninstall_pack, alien-wilds demo; 123 tests; headless ✓ (build run)
