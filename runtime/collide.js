@@ -203,3 +203,13 @@ export function walkShape(solid) {
     top: (x, z) => Math.max(dome(Math.hypot(x - cx0, z - cz0)), capY),
     topNear: (x, z, r) => dome(Math.max(0, Math.hypot(x - cx0, z - cz0) - r)) };
 }
+
+// What a collider view draws for a solid: a box { c, half, yaw } (a ramp or a round shape by its bounding box), so every kind
+// reads the same way on screen. Pure — the page turns it into lines.
+export function solidOutline(solid) {
+  const s = shapeOf(solid);
+  if (s.kind === 'obb') return { c: s.c, half: s.half, yaw: s.yaw, kind: 'obb' };
+  if (s.kind === 'box' || s.kind === 'ramp') { const b = s.box; return { c: [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2], half: [(b.maxX - b.minX) / 2, (b.maxY - b.minY) / 2, (b.maxZ - b.minZ) / 2], yaw: 0, kind: s.kind }; }
+  if (s.kind === 'sphere') return { c: s.c, half: [s.r, s.r, s.r], yaw: 0, kind: 'sphere' };
+  return { c: [s.a[0], (s.a[1] + s.b[1]) / 2, s.a[2]], half: [s.r, (s.b[1] - s.a[1]) / 2 + s.r, s.r], yaw: 0, kind: s.kind };
+}

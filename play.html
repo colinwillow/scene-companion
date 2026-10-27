@@ -50,7 +50,7 @@
 </script>
 </head>
 <body>
-<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="pause" title="Pause">⏸</button> <button id="mute">🔊</button> <a id="edit" href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
+<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="pause" title="Pause">⏸</button> <button id="mute">🔊</button> <button id="cols" title="Show colliders">▦</button> <a id="edit" href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
 <div class="pad" id="stkL" data-side="left"><div class="ring"></div><div class="knob"></div></div>
 <div class="pad" id="stkR" data-side="right"><div class="ring"></div><div class="knob"></div></div>
 <div id="hint">Left stick: move · Right stick: turn camera, tap to jump · Jump on enemies</div>
@@ -75,6 +75,7 @@ import { bindStick } from './runtime/sticks.js';
 import { createSfx } from './runtime/sfx.js';
 import { createFpsMeter, buildState, sameScene } from './runtime/livestate.js';
 import './behaviors/index.js';
+import { solidOutline } from './runtime/collide.js';
 
 const $ = id => document.getElementById(id);
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/tiny-hop.scene.json';
@@ -156,6 +157,26 @@ function turnCamera(dt) {
   if (Math.abs(rx) > 0.05) yaw -= rx * YAW_RATE * dt;
 }
 
+// The collider view (weirdport's COLLIDERS key): every Solid as a wireframe box — turned boxes turned, ramps by their bounds —
+// redrawn twice a second so walls that break and doors that open show it. Orange = walls, cyan = moving parts / chunks.
+let colView = null, colT = 0;
+const colMat = { wall: new THREE.LineBasicMaterial({ color: 0xff8a3d, depthTest: false, transparent: true, opacity: 0.8 }), part: new THREE.LineBasicMaterial({ color: 0x3de0ff, depthTest: false, transparent: true, opacity: 0.8 }) };
+const colEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+function drawColliders(dt) {
+  if (!colView) return;
+  if ((colT -= dt) > 0) return; colT = 0.5;
+  colView.clear();
+  for (const so of world.solids || []) {
+    const b = solidOutline(so), part = so.entity?.chunk || so.entity?.part;
+    const l = new THREE.LineSegments(colEdges, part ? colMat.part : colMat.wall);   // sc:overlay
+    l.position.fromArray(b.c); l.rotation.y = b.yaw; l.scale.set(b.half[0] * 2, b.half[1] * 2, b.half[2] * 2); l.renderOrder = 999;
+    colView.add(l);
+  }
+}
+$('cols').onclick = () => {
+  if (colView) { colView.removeFromParent(); colView = null; $('cols').style.opacity = ''; return; }
+  colView = new THREE.Group(); world.scene.add(colView); colT = 0; $('cols').style.opacity = 0.55;
+};
 // Speech bubbles (Reactions' "say"): a small label that follows the speaker's head for a few seconds. HUD only (sc:overlay-free).
 const bubbles = new Map();
 function say(id, text) {
@@ -331,6 +352,7 @@ renderer.setAnimationLoop(() => {
   updateCamera(dt);
   world.followFocus(focus);
   placeBubbles();
+  drawColliders(dt);
   if (post) post.render(); else renderer.render(world.scene, camera);
 });
 </script>

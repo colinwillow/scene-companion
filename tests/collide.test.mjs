@@ -67,3 +67,13 @@ test('Chase with sight: a wall in between stops the chase', () => {
   blind.update(0.5);
   assert.ok(guard.object3d.position.x > 0 || guard.object3d.position.z > 0, 'sees and chases');
 });
+
+test('solidOutline: a box by its bounds, a turned box turned', async () => {
+  const { solidOutline } = await import('../runtime/collide.js');
+  const mk = (size, pos, yaw, rotated) => ({ params: { size, anchor: 'center', shape: 'box', rotated }, entity: { object3d: { position: { x: pos[0], y: pos[1], z: pos[2] }, rotation: { x: 0, y: yaw, z: 0 } } },
+    box() { const [sx, sy, sz] = size; return { minX: pos[0] - sx / 2, maxX: pos[0] + sx / 2, minY: pos[1] - sy / 2, maxY: pos[1] + sy / 2, minZ: pos[2] - sz / 2, maxZ: pos[2] + sz / 2 }; } });
+  const a = solidOutline(mk([2, 1, 4], [1, 0.5, 2], 0, false));
+  assert.deepEqual(a, { c: [1, 0.5, 2], half: [1, 0.5, 2], yaw: 0, kind: 'box' });
+  const b = solidOutline(mk([2, 1, 4], [1, 0.5, 2], 0.5, true));
+  assert.equal(b.kind, 'obb'); assert.equal(b.yaw, 0.5); assert.deepEqual(b.half, [1, 0.5, 2]);
+});

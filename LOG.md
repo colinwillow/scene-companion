@@ -113,3 +113,4 @@
 - 2026-10-27 — Zap blaster step 2 — Blaster + Projectile + trigger + blaster scene; no-coin instant-win fix; 255 tests; checked headless (live session)
 - 2026-10-27 — Zap blaster step 3 — auto, aim pose, aim facing, measured muzzle; 256 tests; checked headless (live session)
 - 2026-10-27 — Zap DNA gun — World.wear + Disguise + Blaster.dna + dna scene; 257 tests; checked headless (live session)
+- 2026-10-27 — Collider view (▦ in play) + solidOutline; 258 tests; checked headless (live session)
