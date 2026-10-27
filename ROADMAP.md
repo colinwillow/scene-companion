@@ -182,6 +182,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Blender bridge: whole-prefab send — editor **→ Blender: all <prefab>** on prefab instances (MCP `send_to_blender {prefab:true}`); Send Back saves `bridge/<prefab>-<n>.glb` and rewrites the prefab file's web glb, editors rebuild. Tested (routes) + headless e2e with bpy: kitchen-sink trees round-tripped, no errors. Not undoable by design (it's a file edit)
 - [x] Libraries panel v0 — 📚 Library button: Characters / Props tabs (every prefab in `prefabs/` + scene models, sorted by pure `runtime/library.js`, tested; tap adds at the view centre, prefabs not in the scene get added) and Motions (the selected object's clips; tap plays + keeps it, undoable); search on every tab; top sheet on phones, side panel in landscape. Checked headless on Tiny Hop: mutant added, Zap's 62 motions listed and switched
 - [x] Libraries: Sounds tab lists assets/audio files (from `npm run assets`) with ▶ preview; tap adds an AudioSource to the selected entity. Thumbnails already cached in thumbs/; every character has one now
-- [ ] Libraries: motions from Colin's mocap library (`retarget-anims`, Mixamo names) applied to any Mixamo character
-- [ ] Generator plug-ins (image→3D, image gen)
+- [x] Libraries: motions from Colin's mocap library (`retarget-anims`, Mixamo names) applied to any Mixamo character — already built: Motions tab search + live retarget (d7d0a47), bake into a GLB (4bf8090), Forge round trip (d86a116)
+- [ ] [IN PROGRESS] Generator plug-ins, part 1: a generator registry (runtime/generators.js) + dev-server `POST /gen/<id>` running image gen (OpenAI) into assets/generated/, key from env or the network proxy, `--dry` safe
+- [ ] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
