@@ -109,3 +109,4 @@
 - 2026-10-27 — weirdport walls step 2 — Breakables + Melee blast; test house breakable; 250 tests; checked headless (live session)
 - 2026-10-27 — weirdport walls step 3a — Breakables debris + restore; 251 tests (live session)
 - 2026-10-27 — weirdport walls step 3b — KitParts (doors, shutter, hatch, glass); 253 tests; checked headless (live session)
+- 2026-10-27 — Zap blaster step 1 — extraction map; characters index lists goblin, agoblin, skater, colin (live session)

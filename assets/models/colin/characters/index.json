@@ -1,5 +1,9 @@
 [
  "./assets/models/colin/characters/zap.character.json",
  "./assets/models/colin/characters/skeleton.character.json",
- "./assets/models/colin/characters/mutant.character.json"
+ "./assets/models/colin/characters/mutant.character.json",
+ "./assets/models/colin/characters/goblin.character.json",
+ "./assets/models/colin/characters/agoblin.character.json",
+ "./assets/models/colin/characters/skater.character.json",
+ "./assets/models/colin/characters/colin.character.json"
 ]
