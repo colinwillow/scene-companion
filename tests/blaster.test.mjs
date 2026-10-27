@@ -44,3 +44,16 @@ test('Projectile: flies until it meets a Solid, then a blast there and it is gon
   for (let i = 0; i < 30 && !p2.gone; i++) p2.update(1 / 60);
   assert.ok(w2.emitted.some(a => a[0] === 'struck' && a[2] === 'dummy'));
 });
+
+test('Blaster auto: held = a small bolt every `rate`; while aiming (and `hold` after) he faces the aim', async () => {
+  const world = worldWith(), me = { id: 'player', object3d: new THREE.Group() }; world.entities.set('player', me);
+  const b = new Blaster(me, { auto: true, rate: 0.1 }, world); b.start();
+  world.input.fire = true; world.input.aim = [1, 0];
+  for (let i = 0; i < 60; i++) b.update(1 / 60);
+  await new Promise(r => setTimeout(r, 0));
+  const bolts = [...world.entities.keys()].filter(k => k.startsWith('bolt')).length;
+  assert.ok(bolts >= 9 && bolts <= 11, `about 10 shots in a second (${bolts})`);
+  assert.ok(Math.abs(me.aimYaw - Math.PI / 2) < 1e-9, 'facing +x, the aim');
+  world.input.fire = false; for (let i = 0; i < 30; i++) b.update(1 / 60);
+  assert.equal(me.aimYaw, null, 'let go: back to facing where he runs');
+});

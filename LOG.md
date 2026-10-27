@@ -111,3 +111,4 @@
 - 2026-10-27 — weirdport walls step 3b — KitParts (doors, shutter, hatch, glass); 253 tests; checked headless (live session)
 - 2026-10-27 — Zap blaster step 1 — extraction map; characters index lists goblin, agoblin, skater, colin (live session)
 - 2026-10-27 — Zap blaster step 2 — Blaster + Projectile + trigger + blaster scene; no-coin instant-win fix; 255 tests; checked headless (live session)
+- 2026-10-27 — Zap blaster step 3 — auto, aim pose, aim facing, measured muzzle; 256 tests; checked headless (live session)

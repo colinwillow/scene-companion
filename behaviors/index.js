@@ -1027,21 +1027,51 @@ export class Blaster extends Behavior {
     blast1:     { type: 'number', default: 2.2, min: 0, max: 10, step: 0.1 },
     damage0:    { type: 'number', default: 1, min: 0, max: 100, step: 0.5 },
     damage1:    { type: 'number', default: 3, min: 0, max: 100, step: 0.5 },
+    auto:       { type: 'boolean', default: false },       // zap's AUTO mode: held = rapid fire of small bolts
+    rate:       { type: 'number', default: 0.12, min: 0.03, max: 1, step: 0.01 },   // s between auto shots
+    aimClip:    { type: 'string', default: 'idle_rifle' }, // upper body while the trigger is held (and `hold` after a shot)
+    shootClip:  { type: 'string', default: 'shoot' },      // upper body on each shot
+    hold:       { type: 'number', default: 0.3, min: 0, max: 3, step: 0.05 },        // s the aim pose stays after a shot
   };
-  start() { this.chg = 0; this.charging = false; }
+  start() { this.chg = 0; this.charging = false; this.autoT = 0; this.poseT = 0; this.posed = false; }
+  // the upper body: the sighted pose while aiming, the shot on each release; he turns to the aim (PlayerController reads aimYaw)
+  pose(dt, aiming) {
+    const a = this.entity.anim, P = this.params, aim = this.world.input?.aim;
+    this.poseT = aiming ? P.hold : Math.max(0, this.poseT - dt);
+    const on = aiming || this.poseT > 0;
+    this.entity.aimYaw = on && aim && (aim[0] || aim[aim.length - 1]) ? Math.atan2(aim[0], aim[aim.length - 1]) : null;
+    if (!a) return;
+    this.shotT = Math.max(0, (this.shotT || 0) - dt);
+    if (on && !this.posed && this.shotT <= 0 && a.clips.includes(P.aimClip)) { a.play(P.aimClip, { layer: 'upper', fade: 0.12 }); this.posed = true; }
+    else if (!on && this.posed) { a.stop('upper', { fade: 0.2 }); this.posed = false; }
+  }
+  shotPose() { const a = this.entity.anim, P = this.params; if (a?.clips.includes(P.shootClip)) { a.play(P.shootClip, { layer: 'upper', once: true, fade: 0.05, restart: true }); this.posed = false; this.shotT = 0.25; } this.poseT = P.hold; }
   muzzle() {
     const o = this.entity.object3d, g = this.params.gun && this.world.getEntity?.(this.params.gun)?.object3d;
-    if (g?.getWorldPosition) { const v = g.getWorldPosition(new o.position.constructor()); return [v.x, Math.max(v.y, o.position.y + this.params.height), v.z]; }   // no aim pose yet: never below chest height
+    if (g?.getWorldPosition) {
+      // the MUZZLE is the gun's far end along the mount's −X (zap: the tip marker is NOT the muzzle), measured off its mesh once
+      const V = o.position.constructor, model = g.children.find(c => !c.userData?.entityId);
+      if (model && this.muzzleLocal === undefined) { const e = Deck.extents(model); this.muzzleLocal = e ? [e.min[0], (e.min[1] + e.max[1]) / 2, (e.min[2] + e.max[2]) / 2] : null; }
+      const v = model && this.muzzleLocal ? model.localToWorld(new V(...this.muzzleLocal)) : g.getWorldPosition(new V());
+      return [v.x, Math.max(v.y, o.position.y + this.params.height * 0.75), v.z];   // never from his knees
+    }
     return [o.position.x, o.position.y + this.params.height, o.position.z];
   }
   update(dt) {
     const input = this.world.input || {}, P = this.params;
+    this.pose(dt, !!input.fire);
+    if (P.auto) {                                       // rapid fire: a small bolt every `rate` while held
+      if (!input.fire) { this.autoT = 0; return; }
+      if ((this.autoT -= dt) <= 0) { this.autoT = P.rate; this.fire(0); this.shotPose(); }
+      return;
+    }
     if (input.fire) { this.charging = true; this.chg = Math.min(1, this.chg + dt / P.chargeT); return; }
     if (!this.charging) return;
     const c = this.chg; this.charging = false; this.chg = 0;
     if (c < P.minChg) { this.world.emit('fumble', this.entity.id); return; }
-    this.fire(c);
+    this.fire(c); this.shotPose();
   }
+  destroy() { this.entity.aimYaw = null; }
   fire(c) {
     const P = this.params, o = this.entity.object3d, a = this.world.input?.aim, yaw = yawOf(o);
     let d = a && (a[0] || a[a.length - 1]) ? (a.length === 3 ? a : [a[0], 0, a[1]]) : [Math.sin(yaw), 0, Math.cos(yaw)];
@@ -1752,10 +1782,11 @@ export class PlayerController extends Behavior {
     if (this.carry) {                                                       // momentum handed over (a wall jump's kick): fades out
       p.x += this.carry[0] * dt; p.z += this.carry[1] * dt;
       const k = Math.exp(-(this.grounded ? 8 : 1.2) * dt); this.carry = [this.carry[0] * k, this.carry[1] * k];
-      if (Math.hypot(move[0], move[1]) <= 0.05 && Math.hypot(...this.carry) > 0.5) setYaw(o, Math.atan2(this.carry[0], this.carry[1]));
+      if (this.entity.aimYaw == null && Math.hypot(move[0], move[1]) <= 0.05 && Math.hypot(...this.carry) > 0.5) setYaw(o, Math.atan2(this.carry[0], this.carry[1]));
       if (Math.hypot(...this.carry) < 0.05) this.carry = null;
     }
-    if (Math.hypot(move[0], move[1]) > 0.05) setYaw(o, Math.atan2(move[0], move[1]));
+    if (this.entity.aimYaw != null) setYaw(o, this.entity.aimYaw);        // a Blaster is aiming: he faces the shot and strafes
+    else if (Math.hypot(move[0], move[1]) > 0.05) setYaw(o, Math.atan2(move[0], move[1]));
     for (const b of solids) {
       if (p.y + P.height <= b.minY) continue;                               // below it
       const { cx, cz, inside } = b.near(p.x, p.z);
