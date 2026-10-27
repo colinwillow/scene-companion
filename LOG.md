@@ -119,3 +119,4 @@
 - 2026-10-27 — Performance part 2 — stats chip with ▦, merged collider overlay; kit row measured at ~3,200 draws (live session)
 - 2026-10-27 — play HUD: more than 10 hearts shows as ❤ n / max (live session)
 - 2026-10-27 — Performance part 3 — mergeMeshes + Batch + batched Breakables; kit row 3,221 → 716 draws; 263 tests; checked headless (live session)
+- 2026-10-27 — Performance part 4 — culling back on for non-skinned meshes; kit row 716 → 209 draws (live session)

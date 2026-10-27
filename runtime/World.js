@@ -105,7 +105,7 @@ export class World {
       if (!this.gltfCache.has(variant.glb)) this.gltfCache.set(variant.glb, this.loader.loadAsync(variant.glb).then(markShared));
       const gltf = await this.gltfCache.get(variant.glb);
       const model = cloneSkinned(gltf.scene);
-      model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+      model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = !o.isSkinnedMesh; } });   // a skinned mesh's bounds are its bind pose, so only those stay unculled
       // Normalize: scale to `height` metres and put the feet on the entity's origin.
       if (variant.height) {
         model.updateMatrixWorld(true);
