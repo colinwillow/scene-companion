@@ -31,7 +31,7 @@ test('checkCharacter: missing glb, unknown roles, clips not in the model', () =>
 });
 
 test('the shipped characters (Zap, skeleton, mutant) only use known roles', () => {
-  for (const n of ['zap', 'skeleton', 'mutant']) {
+  for (const n of ['zap', 'skeleton', 'mutant', 'goblin', 'agoblin', 'skater', 'colin']) {
     const ch = JSON.parse(readFileSync(`assets/models/colin/characters/${n}.character.json`, 'utf8'));
     for (const r of Object.keys(ch.roles)) assert.ok(ROLES.includes(r), `${n}: ${r}`);
     assert.ok(ch.roles.idle && ch.roles.walk && ch.roles.run && ch.roles.death, n);
@@ -77,6 +77,6 @@ test('editor: character variants resolve to their GLB; Library adds bare charact
   assert.deepEqual(clipRoles({ idle: 'i', jump: 'air', fall: 'air' }), { i: ['idle'], air: ['jump', 'fall'] });
   const idx = JSON.parse(readFileSync('assets/models/colin/characters/index.json', 'utf8'));
   const entries = characterEntries(idx);
-  assert.deepEqual(entries.map(e => e.name), ['zap', 'skeleton', 'mutant']);
+  assert.deepEqual(entries.map(e => e.name), ['zap', 'skeleton', 'mutant', 'goblin', 'agoblin', 'skater', 'colin']);
   for (const e of entries) assert.ok(readFileSync(e.path.slice(2)), e.path);
 });
