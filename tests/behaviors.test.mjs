@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Behavior } from '../runtime/Behavior.js';
 import { getBehavior, behaviorNames } from '../runtime/registry.js';
-import { Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator } from '../behaviors/index.js';
+import { Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, PlayerController } from '../behaviors/index.js';
 import { fakeEntity, fakeWorld, attach, run } from './fakes.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
@@ -260,4 +260,22 @@ test('Footsteps emits a step per stride while walking on the ground only', async
   pc.grounded = false;
   for (let i = 0; i < 20; i++) { e.object3d.position.x += 0.1; f.update(0.1); }
   assert.equal(w.emitted.filter(x => x[0] === 'step').length, 4, 'no steps in the air');
+});
+
+test('Animator plays doubleJumpClip (restarted) on an air jump, then falls after its hold', () => {
+  const e = fakeEntity('p');
+  const played = [];
+  e.anim = { play: (n, o) => played.push(o?.restart ? n + '!' : n) };
+  const pc = { grounded: true, vy: 0, jumpCount: 0, airJumpCount: 0 };
+  Object.setPrototypeOf(pc, PlayerController.prototype);
+  e.behaviors.push(pc);
+  const a = attach(Animator, e, { jumpClip: 'Up', doubleJumpClip: 'Flip', doubleJumpHold: 0.2, fallClip: 'Fall' }, fakeWorld());
+  a.update(1 / 60);                                                    // idle
+  Object.assign(pc, { grounded: false, vy: 5, jumpCount: 1 }); a.update(1 / 60);   // jump
+  Object.assign(pc, { vy: -1 }); a.update(1 / 60);                    // falling → Fall
+  Object.assign(pc, { vy: 6, jumpCount: 2, airJumpCount: 1 }); a.update(1 / 60);  // air jump → Flip (restart)
+  Object.assign(pc, { vy: -1 }); a.update(0.1);                        // still inside the hold → Flip
+  a.update(0.15);                                                      // past the hold → Fall
+  Object.assign(pc, { grounded: true, vy: 0, airJumpCount: 0 }); a.update(1 / 60);
+  assert.deepEqual(played, ['Idle', 'Up', 'Fall', 'Flip!', 'Flip', 'Fall', 'Idle']);
 });

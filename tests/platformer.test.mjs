@@ -159,3 +159,26 @@ test('moving the player or a chaser live updates spawn / home', () => {
   e.object3d.position.x = 9; c.onMoved();
   assert.deepEqual(c.home, [9, 1]);
 });
+
+test('airJumps: one double jump per airtime, speed set not added, given back on landing', () => {
+  const { w, pc, p } = setup({ params: { airJumps: 1, airJumpSpeed: 6 } });
+  const jumps = []; w.on?.('airjump', n => jumps.push(n));
+  w.input.jump = true; run(pc, 30);                      // first jump, ~0.5 s: past the apex, falling
+  assert.ok(pc.vy < 0 && !pc.grounded);
+  w.input.jump = true; run(pc, 1);
+  assert.ok(Math.abs(pc.vy - (6 - 22 / 60)) < 1e-6, `vy=${pc.vy}`);  // set to 6 then one step of gravity
+  assert.equal(pc.airJumpCount, 1); assert.equal(pc.jumpCount, 2);
+  const vy = pc.vy; w.input.jump = true; run(pc, 1);   // no third jump
+  assert.ok(pc.vy < vy);
+  run(pc, 120);
+  assert.ok(pc.grounded && p.y === 0); assert.equal(pc.airJumpCount, 0);
+  w.input.jump = true; run(pc, 20); w.input.jump = true; run(pc, 1);
+  assert.equal(pc.airJumpCount, 1, 'double jump works again after landing');
+});
+
+test('airJumps default 0: no jumping in mid-air', () => {
+  const { w, pc } = setup();
+  w.input.jump = true; run(pc, 30);
+  w.input.jump = true; run(pc, 1);
+  assert.ok(pc.vy < 0); assert.equal(pc.airJumpCount, 0);
+});

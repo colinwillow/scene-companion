@@ -96,6 +96,9 @@ export class Animator extends Behavior {
     jumpClip: { type: 'string', default: 'Jump' },   // played once on take-off ('' = none)
     jumpRate: { type: 'number', default: 1, min: 0.25, max: 3, step: 0.05 },  // playback speed of jumpClip (fit a flip to the air time)
     jumpHold: { type: 'number', default: 0, min: 0, max: 2, step: 0.05 },     // s the jump clip plays before fallClip may cut in (0 = at the apex)
+    doubleJumpClip: { type: 'string', default: '' }, // played once on an air jump (PlayerController airJumps; '' = replay jumpClip)
+    doubleJumpRate: { type: 'number', default: 1, min: 0.25, max: 3, step: 0.05 },
+    doubleJumpHold: { type: 'number', default: 0, min: 0, max: 2, step: 0.05 }, // like jumpHold, for the air jump
     fallClip: { type: 'string', default: '' },       // looped when falling a while ('' = hold the jump pose)
     airDelay: { type: 'number', default: 0.12, min: 0, max: 1, step: 0.02 },  // s off the ground before air clips (skips tiny drops)
     landClip: { type: 'string', default: '' },       // played once on touch-down ('' = straight back to idle/walk/run)
@@ -116,10 +119,16 @@ export class Animator extends Behavior {
       const rising = pc.vy > 0;
       this.air += dt; this.landing = 0; this.entity.moveScale = 1; this.sinceJump = rising && !(this.prevVy > 0) ? 0 : (this.sinceJump ?? 1e9) + dt;   // take-off or a stomp bounce
       this.prevVy = pc.vy;
+      const airJump = pc.airJumpCount > 0 && pc.jumpCount !== this.seenJump;   // a new jump that happened in the air
+      this.seenJump = pc.jumpCount;
+      if (airJump) { this.sinceJump = 0; this.double = true; this.restart = true; }
       if (rising || this.airborne || this.air >= P.airDelay) {
         this.airborne = true; this.fallV = Math.max(0, -pc.vy);
-        if (!rising && P.fallClip && this.sinceJump >= P.jumpHold) anim.play(P.fallClip, { fade: 0.25 });
-        else if (P.jumpClip) anim.play(P.jumpClip, { once: true, fade: 0.1, speed: P.jumpRate });
+        const clip = this.double ? P.doubleJumpClip || P.jumpClip : P.jumpClip;
+        const hold = this.double ? P.doubleJumpHold : P.jumpHold, rate = this.double ? P.doubleJumpRate : P.jumpRate;
+        if (!rising && P.fallClip && this.sinceJump >= hold) anim.play(P.fallClip, { fade: 0.25 });
+        else if (clip) anim.play(clip, { once: true, fade: 0.1, speed: rate, restart: this.restart });
+        this.restart = false;
         return;
       }
     } else {
@@ -129,7 +138,7 @@ export class Animator extends Behavior {
         if (clip) { anim.play(clip, { once: true, fade: 0.08 }); this.landing = hard ? P.hardLandTime : P.landTime; this.hardLanding = hard; }
         if (hard && clip) this.entity.moveScale = P.hardLandMove;
       }
-      this.air = 0; this.airborne = false; this.prevVy = 0;
+      this.air = 0; this.airborne = false; this.prevVy = 0; this.double = false; this.seenJump = pc?.jumpCount;
     }
     if (this.landing > 0) {
       this.landing -= dt;
@@ -172,13 +181,16 @@ export class PlayerController extends Behavior {
     killY:     { type: 'number', default: -15, min: -200, max: 0, step: 1 },  // fall below → respawn
     coyote:    { type: 'number', default: 0.1, min: 0, max: 0.5, step: 0.02 }, // s of grace after leaving a ledge
     invulnerable: { type: 'number', default: 1.2, min: 0, max: 5, step: 0.1 }, // s after a hit
+    airJumps:  { type: 'number', default: 0, min: 0, max: 3, step: 1 },       // extra jumps in the air (1 = double jump); any landing or bounce gives them back
+    airJumpSpeed: { type: 'number', default: 0, min: 0, max: 20, step: 0.5 }, // m/s up for an air jump, SET not added (0 = jumpSpeed)
   };
   start() {
     const p = this.entity.object3d.position;
     this.spawn = [p.x, p.y, p.z];        // runtime copy of the authored position
     this.vy = 0; this.grounded = true; this.sinceGround = 0; this.hurtTimer = 0; this.jumpBuffer = 0;
+    this.jumpCount = 0; this.airJumpCount = 0;     // jumps so far / air jumps used this airtime (Animator reads both)
     this.health = this.entity.behaviors.find(b => b instanceof Health);
-    this.world.on('bounce', s => { this.vy = (s ?? 0.7) * this.params.jumpSpeed; this.grounded = false; });
+    this.world.on('bounce', s => { this.vy = (s ?? 0.7) * this.params.jumpSpeed; this.grounded = false; this.airJumpCount = 0; });
     this.world.on('hurt', dmg => this.hurt(dmg ?? 1));
   }
   onMoved() { const p = this.entity.object3d.position; this.spawn = [p.x, p.y, p.z]; this.vy = 0; }
@@ -239,7 +251,12 @@ export class PlayerController extends Behavior {
     this.sinceGround = this.grounded ? 0 : this.sinceGround + dt;
     if (this.jumpBuffer > 0 && this.sinceGround <= P.coyote && this.vy <= 0) {
       this.vy = P.jumpSpeed; this.grounded = false; this.jumpBuffer = 0; this.sinceGround = P.coyote + 1;
+      this.airJumpCount = 0; this.jumpCount++;
       this.world.emit('jump');
+    } else if (this.jumpBuffer > 0 && !this.grounded && this.sinceGround > P.coyote && this.airJumpCount < P.airJumps) {
+      this.vy = P.airJumpSpeed || P.jumpSpeed; this.jumpBuffer = 0;      // set, not added: same height whether rising or falling
+      this.airJumpCount++; this.jumpCount++;
+      this.world.emit('jump'); this.world.emit('airjump', this.airJumpCount);
     }
 
     // Vertical: gravity, land on the highest surface under us, bump heads on ceilings.
@@ -254,7 +271,7 @@ export class PlayerController extends Behavior {
     }
     if (ny <= support && this.vy <= 0) {
       if (!this.grounded && this.airTime > 0.15) this.world.emit('land');
-      p.y = support; this.vy = 0; this.grounded = true; this.airTime = 0;
+      p.y = support; this.vy = 0; this.grounded = true; this.airTime = 0; this.airJumpCount = 0;
       if (supportIdx >= 0) { const b = solids[supportIdx]; this.ride = { solid: all[supportIdx], x: b.minX, y: b.maxY, z: b.minZ }; }
     }
     else { p.y = this.vy === 0 && !this.grounded ? p.y : ny; this.grounded = false; this.airTime = (this.airTime || 0) + dt; }

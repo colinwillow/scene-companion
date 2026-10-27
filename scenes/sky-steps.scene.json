@@ -180,7 +180,9 @@
           "params": {
             "speed": 5,
             "jumpSpeed": 7.5,
-            "height": 1.6
+            "height": 1.6,
+            "airJumps": 1,
+            "airJumpSpeed": 7
           }
         },
         {
@@ -190,13 +192,16 @@
             "walkClip": "walk_fwd",
             "runClip": "run_fwd",
             "runSpeed": 4.5,
-            "jumpClip": "front_flip",
-            "jumpRate": 1.3,
-            "jumpHold": 0.65,
+            "jumpClip": "in_air",
+            "jumpRate": 1,
+            "jumpHold": 0,
             "fallClip": "in_air",
             "landClip": "landing_soft",
             "hardLandClip": "landing_hard",
-            "hardLandSpeed": 11
+            "hardLandSpeed": 11,
+            "doubleJumpClip": "front_flip",
+            "doubleJumpRate": 1.3,
+            "doubleJumpHold": 0.65
           }
         },
         {
