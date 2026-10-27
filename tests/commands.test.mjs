@@ -66,3 +66,28 @@ test('bad input throws a helpful error and changes nothing', () => {
 test('every command is marked as mutating or not', () => {
   for (const [n, c] of Object.entries(COMMANDS)) assert.equal(typeof c.mutates, 'boolean', n);
 });
+
+test('batch runs several edits as one all-or-nothing change; set_animation sets or clears', async () => {
+  const { runCommand, sceneFromTemplate } = await import('../runtime/commands.js');
+  const data = { assets: { crate: {} }, prefabs: {}, entities: [] };
+  const ctx = { schemas: { Spin: { speed: { type: 'number', default: 1, min: 0, max: 10 } } } };
+  const { result } = runCommand(data, 'batch', { calls: [
+    { tool: 'spawn', args: { asset: 'crate', id: 'a', position: [1, 0, 0] } },
+    { tool: 'attach_behavior', args: { id: 'a', type: 'Spin', params: { speed: 2 } } },
+    { tool: 'set_animation', args: { id: 'a', clip: 'Idle' } },
+  ] }, ctx);
+  assert.equal(result.length, 3);
+  assert.equal(data.entities[0].animation, 'Idle');
+  assert.throws(() => runCommand(data, 'batch', { calls: [
+    { tool: 'spawn', args: { asset: 'crate', id: 'b' } },
+    { tool: 'set_param', args: { id: 'b', type: 'Spin', key: 'speed', value: 1 } },
+  ] }, ctx), /batch call 2 \(set_param\)/);
+  assert.equal(data.entities.length, 1, 'failed batch changed nothing');
+  runCommand(data, 'set_animation', { id: 'a', clip: null }, ctx);
+  assert.equal(data.entities[0].animation, undefined);
+  const base = { settings: { look: 'pbr' }, assets: { g: {} }, prefabs: { p: 'x' }, entities: [{ id: 'sun', light: { type: 'directional' } }, { id: 'ground', asset: 'g' }, { id: 'coin_01' }] };
+  const fresh = sceneFromTemplate(base, ['ground']);
+  assert.deepEqual(fresh.entities.map(e => e.id), ['sun', 'ground']);
+  assert.equal(fresh.settings.look, 'pbr');
+  assert.throws(() => sceneFromTemplate(base, ['nope']), /no nope/);
+});

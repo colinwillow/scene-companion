@@ -1,0 +1,712 @@
+{
+  "settings": {
+    "look": "pbr",
+    "background": "#1d2533",
+    "fog": [
+      30,
+      110
+    ],
+    "sky": {
+      "elevation": 22,
+      "azimuth": 135,
+      "turbidity": 5,
+      "rayleigh": 1.4,
+      "exposure": 0.55,
+      "sunColor": "#ffeedd",
+      "sunIntensity": 3.2,
+      "envIntensity": 1
+    },
+    "fogColor": "#c9d6e3",
+    "post": {
+      "ao": true,
+      "bloom": {
+        "strength": 0.35,
+        "radius": 0.5,
+        "threshold": 0.85
+      },
+      "vignette": 0.25
+    }
+  },
+  "assets": {
+    "ground": {
+      "variants": {
+        "web": {
+          "primitive": "plane",
+          "size": [
+            120,
+            1,
+            120
+          ],
+          "texture": "grass",
+          "repeat": 24,
+          "roughness": 0.95
+        },
+        "desktop": {
+          "primitive": "plane",
+          "size": [
+            120,
+            1,
+            120
+          ],
+          "texture": "grass",
+          "repeat": 40,
+          "roughness": 0.95
+        }
+      }
+    },
+    "player": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/characters/zap.glb",
+          "height": 1.6
+        }
+      }
+    },
+    "platform_s": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/kenney/platformer/platform.glb",
+          "scale": 1
+        }
+      }
+    },
+    "platform_m": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/kenney/platformer/platform-medium.glb",
+          "scale": 1
+        }
+      }
+    },
+    "platform_l": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/kenney/platformer/platform-large.glb",
+          "scale": 1
+        }
+      }
+    },
+    "brick": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/kenney/platformer/brick.glb",
+          "scale": 1
+        }
+      }
+    },
+    "flag": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/kenney/platformer/flag.glb",
+          "scale": 1.6
+        }
+      }
+    }
+  },
+  "prefabs": {
+    "coin": "./prefabs/coin.prefab.json",
+    "chaser": "./prefabs/chaser.prefab.json",
+    "tree": "./prefabs/tree.prefab.json",
+    "grass_tuft": "./prefabs/grass_tuft.prefab.json",
+    "cloud": "./prefabs/cloud.prefab.json",
+    "skeleton": "./prefabs/skeleton.prefab.json",
+    "mutant": "./prefabs/mutant.prefab.json",
+    "rock_tall": "./prefabs/rock_tall.prefab.json",
+    "rock_round": "./prefabs/rock_round.prefab.json",
+    "rock_long": "./prefabs/rock_long.prefab.json",
+    "stepping_stone": "./prefabs/stepping_stone.prefab.json",
+    "alien_mushroom": "./prefabs/alien_mushroom.prefab.json",
+    "alien_rock": "./prefabs/alien_rock.prefab.json",
+    "crates": "./prefabs/crates.prefab.json",
+    "boulder": "./prefabs/boulder.prefab.json"
+  },
+  "entities": [
+    {
+      "id": "sun",
+      "light": {
+        "type": "directional",
+        "intensity": 2.2
+      },
+      "position": [
+        6,
+        12,
+        5
+      ]
+    },
+    {
+      "id": "sky_fill",
+      "light": {
+        "type": "hemisphere",
+        "color": "#bcd8ff",
+        "groundColor": "#3a4a2a",
+        "intensity": 0.9
+      }
+    },
+    {
+      "id": "ground",
+      "asset": "ground",
+      "position": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "player",
+      "asset": "player",
+      "position": [
+        0,
+        0,
+        9
+      ],
+      "behaviors": [
+        {
+          "type": "Health",
+          "params": {
+            "max": 3
+          }
+        },
+        {
+          "type": "PlayerController",
+          "params": {
+            "speed": 5,
+            "jumpSpeed": 7.5,
+            "height": 1.6
+          }
+        },
+        {
+          "type": "Animator",
+          "params": {
+            "idleClip": "idle_01",
+            "walkClip": "walk_fwd",
+            "runClip": "run_fwd",
+            "runSpeed": 4.5,
+            "jumpClip": "front_flip",
+            "jumpRate": 1.3,
+            "jumpHold": 0.65,
+            "fallClip": "in_air",
+            "landClip": "landing_soft",
+            "hardLandClip": "landing_hard",
+            "hardLandSpeed": 11
+          }
+        },
+        {
+          "type": "Squash",
+          "params": {}
+        },
+        {
+          "type": "Footsteps",
+          "params": {}
+        }
+      ],
+      "animation": "idle_01"
+    },
+    {
+      "id": "step_01",
+      "asset": "platform_s",
+      "position": [
+        0,
+        0,
+        5
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              2,
+              0.55,
+              2
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_01",
+      "prefab": "coin",
+      "position": [
+        0,
+        1.15,
+        5
+      ]
+    },
+    {
+      "id": "step_02",
+      "asset": "platform_s",
+      "position": [
+        3.83,
+        0.65,
+        3.21
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              2,
+              0.55,
+              2
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_02",
+      "prefab": "coin",
+      "position": [
+        3.83,
+        1.8,
+        3.21
+      ]
+    },
+    {
+      "id": "step_03",
+      "asset": "platform_m",
+      "position": [
+        4.92,
+        1.3,
+        -0.87
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              3,
+              0.55,
+              3
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_03",
+      "prefab": "coin",
+      "position": [
+        4.92,
+        2.45,
+        -0.87
+      ]
+    },
+    {
+      "id": "step_04",
+      "asset": "platform_s",
+      "position": [
+        2.5,
+        1.95,
+        -4.33
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              2,
+              0.55,
+              2
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_04",
+      "prefab": "coin",
+      "position": [
+        2.5,
+        3.1,
+        -4.33
+      ]
+    },
+    {
+      "id": "step_05",
+      "asset": "platform_s",
+      "position": [
+        -1.71,
+        2.6,
+        -4.7
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              2,
+              0.55,
+              2
+            ]
+          }
+        },
+        {
+          "type": "Bob",
+          "params": {
+            "height": 0.3,
+            "speed": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_05",
+      "prefab": "coin",
+      "position": [
+        -1.71,
+        4.05,
+        -4.7
+      ]
+    },
+    {
+      "id": "step_06",
+      "asset": "platform_m",
+      "position": [
+        -4.7,
+        3.25,
+        -1.71
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              3,
+              0.55,
+              3
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_06",
+      "prefab": "coin",
+      "position": [
+        -4.7,
+        4.4,
+        -1.71
+      ]
+    },
+    {
+      "id": "step_07",
+      "asset": "platform_s",
+      "position": [
+        -4.33,
+        3.9,
+        2.5
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              2,
+              0.55,
+              2
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_07",
+      "prefab": "coin",
+      "position": [
+        -4.33,
+        5.05,
+        2.5
+      ]
+    },
+    {
+      "id": "summit",
+      "asset": "platform_l",
+      "position": [
+        0,
+        4.6,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              5,
+              0.55,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_08",
+      "prefab": "coin",
+      "position": [
+        0.8,
+        5.75,
+        0.8
+      ]
+    },
+    {
+      "id": "flag_goal",
+      "asset": "flag",
+      "position": [
+        -1.2,
+        5.15,
+        -1.2
+      ]
+    },
+    {
+      "id": "guard_top",
+      "prefab": "chaser",
+      "position": [
+        1,
+        5.9,
+        -1
+      ],
+      "behaviors": [
+        {
+          "type": "Chase",
+          "params": {
+            "radius": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_09",
+      "prefab": "coin",
+      "position": [
+        -7,
+        0.6,
+        2
+      ]
+    },
+    {
+      "id": "coin_10",
+      "prefab": "coin",
+      "position": [
+        7,
+        0.6,
+        3
+      ]
+    },
+    {
+      "id": "skeleton_01",
+      "prefab": "skeleton",
+      "position": [
+        -10,
+        0,
+        -7
+      ]
+    },
+    {
+      "id": "mutant_01",
+      "prefab": "mutant",
+      "position": [
+        11,
+        0,
+        9
+      ]
+    },
+    {
+      "id": "rock_tall_01",
+      "prefab": "rock_tall",
+      "position": [
+        -11,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "rock_round_01",
+      "prefab": "rock_round",
+      "position": [
+        10,
+        0,
+        8
+      ]
+    },
+    {
+      "id": "boulder_01",
+      "prefab": "boulder",
+      "position": [
+        -5,
+        0,
+        11
+      ]
+    },
+    {
+      "id": "crates_01",
+      "prefab": "crates",
+      "position": [
+        11,
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "alien_mushroom_01",
+      "prefab": "alien_mushroom",
+      "position": [
+        -12,
+        0,
+        4
+      ]
+    },
+    {
+      "id": "alien_rock_01",
+      "prefab": "alien_rock",
+      "position": [
+        6,
+        0,
+        -11
+      ]
+    },
+    {
+      "id": "tree_01",
+      "prefab": "tree",
+      "position": [
+        -14,
+        0,
+        -10
+      ]
+    },
+    {
+      "id": "tree_02",
+      "prefab": "tree",
+      "position": [
+        -6,
+        0,
+        -17
+      ]
+    },
+    {
+      "id": "tree_03",
+      "prefab": "tree",
+      "position": [
+        5,
+        0,
+        -18
+      ]
+    },
+    {
+      "id": "tree_04",
+      "prefab": "tree",
+      "position": [
+        15,
+        0,
+        -9
+      ]
+    },
+    {
+      "id": "tree_05",
+      "prefab": "tree",
+      "position": [
+        17,
+        0,
+        4
+      ]
+    },
+    {
+      "id": "tree_06",
+      "prefab": "tree",
+      "position": [
+        12,
+        0,
+        13
+      ]
+    },
+    {
+      "id": "tree_07",
+      "prefab": "tree",
+      "position": [
+        -15,
+        0,
+        9
+      ]
+    },
+    {
+      "id": "grass_01",
+      "prefab": "grass_tuft",
+      "position": [
+        -3,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "grass_02",
+      "prefab": "grass_tuft",
+      "position": [
+        3,
+        0,
+        7
+      ]
+    },
+    {
+      "id": "grass_03",
+      "prefab": "grass_tuft",
+      "position": [
+        -8,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "grass_04",
+      "prefab": "grass_tuft",
+      "position": [
+        9,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "grass_05",
+      "prefab": "grass_tuft",
+      "position": [
+        -2,
+        0,
+        -8
+      ]
+    },
+    {
+      "id": "grass_06",
+      "prefab": "grass_tuft",
+      "position": [
+        4,
+        0,
+        -7
+      ]
+    },
+    {
+      "id": "cloud_01",
+      "prefab": "cloud",
+      "position": [
+        -10,
+        15,
+        -24
+      ]
+    },
+    {
+      "id": "cloud_02",
+      "prefab": "cloud",
+      "position": [
+        9,
+        17,
+        -26
+      ]
+    },
+    {
+      "id": "cloud_03",
+      "prefab": "cloud",
+      "position": [
+        22,
+        14,
+        -8
+      ]
+    }
+  ]
+}

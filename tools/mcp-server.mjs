@@ -8,7 +8,7 @@
 // No editor open? It opens a headless one (SC_HEADLESS=auto|off|always, needs playwright); no dev server? It starts one.
 // Env: SC_DEV_URL (default ws://localhost:8080/live), SC_TIMEOUT_MS (default 30000; adding objects rebuilds the scene, slow on old phones).
 import { WebSocket } from 'ws';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -16,6 +16,7 @@ import { resolve, relative, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { TOOLS } from './mcp-tools.mjs';
+import { sceneFromTemplate } from '../runtime/commands.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEV_URL = process.env.SC_DEV_URL || `ws://localhost:${process.env.PORT || 8080}/live`;
@@ -73,6 +74,7 @@ function send(op, args, scene, timeoutMs, timeoutMsg) {
 const HEADLESS = process.env.SC_HEADLESS || 'auto';
 let browser = null, headlessScene = null, lastPong = 0;
 async function startHeadless(scene) {
+  await link();                                 // starts the dev server if none is running (SC_HEADLESS=always skips the ping that would)
   let pw;
   try { pw = await import('playwright'); } catch { try { pw = createRequire(import.meta.url)('playwright'); } catch {} }   // require() also honours NODE_PATH
   if (!pw) {
@@ -120,6 +122,17 @@ async function callTool(name, args = {}) {
   const tool = TOOLS.find(t => t.name === name);
   if (!tool) throw new Error(`Unknown tool ${name}`);
   const { scene, ...rest } = args;
+  if (name === 'new_scene') {           // file-only: no editor needed
+    const { name: n, from = './scenes/tiny-hop.scene.json', keep = [] } = rest;
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(n || '')) throw new Error('name must be lowercase-with-dashes, e.g. sky-steps');
+    const rel = `scenes/${n}.scene.json`, file = join(ROOT, rel);
+    if (existsSync(file)) throw new Error(`${rel} already exists — pick another name, or edit it with scene: "./${rel}"`);
+    const fromFile = resolve(ROOT, from.replace(/^\.\//, ''));
+    if (relative(ROOT, fromFile).startsWith('..') || !existsSync(fromFile)) throw new Error(`No template scene ${from}`);
+    const data = sceneFromTemplate(JSON.parse(await readFile(fromFile, 'utf8')), keep);
+    await writeFile(file, JSON.stringify(data, null, 2) + '\n');
+    return [{ type: 'text', text: `Created ${rel} with ${data.entities.length} entities (${data.entities.map(e => e.id).join(', ')}). Use scene: "./${rel}" on the other tools. Play it at play.html?scene=./${rel}` }];
+  }
   if (name === 'save_scene') {
     const { result } = await command('get_scene', {}, scene);
     const file = resolve(ROOT, result.url.replace(/^\.\//, ''));

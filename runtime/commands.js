@@ -137,7 +137,43 @@ export const COMMANDS = {
       return { id, removed: type };
     },
   },
+  set_animation: {
+    mutates: true,
+    run(data, { id, clip }) {
+      const e = need(data, id);
+      if (clip === null || clip === '') delete e.animation;
+      else if (typeof clip !== 'string') throw new Error('clip must be a clip name (see get_entity / the model) or null');
+      else e.animation = clip;
+      return { id, animation: e.animation ?? null };
+    },
+  },
+  // Several edits in one go: one undo step, one rebuild (spawning 40 things one by one is slow on a phone).
+  // All or nothing: if any call fails, nothing changes and the error names the failing call.
+  batch: {
+    mutates: true,
+    run(data, { calls }, ctx) {
+      if (!Array.isArray(calls) || !calls.length) throw new Error('batch needs calls: [{ tool, args }, …]');
+      return calls.map(({ tool, args = {} }, i) => {
+        const cmd = COMMANDS[tool];
+        if (!cmd || tool === 'batch') throw new Error(`batch call ${i + 1}: "${tool}" can't be batched (scene edits and reads only)`);
+        try { return cmd.run(data, args, ctx); }
+        catch (e) { throw new Error(`batch call ${i + 1} (${tool}): ${e.message}`); }
+      });
+    },
+  },
 };
+
+// A fresh scene from an existing one: same settings, assets and prefabs; keeps its lights plus any ids in `keep`.
+export function sceneFromTemplate(base, keep = []) {
+  const missing = keep.filter(id => !base.entities.some(e => e.id === id));
+  if (missing.length) throw new Error(`Template has no ${missing.join(', ')}`);
+  return {
+    settings: structuredClone(base.settings || {}),
+    assets: structuredClone(base.assets || {}),
+    prefabs: structuredClone(base.prefabs || {}),
+    entities: base.entities.filter(e => e.light || keep.includes(e.id)).map(e => structuredClone(e)),
+  };
+}
 
 export function runCommand(data, op, args = {}, ctx = {}) {
   const cmd = COMMANDS[op];

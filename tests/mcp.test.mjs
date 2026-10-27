@@ -53,6 +53,15 @@ test('MCP server lists tools and drives an editor through the dev server', async
   r = await call('list_entities', {});
   assert.deepEqual(JSON.parse(r.content[0].text)[0].behaviors, ['Spin']);
 
+  r = await call('new_scene', { name: 'Bad Name' });
+  assert.equal(r.isError, true);
+  assert.match(r.content[0].text, /lowercase-with-dashes/);
+  r = await call('new_scene', { name: 'tiny-hop' });
+  assert.match(r.content[0].text, /already exists/);
+  r = await call('batch', { calls: [{ tool: 'move', args: { id: 'crate_01', position: [4, 0, 0] } }, { tool: 'set_animation', args: { id: 'crate_01', clip: 'Idle' } }] });
+  assert.ok(!r.isError, r.content[0].text);
+  assert.equal(data.entities[0].animation, 'Idle');
+
   ed.close(); await wait(100);
   r = await call('list_entities', {});
   assert.equal(r.isError, true);

@@ -29,8 +29,10 @@ swapping models restarts the game with the new scene. Nothing is saved until you
 ## Claude in the editor (MCP server)
 1. `npm run dev`, then open the editor (`/index.html`, phone or computer) and leave it open.
 2. Claude Code picks up `.mcp.json` in this repo (server `scene-companion` → `node tools/mcp-server.mjs`). Point it elsewhere with `SC_DEV_URL=ws://<host>:<port>/live`.
-3. Tools: `list_entities`, `get_entity`, `list_library`, `get_selection`, `select`, `spawn`, `move`, `delete`, `attach_behavior`, `set_param`, `remove_behavior`, `play`, `stop`, `screenshot`, `read_errors`, `save_scene`.
+3. Tools: `list_entities`, `get_entity`, `list_library`, `get_selection`, `select`, `spawn`, `move`, `delete`, `attach_behavior`, `set_param`, `remove_behavior`, `set_animation`, `batch` (many edits, one rebuild — use it to lay out a level), `play`, `stop`, `screenshot`, `read_errors`, `new_scene` (fresh scene from a template), `save_scene`.
 
 No editor open? The MCP server starts the dev server if needed and opens a headless editor itself (needs `playwright`: `npm i -D playwright && npx playwright install chromium`; `SC_HEADLESS=off` to disable, `SC_SCENE=./scenes/x.scene.json` to pick the scene). Software rendering is slow: adding objects can take a while there.
+
+**Finish-line test:** `scenes/sky-steps.scene.json` (play it at `play.html?scene=./scenes/sky-steps.scene.json`) was built entirely through MCP calls — replay them with `node tools/mcp-replay.mjs tests/finish-line/sky-steps.calls.json` (delete the scene file first; ~4 min headless).
 
 Edits go through `runtime/commands.js` (schema-checked, all-or-nothing), are undoable in the editor, and stream to running games over the live link. `save_scene` writes the scene file into `scenes/`; run `npm run check` and commit after.

@@ -28,3 +28,4 @@
 - 2026-10-27 — Real models from Colin's repos — Zap player (fall clip), skeleton + mutant ground enemies with defeat falls, 12 props, Draco decoder, `frontSide`; 79 tests; checked headless: all load, Zap 1.60 m feet at 0 (live session)
 - 2026-10-27 — Animator land clips + Zap front flip — landClip/hardLandClip/jumpRate/jumpHold, validator checks *Clip params; 82 tests; checked headless by stepping the world: flip → landing_soft → idle, 8 m drop → in_air → landing_hard → idle, running jump → landing_soft cut to run (build run)
 - 2026-10-27 — Hard-landing slowdown — Animator hardLandMove → entity.moveScale → PlayerController; 84 tests; headless clip sequence unchanged (build run)
+- 2026-10-27 — Finish-line test — Sky Steps built through MCP alone (new_scene + batch + play/screenshot/save, 10 calls, ~4 min headless); new MCP tools new_scene/set_animation/batch; headless-always dev-server fix; route bot climbed it start → summit; 85 tests (build run)
