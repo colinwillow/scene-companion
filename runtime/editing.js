@@ -90,3 +90,10 @@ export function dropPoint(hit, plane, focus, maxDist = 500) {
   if (plane && Math.hypot(plane[0] - focus[0], plane[2] - focus[2]) < maxDist) return [r3(plane[0]), 0, r3(plane[2])];
   return [r3(focus[0]), 0, r3(focus[2])];
 }
+
+// Grid snapping (editor ▦ Snap): round x and z to the grid; y is left alone (it comes from the surface you drop on).
+export const GRID = { move: 0.5, turnDeg: 15, scale: 0.25 };
+export function snapXZ(p, step = GRID.move) {
+  const s = v => r3(Math.round(v / step) * step);
+  return [s(p[0]), r3(p[1]), s(p[2])];
+}

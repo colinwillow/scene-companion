@@ -25,8 +25,8 @@
   #panelBody { flex:1; overflow:auto; padding:0 14px calc(14px + env(safe-area-inset-bottom));
     touch-action: pan-y; -webkit-user-select:text; user-select:text; overscroll-behavior:contain; }
   #panel.closed { display:none; }
-  #chip { position:fixed; z-index:3; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:4px;
-    max-width:calc(100vw - 120px); background:var(--panel); border:1px solid var(--accent); border-radius:999px; padding:4px 4px 4px 12px; }
+  #chip { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; bottom:calc(14px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:4px;
+    max-width:calc(100vw - 150px); background:var(--panel); border:1px solid var(--accent); border-radius:999px; padding:4px 4px 4px 12px; }
   #chip[hidden] { display:none; }
   #chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
   #chip button { flex:none; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:999px; padding:7px 11px; font:inherit; }
@@ -83,6 +83,7 @@
   <button id="libBtn" title="Libraries: characters, props, motions">📚 Library</button>
   <button id="play">▶ Play</button>
   <button id="mode" title="Gizmo mode">Move</button>
+  <button id="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">▦ Snap</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
   <select id="tier" title="Quality tier"><option>web</option><option>desktop</option></select>
   <select id="add" title="Add an object"></select>
@@ -113,7 +114,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID } from './runtime/editing.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -194,6 +195,7 @@ async function rebuild() {
   gizmo.addEventListener('objectChange', syncTransformToData);
   world.scene.add(gizmo.getHelper());
   gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]);
+  applySnap();
   selBox = new THREE.BoxHelper(undefined, 0xff8a3d); selBox.raycast = () => {}; selBox.visible = false;   // sc:overlay
   selBox.material.depthTest = false; selBox.renderOrder = 999;
   world.scene.add(selBox);
@@ -263,15 +265,27 @@ function viewDropPoint() {
   const surfaces = [...world.entities.values()].filter(e => !e.object3d.isLight && isDropSurface(e.id, e.resolved)).map(e => e.object3d);
   const hit = dropRay.intersectObjects(surfaces, true).find(h => h.object.visible && h.object.isMesh && !h.object.userData.outline);
   const plane = dropRay.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
-  return dropPoint(hit && hit.point.toArray(), plane && plane.toArray(), orbit.target.toArray());
+  const p = dropPoint(hit && hit.point.toArray(), plane && plane.toArray(), orbit.target.toArray());
+  return snapOn ? snapXZ(p) : p;
 }
+// ▦ Snap: grid snapping for the gizmo and for where new things land (remembered on this device).
+let snapOn = false;
+try { snapOn = localStorage.getItem('sc.snap') === '1'; } catch {}
+function applySnap() {
+  $('snap').classList.toggle('on', snapOn);
+  gizmo?.setTranslationSnap(snapOn ? GRID.move : null);
+  gizmo?.setRotationSnap(snapOn ? THREE.MathUtils.degToRad(GRID.turnDeg) : null);
+  gizmo?.setScaleSnap(snapOn ? GRID.scale : null);
+}
+$('snap').onclick = () => { snapOn = !snapOn; try { localStorage.setItem('sc.snap', snapOn ? '1' : '0'); } catch {} applySnap(); };
 // Duplicate puts the copy beside the original as seen from the camera (screen-right), a body-width away.
 function duplicateOffset(id) {
   const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).setY(0);
   if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
   const o = world.getEntity(id)?.object3d, size = o ? new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()) : null;
   const gap = size && isFinite(size.x) ? Math.min(Math.max(size.x, size.z) + 0.3, 20) : 1;
-  return right.normalize().multiplyScalar(Math.max(gap, 0.5)).toArray();
+  const off = right.normalize().multiplyScalar(Math.max(gap, 0.5)).toArray();
+  return snapOn ? snapXZ(off) : off;
 }
 // Move the orbit target to the object, keeping the camera's angle and distance.
 function frame(id) {

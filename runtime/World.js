@@ -90,6 +90,7 @@ export class World {
       capsule: () => new THREE.CapsuleGeometry(s[0] / 2, s[1] - s[0], 8, 16),
       plane: () => new THREE.PlaneGeometry(s[0], s[2]).rotateX(-Math.PI / 2),
     }[variant.primitive]?.() || new THREE.BoxGeometry(...s);
+    if (variant.pivot === 'bottom' && variant.primitive !== 'plane') geo.translate(0, s[1] / 2, 0);   // origin at the base: sits on what it's dropped on
     const mat = new THREE.MeshStandardMaterial({
       map: variant.texture ? proceduralTexture(variant.texture, variant.repeat ?? 8) : null,
       color: variant.color || (variant.texture ? '#ffffff' : '#cccccc'),

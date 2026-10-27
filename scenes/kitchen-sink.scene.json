@@ -1004,6 +1004,78 @@
         0,
         -13
       ]
+    },
+    {
+      "id": "kit_block_big_01",
+      "prefab": "kit_block_big",
+      "position": [
+        -12,
+        0,
+        -8
+      ]
+    },
+    {
+      "id": "kit_step_01",
+      "prefab": "kit_step",
+      "position": [
+        -10.5,
+        0,
+        -8
+      ]
+    },
+    {
+      "id": "kit_ledge_01",
+      "prefab": "kit_ledge",
+      "position": [
+        -12,
+        2,
+        -10
+      ]
+    },
+    {
+      "id": "kit_beam_01",
+      "prefab": "kit_beam",
+      "position": [
+        -9,
+        1.5,
+        -11
+      ]
+    },
+    {
+      "id": "kit_pole_01",
+      "prefab": "kit_pole",
+      "position": [
+        -13.5,
+        0,
+        -11
+      ]
+    },
+    {
+      "id": "kit_platform_01",
+      "prefab": "kit_platform",
+      "position": [
+        -8.5,
+        0,
+        -7.5
+      ]
+    },
+    {
+      "id": "kit_wall_01",
+      "prefab": "kit_wall",
+      "position": [
+        -10,
+        0,
+        -13
+      ]
+    },
+    {
+      "id": "kit_block_01",
+      "prefab": "kit_block",
+      "position": [
+        -7,
+        0,
+        -9
+      ]
     }
   ],
   "prefabs": {
@@ -1021,6 +1093,14 @@
     "hydrant": "./prefabs/hydrant.prefab.json",
     "street_lamp": "./prefabs/street_lamp.prefab.json",
     "crates": "./prefabs/crates.prefab.json",
-    "boulder": "./prefabs/boulder.prefab.json"
+    "boulder": "./prefabs/boulder.prefab.json",
+    "kit_block_big": "./prefabs/kit_block_big.prefab.json",
+    "kit_step": "./prefabs/kit_step.prefab.json",
+    "kit_ledge": "./prefabs/kit_ledge.prefab.json",
+    "kit_beam": "./prefabs/kit_beam.prefab.json",
+    "kit_pole": "./prefabs/kit_pole.prefab.json",
+    "kit_platform": "./prefabs/kit_platform.prefab.json",
+    "kit_wall": "./prefabs/kit_wall.prefab.json",
+    "kit_block": "./prefabs/kit_block.prefab.json"
   }
 }

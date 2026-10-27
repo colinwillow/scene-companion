@@ -1,0 +1,31 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "primitive": "cylinder",
+        "pivot": "bottom",
+        "size": [
+          0.3,
+          3,
+          0.3
+        ],
+        "texture": "sand",
+        "repeat": 1,
+        "color": "#e07a5f",
+        "roughness": 0.85
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          0.3,
+          3,
+          0.3
+        ]
+      }
+    }
+  ]
+}

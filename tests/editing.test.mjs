@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround } from '../runtime/editing.js';
+import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ } from '../runtime/editing.js';
 
 const scene = () => ({
   assets: { crate: {}, tree_big: {} },
@@ -66,4 +66,9 @@ test('ground taps count as empty', () => {
   assert.equal(isGround('floor', { asset: 'ground_big' }), true);
   assert.equal(isGround('plat_01', { asset: 'block', behaviors: [{ type: 'Solid' }] }), false);
   assert.equal(isGround(null, null), false);
+});
+
+test('grid snap rounds x/z to 0.5 m, keeps the surface height', () => {
+  assert.deepEqual(snapXZ([1.26, 2.37, -0.74]), [1.5, 2.37, -0.5]);
+  assert.deepEqual(snapXZ([0.2, 0, 0.3], 1), [0, 0, 0]);
 });

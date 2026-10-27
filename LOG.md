@@ -42,3 +42,4 @@
 - 2026-10-27 — Quieter selection — highlight box + name chip, inspector opens from ✎ Edit, ground tap deselects; 95 tests; headless ✓ portrait + landscape (build run)
 - 2026-10-27 — Twin-stick controls — runtime/sticks.js (rollergirl bindStick port), right tap = jump, yaw-only right stick, jumpTap setting; 98 tests; headless ✓; check:full unchanged (build run)
 - 2026-10-27 — Double jump — PlayerController airJumps, Animator doubleJumpClip, Sky Steps front_flip on the 2nd jump; 101 tests; headless ✓; route ✓ (build run)
+- 2026-10-27 — Level-building kit v1 — 8 kit_* prefabs (pivot bottom + Solid), ▦ Snap in the editor, kit course in kitchen-sink, chip width fix; 102 tests; headless ✓; ramps → new item (build run)
