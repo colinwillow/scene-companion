@@ -466,6 +466,25 @@
         0.73,
         1
       ]
+    },
+    {
+      "id": "camera",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "CameraRig",
+          "params": {
+            "distance": 8,
+            "height": 1.2,
+            "pitch": 14,
+            "fov": 64
+          }
+        }
+      ]
     }
   ],
   "prefabs": {

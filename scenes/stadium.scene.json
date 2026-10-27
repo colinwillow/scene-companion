@@ -1121,6 +1121,25 @@
           "type": "Surface"
         }
       ]
+    },
+    {
+      "id": "duel_cam",
+      "position": [
+        7,
+        3.2,
+        -3
+      ],
+      "behaviors": [
+        {
+          "type": "CameraRig",
+          "params": {
+            "mode": "fixed",
+            "zone": 5,
+            "priority": 1,
+            "height": 1
+          }
+        }
+      ]
     }
   ],
   "prefabs": {

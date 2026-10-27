@@ -111,3 +111,15 @@ test('Checkpoint: reaching it moves the respawn point and names it; a saved game
   const c2 = new Checkpoint({ id: 'cp', object3d: { position: { x: 5, y: 1, z: 0 } } }, {}, w2); c2.start(); c2.update();
   assert.equal(player.object3d.position.x, 5, 'resumed at the saved checkpoint');
 });
+
+test('CameraRig: the active rig with the highest priority wins; a zone rig only inside its zone; shakes on its event', async () => {
+  const { CameraRig, pickRig } = await import('../behaviors/index.js');
+  const player = { object3d: { position: { x: 0, y: 0, z: 0 } } }, handlers = {}, sent = [];
+  const world = { on: (n, f) => { handlers[n] = f; }, emit: (...a) => sent.push(a), getEntity: id => (id === 'player' ? player : null) };
+  const main = new CameraRig({ id: 'cam', object3d: { position: { x: 0, y: 0, z: 0 } } }, { shakeOn: 'blast' }, world); main.start();
+  const room = new CameraRig({ id: 'room', object3d: { position: { x: 20, y: 3, z: 0 } } }, { mode: 'fixed', zone: 5, priority: 1 }, world); room.start();
+  assert.equal(pickRig(world), main);
+  player.object3d.position.x = 18; assert.equal(pickRig(world), room);
+  handlers.blast(); assert.deepEqual(sent[0], ['shake', 0.25, 0.3]);
+  room.destroy(); assert.equal(pickRig(world), main);
+});

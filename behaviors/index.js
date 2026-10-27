@@ -1445,6 +1445,42 @@ export class Checkpoint extends Behavior {
   }
 }
 
+// The camera, authored in the scene (pure data the play page reads every frame — `pickRig`). `follow`: behind the target at
+// `distance`, looking at `height` above it, tilted `pitch` degrees, the right stick orbiting it; `fixed`: from THIS entity's
+// position, looking at the target (a security-cam room, a side-on stretch). With a `zone` (m), the rig only takes over while the
+// target is within it of this entity; the active rig with the highest `priority` wins. Shakes on `shakeOn` (a world event).
+export class CameraRig extends Behavior {
+  static schema = {
+    mode:     { type: 'string', default: 'follow' },        // follow | fixed
+    target:   { type: 'string', default: 'player' },
+    distance: { type: 'number', default: 7, min: 1, max: 60, step: 0.5 },
+    height:   { type: 'number', default: 1.3, min: 0, max: 10, step: 0.1 },
+    pitch:    { type: 'number', default: 20, min: -30, max: 85, step: 1 },     // degrees down
+    fov:      { type: 'number', default: 60, min: 20, max: 110, step: 1 },
+    lag:      { type: 'number', default: 8, min: 1, max: 40, step: 0.5 },      // how fast it catches up (1/s)
+    zone:     { type: 'number', default: 0, min: 0, max: 200, step: 0.5 },     // 0 = everywhere
+    priority: { type: 'number', default: 0, min: -10, max: 10, step: 1 },
+    shakeOn:  { type: 'string', default: '' },                                   // e.g. 'blast'
+    shake:    { type: 'number', default: 0.25, min: 0, max: 3, step: 0.05 },
+  };
+  start() {
+    (this.world.cameraRigs ||= []).push(this);
+    if (this.params.shakeOn) this.world.on?.(this.params.shakeOn, () => this.world.emit('shake', this.params.shake, 0.3));
+  }
+  destroy() { const l = this.world.cameraRigs; if (l) { const i = l.indexOf(this); if (i >= 0) l.splice(i, 1); } }
+  active() {
+    if (!this.params.zone) return true;
+    const t = this.world.getEntity?.(this.params.target)?.object3d?.position, p = this.entity.object3d?.position;
+    return !!(t && p && Math.hypot(t.x - p.x, t.z - p.z) <= this.params.zone);
+  }
+}
+// The rig in charge this frame (or null: the page's own camera)
+export function pickRig(world) {
+  let best = null;
+  for (const r of world.cameraRigs || []) if (r.active() && (!best || r.params.priority >= best.params.priority)) best = r;
+  return best;
+}
+
 // A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
 // fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
 // its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
@@ -2586,6 +2622,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
