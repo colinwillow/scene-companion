@@ -24,7 +24,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Tiny Hop feel pass: jump/fall animation clips, carry the player on moving platforms, camera collision, sounds — Animator plays `jumpClip`/`fallClip` when airborne (robot uses Jump); PlayerController rides moving solids; camera pulls in front of solids/floor (`runtime/camera.js`); synthesized sfx + 🔊 mute (`runtime/sfx.js`); new `pickup`/`stomp`/`land` events
 - [x] Tiny Hop: landing squash; footstep sounds — new `Squash` (event-driven squash & stretch around the authored scale) and `Footsteps` (a `step` event per stride, longer when running) behaviors; tiny-hop player has both, kitchen-sink player squashes on `score`
 - [x] Tiny Hop: a proper fall clip — player is now Zap (1.6 m, idle_01/walk_fwd/run_fwd, `in_air` as jump + fall clip)
-- [ ] Tiny Hop: Animator `landClip` (Zap has `landing_soft`/`landing_hard`; Clancy has `jumping_up`/`falling_idle`/`hard_landing`) and try `front_flip` as Zap's jumpClip
+- [ ] [IN PROGRESS 2026-10-27 01:57 UTC] Tiny Hop: Animator `landClip` (Zap has `landing_soft`/`landing_hard`; Clancy has `jumping_up`/`falling_idle`/`hard_landing`) and try `front_flip` as Zap's jumpClip
 - [x] Validator: catch hardcoded placement more robustly; check prefab references — set/assign/fromArray/copy literals in behaviors + game pages, comment-aware, camera exempt; prefab files (no id/position, asset, behavior params), unused prefabs, removeBehaviors typos, id style
 
 ## Stage 3 — Editor v1
