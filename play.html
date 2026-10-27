@@ -12,6 +12,7 @@
   #hud { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(12px + env(safe-area-inset-left)); right:calc(12px + env(safe-area-inset-right));
     display:flex; justify-content:space-between; pointer-events:none; text-shadow:0 2px 4px #0008; font-size:20px; z-index:2; }
   #hud button { pointer-events:auto; font-size:14px; background:#0006; color:#fff; border:none; padding:6px 10px; border-radius:10px; }
+  #hud button.on { background:#3ddc84; color:#0b3d1f; }
   #hud a { pointer-events:auto; color:#fff; font-size:14px; background:#0006; padding:6px 10px; border-radius:10px; text-decoration:none; }
   #stick { position:fixed; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:#ffffff22; border:2px solid #ffffff55; display:none; z-index:2; pointer-events:none; }
   #knob { position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%; background:#ffffffaa; }
@@ -34,7 +35,7 @@
 </script>
 </head>
 <body>
-<div id="hud"><span id="hearts"></span><span><button id="mute">🔊</button> <a href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
+<div id="hud"><span id="hearts"></span><span><button id="pick" hidden title="Tap objects to select them in the editor">🎯</button> <button id="mute">🔊</button> <a href="./index.html?scene=./scenes/tiny-hop.scene.json">Edit</a></span><span id="coins"></span></div>
 <div id="stick"><div id="knob"></div></div>
 <button id="jump">JUMP</button>
 <div id="hint">Left side: drag to move · Right side: drag to look · Jump on enemies</div>
@@ -91,6 +92,7 @@ $('jump').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropa
 
 const cv = renderer.domElement;
 cv.addEventListener('pointerdown', e => {
+  if (pickMode) { pickAt(e.clientX, e.clientY); return; }
   if (e.clientX < innerWidth * 0.5 && stick.id === null) {
     Object.assign(stick, { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 });
     $('stick').style.display = 'block'; $('stick').style.left = e.clientX + 'px'; $('stick').style.top = e.clientY + 'px';
@@ -197,6 +199,24 @@ function updateMarker(t) {
   marker.position.set(ent.object3d.position.x, top + 0.5 + Math.sin(t * 4) * 0.08, ent.object3d.position.z);
 }
 
+// ---- pick mode (live link): tap objects in the running game to select them in the editor
+let pickMode = false;
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+const entityIdOf = o => { while (o) { if (o.userData.entityId) return o.userData.entityId; o = o.parent; } return null; };
+$('pick').addEventListener('pointerdown', e => {
+  e.stopPropagation(); pickMode = !pickMode;
+  $('pick').classList.toggle('on', pickMode);
+  $('jump').style.visibility = pickMode ? 'hidden' : '';
+  stick.id = look.id = null; stick.dx = stick.dy = 0; $('stick').style.display = 'none';
+});
+function pickAt(x, y) {
+  ptr.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects(world.scene.children, true).find(h => h.object !== marker && h.object.visible && entityIdOf(h.object));
+  selectedId = hit ? entityIdOf(hit.object) : null;
+  if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'pick', url: SCENE_URL, id: selectedId }));
+}
+
 // ---- live link: edits from the editor (served by `npm run dev`) patch this running game.
 let liveStatus = '', liveWs = null;
 {
@@ -214,8 +234,8 @@ let liveStatus = '', liveWs = null;
       liveStatus = result;
       if (result !== 'none') { const b = $('liveBadge'); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 300); }
     };
-    ws.onopen = () => { $('liveBadge').hidden = false; liveWs = ws; };
-    ws.onclose = () => { $('liveBadge').hidden = true; setTimeout(connect, 3000); };
+    ws.onopen = () => { $('liveBadge').hidden = false; $('pick').hidden = false; liveWs = ws; };
+    ws.onclose = () => { $('liveBadge').hidden = true; $('pick').hidden = true; setTimeout(connect, 3000); };
   };
   if (location.protocol.startsWith('http')) connect();
 }

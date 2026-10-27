@@ -408,6 +408,10 @@ var sendSelect;
           e => ws.send(JSON.stringify({ type: 'cmd-result', id: s.id, ok: false, error: e.message })));
         return;
       }
+      if (s.type === 'pick' && sameScene(s.url, SCENE_URL)) {                     // tapped in a running game
+        if (!s.id || world.getEntity(s.id)) { select(s.id); if (s.id) frame(s.id); }
+        return;
+      }
       if (s.type !== 'state' || !sameScene(s.url, SCENE_URL)) return;
       for (const m of s.errors || []) { gameErrors++; showErr('[game] ' + m); }
       $('liveBadge').textContent = describeState(s, gameErrors);
