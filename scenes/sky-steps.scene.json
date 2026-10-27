@@ -41,6 +41,10 @@
       "vars": [
         "score"
       ]
+    },
+    "title": {
+      "text": "Sky Steps",
+      "sub": "Hop to the top. Tap the right stick to jump, tap again in the air to flip. Checkpoints save your climb."
     }
   },
   "assets": {

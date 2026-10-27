@@ -15,6 +15,8 @@
     display:flex; justify-content:space-between; pointer-events:none; text-shadow:0 2px 4px #0008; font-size:20px; z-index:2; }
   #hud button { pointer-events:auto; font-size:14px; background:#0006; color:#fff; border:none; padding:6px 10px; border-radius:10px; }
   #hud button.on { background:#3ddc84; color:#0b3d1f; }
+  #hud > span { white-space:nowrap; } #hud > span:nth-child(2) { display:flex; gap:4px; align-items:center; }
+  @media (max-width: 480px) { #hud { font-size:17px; } #hud button { padding:5px 7px; font-size:13px; } #hud a#edit { padding:5px 7px; font-size:13px; } }
   #hud a { pointer-events:auto; color:#fff; font-size:14px; background:#0006; padding:6px 10px; border-radius:10px; text-decoration:none; }
   /* Floating twin sticks (Colin's games: rollergirl/weirdport). Each pad is an invisible zone; the stick rests at a
      corner as a hint and jumps to wherever the thumb lands. Coloured rim with ticks + solid knob with an ink edge,
@@ -54,6 +56,11 @@
   #sceneList a { display:block; padding:14px 12px; margin:6px 0; border-radius:12px; background:#2b3442; color:#fff; text-decoration:none; font:700 16px system-ui,sans-serif; }
   #sceneList a.here { background:#3ddc84; color:#0b3d1f; }
   #sceneList a small { display:block; font-weight:600; opacity:.75; margin-top:3px; }
+  #title { position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:radial-gradient(#0007, #000c); text-align:center; padding:24px; }
+  #title[hidden] { display:none; }
+  #titleText { font:900 38px/1.1 system-ui,sans-serif; text-shadow:0 4px 18px #000; }
+  #titleSub { font:600 17px/1.35 system-ui,sans-serif; opacity:.85; max-width:30em; }
+  #titleGo { margin-top:10px; font:800 22px system-ui,sans-serif; padding:14px 34px; border:none; border-radius:16px; background:#3ddc84; color:#0b3d1f; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
@@ -69,7 +76,8 @@
 <div class="pad" id="stkR" data-side="right"><div class="ring"></div><div class="knob"></div></div>
 <div id="hint">Left stick: move · Right stick: turn camera, tap to jump · Jump on enemies</div>
 <div id="msg"><div id="msgText"></div><button id="again">Play again</button></div>
-<div id="pauseMenu"><div>Paused</div><button id="resume">Resume</button><button id="restart" class="ghost">Restart</button></div>
+<div id="pauseMenu"><div>Paused</div><button id="resume">Resume</button><button id="restart" class="ghost">Restart</button><button id="pScenes" class="ghost">Scenes</button><button id="pFresh" class="ghost" hidden>Start over</button></div>
+<div id="title" hidden><div id="titleText"></div><div id="titleSub"></div><button id="titleGo">Play</button></div>
 <div id="err" hidden></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="stats" hidden></div>
@@ -362,6 +370,17 @@ function setPaused(on) {
 $('pause').addEventListener('pointerdown', e => { e.stopPropagation(); setPaused(true); });
 $('resume').onclick = () => setPaused(false);
 $('restart').onclick = () => { setPaused(false); start(); };
+$('pScenes').onclick = () => { $('scenes').hidden = false; };
+$('pFresh').onclick = () => { location.href = `./play.html?scene=${encodeURIComponent(SCENE_URL)}&fresh=1`; };
+$('pFresh').hidden = !data.settings?.save;
+// settings.title { text, sub, button }: a title card before the game runs (once per page load)
+let titled = false;
+function showTitle() {
+  const t = data.settings?.title; if (!t || titled || !world) return;
+  titled = true; $('titleText').textContent = t.text || ''; $('titleSub').textContent = t.sub || ''; $('titleGo').textContent = t.button || 'Play';
+  $('title').hidden = false; world.time.paused = true;
+}
+$('titleGo').onclick = () => { $('title').hidden = true; if (world) world.time.paused = false; sfx.unlock(); audio.unlock(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 addEventListener('keydown', e => { if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!world?.time.paused); });
 
@@ -459,6 +478,7 @@ let liveStatus = '', liveWs = null;
 }
 
 await start();
+showTitle();
 updateCamera(0, true);
 const clock = new THREE.Clock(), fps = createFpsMeter(1);
 let reportIn = 0;

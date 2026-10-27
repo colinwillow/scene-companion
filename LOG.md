@@ -135,3 +135,4 @@
 - 2026-10-27 — play.html scene list (🎬, shown first without ?scene) + validate checks the list (live session)
 - 2026-10-27 — HUD part 2 — settings.hud, HudPrompt, authored end screen with next scene; 277 tests (live session)
 - 2026-10-27 — Game flow part 1 — Checkpoint + settings.save progress; Sky Steps checkpoints; 278 tests; checked headless (live session)
+- 2026-10-27 — Game flow part 2 — title cards, pause menu Scenes / Start over, one-line top bar (live session)

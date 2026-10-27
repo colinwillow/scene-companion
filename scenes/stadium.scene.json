@@ -25,6 +25,10 @@
         "threshold": 0.85
       },
       "vignette": 0.25
+    },
+    "title": {
+      "text": "Goblin Stadium",
+      "sub": "Run up the wall, grab the ledge, vault the box, swing the bar \u2014 then duel Korajin. Flick the right stick to strike."
     }
   },
   "assets": {

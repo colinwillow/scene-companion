@@ -26,7 +26,11 @@
       },
       "vignette": 0.25
     },
-    "variables": {}
+    "variables": {},
+    "title": {
+      "text": "Blaster vs the House",
+      "sub": "Hold the right stick UP to charge, let go to shoot. Bring it down."
+    }
   },
   "assets": {
     "floor": {

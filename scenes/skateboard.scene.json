@@ -29,6 +29,10 @@
     "variables": {
       "score": 0,
       "combo": 0
+    },
+    "title": {
+      "text": "Skateboard",
+      "sub": "Push forward, tap to ollie, flick the right stick in the air for kickflips, land on any box edge to grind."
     }
   },
   "assets": {
