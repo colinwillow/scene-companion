@@ -98,3 +98,16 @@ test('HudPrompt: shows while the player is near, goes when they leave', async ()
   player.object3d.position.x = 2; p.update(); p.update(); assert.equal(sent.length, 1); assert.equal(sent[0].text, 'Grind it!');
   player.object3d.position.x = 9; p.update(); assert.equal(sent[1].remove, true);
 });
+
+test('Checkpoint: reaching it moves the respawn point and names it; a saved game naming it starts the player there', async () => {
+  const { Checkpoint } = await import('../behaviors/index.js');
+  const pc = { spawn: [0, 0, 0] }, player = { id: 'player', behaviors: [pc], object3d: { position: { x: 9, y: 0, z: 0 } } }, sent = [];
+  const world = { vars: {}, emit: (...a) => sent.push(a), getEntity: id => (id === 'player' ? player : null) };
+  const c = new Checkpoint({ id: 'cp', object3d: { position: { x: 5, y: 1, z: 0 } } }, { radius: 2 }, world); c.start();
+  c.update(); assert.deepEqual(pc.spawn, [0, 0, 0]);
+  player.object3d.position.x = 5.5; c.update();
+  assert.deepEqual(pc.spawn, [5, 1, 0]); assert.equal(world.vars.checkpoint, 'cp'); assert.ok(sent.some(a => a[0] === 'checkpoint'));
+  const w2 = { vars: { checkpoint: 'cp' }, emit() {}, getEntity: world.getEntity }; player.object3d.position.x = 0;
+  const c2 = new Checkpoint({ id: 'cp', object3d: { position: { x: 5, y: 1, z: 0 } } }, {}, w2); c2.start(); c2.update();
+  assert.equal(player.object3d.position.x, 5, 'resumed at the saved checkpoint');
+});

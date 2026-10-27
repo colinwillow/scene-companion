@@ -295,12 +295,30 @@ function end(text, o = {}) {
   $('msg').style.display = 'flex';
 }
 let endNext = '';
+// Saved progress (settings.save: { vars: ['score', …] }, or true for every variable): kept per scene on this device, written at
+// every checkpoint and every few seconds; ?fresh in the address starts over.
+const SAVE_KEY = 'sc.save:' + SCENE_URL.replace(/^\.\//, '');
+let saveT = 0;
+function saveSpec() { const s = data.settings?.save; return s ? (s === true ? { vars: null } : s) : null; }
+function loadProgress() {
+  const spec = saveSpec(); if (!spec) return null;
+  if (new URLSearchParams(location.search).has('fresh')) { try { localStorage.removeItem(SAVE_KEY); } catch {} return null; }
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch { return null; }
+}
+function saveProgress() {
+  const spec = saveSpec(); if (!spec || !world?.vars) return;
+  const out = {}; for (const [k, v] of Object.entries(world.vars)) if (!spec.vars || spec.vars.includes(k) || k === 'checkpoint') out[k] = v;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(out)); } catch {}
+}
 
 async function start() {
   world?.dispose(); post?.dispose();
   over = false; $('msg').style.display = 'none';
   world = new World(renderer, { tier: TIER });
-  await world.load(structuredClone(data));    // the authored data is never touched by play
+  const scene = structuredClone(data);         // the authored data is never touched by play
+  const saved = loadProgress();                 // settings.save: these variables and the last checkpoint come back next time
+  if (saved) scene.settings = { ...(scene.settings || {}), variables: { ...(scene.settings?.variables || {}), ...saved } };
+  await world.load(scene);
   world.instanceStatic();                     // repeated static props → one InstancedMesh per part (draw calls)
   window.__sc = { world, data, audio, get particles() { return particles; }, get trails() { return trails; }, get live() { return liveStatus; } };
   player = world.getEntity('player');
@@ -328,6 +346,8 @@ async function start() {
   world.on('zoom', (_id, power) => { fovKick = Math.max(fovKick, 14 * (power ?? 1)); });   // a Zoom dash widens the lens
   world.on('boost', () => { fovKick = Math.max(fovKick, 9); });                         // so does a skater's boost
   world.on('end', (text, o) => end(text, o));
+  world.on('checkpoint', () => saveProgress());
+  saveT = 0;
   world.on('loadScene', url => { location.search = `?scene=${encodeURIComponent(url)}`; });   // Footsteps varies the pitch (world.rng)
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
@@ -458,6 +478,7 @@ renderer.setAnimationLoop(() => {
   placeBubbles();
   drawColliders(dt);
   showStats(dt);
+  if (saveSpec() && (saveT += dt) > 5) { saveT = 0; saveProgress(); }
   particles?.update(dt, camera, renderer);
   trails?.update(dt, camera);
   { const f = new THREE.Vector3(); camera.getWorldDirection(f); audio.listen(camera.position.toArray(), f.toArray());

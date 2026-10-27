@@ -1414,6 +1414,37 @@ export class HudPrompt extends Behavior {
   destroy() { this.world.emit?.('hudset', { id: this.entity.id + ':prompt', remove: true }); }
 }
 
+// A checkpoint: when `who` comes within `radius`, this becomes where they respawn (every behavior of theirs that keeps a `spawn`:
+// PlayerController, Skater), `checkpoint` (a world variable) names it, and 'checkpoint' fires (the page saves progress then).
+// Loading a save that names this checkpoint puts them here at the start.
+export class Checkpoint extends Behavior {
+  static schema = {
+    who:    { type: 'string', default: 'player' },
+    radius: { type: 'number', default: 2.5, min: 0.5, max: 30, step: 0.5 },
+    text:   { type: 'string', default: 'Checkpoint!' },    // '' = no message
+  };
+  start() {
+    this.done = false;
+    this.resume = this.world.vars?.checkpoint === this.entity.id;   // a saved game resumes here (on the first frame, once every spawn is set)
+  }
+  here() { const p = this.entity.object3d.position; return [p.x, p.y, p.z]; }
+  claim(silent) {
+    const who = this.world.getEntity?.(this.params.who); if (!who) return;
+    const at = this.here(); this.done = true;
+    for (const b of who.behaviors || []) if (Array.isArray(b.spawn)) b.spawn = [...at];
+    (this.world.vars ||= {}).checkpoint = this.entity.id;
+    if (silent) { const p = who.object3d.position; p.x = at[0]; p.y = at[1]; p.z = at[2]; return; }
+    if (this.params.text) this.world.emit('hud', this.params.text, 1.5);
+    this.world.emit('checkpoint', who.id, this.entity.id, ...at);
+  }
+  update() {
+    if (this.resume) { this.resume = false; this.claim(true); return; }
+    if (this.done) return;
+    const w = this.world.getEntity?.(this.params.who)?.object3d?.position, p = this.entity.object3d.position; if (!w) return;
+    if (Math.hypot(w.x - p.x, w.z - p.z) <= this.params.radius && Math.abs(w.y - p.y) < 3) this.claim(false);
+  }
+}
+
 // A sound (a file) on an entity: at Play (`on` '') — usually a loop, like an engine or a fountain — or every time a world event
 // fires (`on` 'shoot', 'chunk', 'shatter', 'land' …; with `mine`, only the events about THIS entity, i.e. whose first argument is
 // its id). Spatial sounds come from where the event happened (its last three numbers, when it ends in a position) or from the
@@ -2555,6 +2586,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

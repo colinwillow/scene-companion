@@ -36,7 +36,12 @@
       "step_06",
       "step_07",
       "summit"
-    ]
+    ],
+    "save": {
+      "vars": [
+        "score"
+      ]
+    }
   },
   "assets": {
     "ground": {
@@ -711,6 +716,38 @@
         22,
         14,
         -8
+      ]
+    },
+    {
+      "id": "checkpoint_mid",
+      "position": [
+        4.92,
+        2.6,
+        -0.87
+      ],
+      "behaviors": [
+        {
+          "type": "Checkpoint",
+          "params": {
+            "radius": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "checkpoint_top",
+      "position": [
+        -4.7,
+        4.55,
+        -1.71
+      ],
+      "behaviors": [
+        {
+          "type": "Checkpoint",
+          "params": {
+            "radius": 2
+          }
+        }
       ]
     }
   ]
