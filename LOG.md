@@ -68,3 +68,4 @@
 - 2026-10-27 — Drag to re-parent in List — long-press + drag onto a row / the top strip; checked headless both ways (live session)
 - 2026-10-27 — Collision queries — runtime/collide.js raycast/sweep/overlap/lineClear, Solid shape/rotated/layer, Chase sight (mutant); 162 tests (live session)
 - 2026-10-27 — Animation layers + frame events — upper/base layers with masks (no averaged bones), character.json masks/events, world events from clip frames; 165 tests; play.html still loads and animates headless (live session)
+- 2026-10-27 — Footsteps from the clips — tools/footsteps.mjs measures foot plants (most-forward rule) into character.json events for Zap/skeleton/mutant; Footsteps follows them; 168 tests (live session)

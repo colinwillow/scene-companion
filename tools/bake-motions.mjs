@@ -61,8 +61,14 @@ export function nodeTree(json) {
 }
 
 // The first animation of a library clip GLB as a THREE.AnimationClip (tracks named <node>.<property>).
-export function firstClip(glb, name) {
-  const anim = glb.json.animations?.[0]; if (!anim) throw new Error('no animation');
+export function firstClip(glb, name) { return clipByIndex(glb, 0, name); }
+export function clipByName(glb, name) {
+  const i = (glb.json.animations || []).findIndex(a => a.name === name);
+  if (i < 0) throw new Error(`no clip "${name}"`);
+  return clipByIndex(glb, i, name);
+}
+function clipByIndex(glb, i, name) {
+  const anim = glb.json.animations?.[i]; if (!anim) throw new Error('no animation');
   const PROP = { translation: ['position', THREE.VectorKeyframeTrack], rotation: ['quaternion', THREE.QuaternionKeyframeTrack], scale: ['scale', THREE.VectorKeyframeTrack] };
   const tracks = [];
   for (const ch of anim.channels) {

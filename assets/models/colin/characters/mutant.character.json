@@ -12,5 +12,31 @@
     "hardLand": "hard_landing",
     "death": "mutant_dying",
     "attack": "mutant_swiping"
+  },
+  "events": {
+    "mutant_walking": [
+      {
+        "t": 0.537,
+        "name": "foot",
+        "foot": "R"
+      },
+      {
+        "t": 1.175,
+        "name": "foot",
+        "foot": "L"
+      }
+    ],
+    "mutant_run": [
+      {
+        "t": 0.29,
+        "name": "foot",
+        "foot": "R"
+      },
+      {
+        "t": 0.718,
+        "name": "foot",
+        "foot": "L"
+      }
+    ]
   }
 }

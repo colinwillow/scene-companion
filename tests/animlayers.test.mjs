@@ -15,10 +15,11 @@ test('bodyMasks: spine and below it is upper, the rest lower', () => {
 
 test('eventsCrossed: window (prev, now], and across a loop', () => {
   const ev = [{ t: 0.2, name: 'stepL' }, { t: 0.7, name: 'stepR' }];
-  assert.deepEqual(eventsCrossed(ev, 0.1, 0.3), ['stepL']);
-  assert.deepEqual(eventsCrossed(ev, 0.2, 0.3), [], 'already fired at prev');
-  assert.deepEqual(eventsCrossed(ev, 0.9, 0.25, true), ['stepL'], 'wrapped');
-  assert.deepEqual(eventsCrossed(ev, 0.65, 0.1, true), ['stepR']);
+  const names = l => l.map(e => e.name);
+  assert.deepEqual(names(eventsCrossed(ev, 0.1, 0.3)), ['stepL']);
+  assert.deepEqual(names(eventsCrossed(ev, 0.2, 0.3)), [], 'already fired at prev');
+  assert.deepEqual(names(eventsCrossed(ev, 0.9, 0.25, true)), ['stepL'], 'wrapped');
+  assert.deepEqual(names(eventsCrossed(ev, 0.65, 0.1, true)), ['stepR']);
   assert.equal(checkLayers({ events: { run: [{ t: -1, name: 'x' }] } }, ['run']).length, 1);
   assert.equal(checkLayers({ events: { nope: [] } }, ['run']).length, 1);
   assert.deepEqual(checkLayers({ events: { run: [{ t: 0.2, name: 'step' }] }, masks: { upper: ['mixamorig_Spine'] } }, ['run']), []);
@@ -37,11 +38,11 @@ test('animator: an upper-layer clip owns the arms while the legs keep walking; e
   const fired = [];
   globalThis.window ??= { devicePixelRatio: 1 };
   const w = new World({ shadowMap: {}, setPixelRatio() {}, toneMappingExposure: 1 });
-  const anim = w.makeAnimator(root, clips, 'walk', { events: { walk: [{ t: 0.25, name: 'step' }] }, emit: (n, c) => fired.push(`${n}:${c}`) });
+  const anim = w.makeAnimator(root, clips, 'walk', { events: { walk: [{ t: 0.25, name: 'step', foot: 'L' }] }, emit: (n, o) => fired.push(`${n}:${o.clip}:${o.foot}`) });
   const deg = b => Math.round(THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(b.quaternion.w)))));
   w.animate(0.3, true);
   assert.equal(deg(arm), 30); assert.equal(deg(leg), 30);
-  assert.deepEqual(fired, ['step:walk']);
+  assert.deepEqual(fired, ['step:walk:L']);
   anim.play('slash', { layer: 'upper', once: true, fade: 0 });
   w.animate(0.1, true);
   assert.equal(anim.layer('upper'), 'slash');

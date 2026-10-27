@@ -14,5 +14,31 @@
     "hit": "take_damage_body",
     "death": "take_damage_and_fall_down",
     "attack": "melee_01"
+  },
+  "events": {
+    "walk_fwd": [
+      {
+        "t": 0.508,
+        "name": "foot",
+        "foot": "R"
+      },
+      {
+        "t": 1.169,
+        "name": "foot",
+        "foot": "L"
+      }
+    ],
+    "run_fwd": [
+      {
+        "t": 0.206,
+        "name": "foot",
+        "foot": "R"
+      },
+      {
+        "t": 0.544,
+        "name": "foot",
+        "foot": "L"
+      }
+    ]
   }
 }

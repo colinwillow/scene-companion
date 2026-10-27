@@ -250,7 +250,7 @@ export class World {
     const stems = entityMotions(character, e).filter(m => !baked.has(m));
     if (stems.length && obj.userData.clips && variant?.glb) obj.userData.clips = [...obj.userData.clips, ...await this.loadMotions(obj.children[0], variant, stems)];
     if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle,
-      { masks: character?.masks, events: character?.events, emit: (name, clip) => this.emit(name, id, clip) });
+      { masks: character?.masks, events: character?.events, emit: (name, info) => this.emit(name, id, info) });
     this.entities.set(id, ent);
     parentEnt?.children.push(id);
     // The instance's own children (authored) plus the prefab's children (renamed per instance; both, so adding a hat keeps the sword).
@@ -379,6 +379,7 @@ export class World {
     const anim = {
       mixer,
       clips: clips.map(c => c.name),
+      events: events || {},
       get current() { return L.base.name; },
       layer: part => L[part]?.name ?? null,
       play(name, { layer = 'base', fade = 0.2, once = false, speed = 1, restart = false } = {}) {
@@ -403,7 +404,7 @@ export class World {
         for (const [part, l] of Object.entries(L)) {
           const a = l.action; if (!a) continue;
           const now = a.time, prev = l.prev ?? 0, list = events?.[l.name];
-          if (list && emit) for (const ev of eventsCrossed(list, prev, now, now < prev - 1e-6)) emit(ev, l.name);
+          if (list && emit) for (const { t, name, ...extra } of eventsCrossed(list, prev, now, now < prev - 1e-6)) emit(name, { clip: l.name, ...extra });
           l.prev = now;
           if (part === 'upper' && l.opts.once && !a.isRunning() && now >= a.getClip().duration - 1e-3) anim.stop('upper');
         }

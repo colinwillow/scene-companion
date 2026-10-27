@@ -411,21 +411,32 @@ export class Footsteps extends Behavior {
     stride:    { type: 'number', default: 0.75, min: 0.2, max: 3, step: 0.05 },  // metres per step at walk speed
     runStride: { type: 'number', default: 1.3, min: 0.2, max: 4, step: 0.05 },   // metres per step at full speed
     pitchJitter: { type: 'number', default: 0.08, min: 0, max: 0.5, step: 0.01 }, // ± random pitch per step (world.rng), so steps don't machine-gun
+    source:    { type: 'string', default: 'auto' },   // auto | clip | distance — clip: on the character's measured `foot` frame events (tools/footsteps.mjs); auto: clip when it has them
   };
-  start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.dist = 0; }
+  start() {
+    const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.dist = 0;
+    const has = Object.values(this.entity.anim?.events || {}).some(l => l.some(e => e.name === 'foot'));
+    this.fromClip = this.params.source === 'clip' || (this.params.source === 'auto' && has);
+    if (this.fromClip && !this.listening) {
+      this.listening = true;
+      this.world.on('foot', (id, info) => { if (id === this.entity.id && this.fromClip && this.moving) this.step(info); });
+    }
+  }
+  step(info = {}) {
+    const j = this.params.pitchJitter, r = this.world.rng;
+    this.world.emit('step', this.entity.id, { pitch: j > 0 && r ? 1 + (r() * 2 - 1) * j : 1, ...(info.foot ? { foot: info.foot } : {}) });
+  }
   update(dt) {
     const p = this.entity.object3d.position, pc = this.entity.behaviors.find(b => b instanceof PlayerController);
     const d = Math.hypot(p.x - this.last[0], p.z - this.last[1]);
     this.last = [p.x, p.z];
     const move = this.world.input?.move || [0, 0], push = Math.min(1, Math.hypot(move[0], move[1]));
+    this.moving = !!pc && pc.grounded && push >= 0.05;
+    if (this.fromClip) return;                       // the clip's own foot events drive the steps
     if (!pc || !pc.grounded || push < 0.05 || dt <= 0) { this.dist = Math.min(this.dist, this.params.stride * 0.5); return; }
     this.dist += d;
     const stride = this.params.stride + (this.params.runStride - this.params.stride) * push;
-    if (this.dist >= stride) {
-      this.dist -= stride;
-      const j = this.params.pitchJitter, r = this.world.rng;
-      this.world.emit('step', this.entity.id, { pitch: j > 0 && r ? 1 + (r() * 2 - 1) * j : 1 });
-    }
+    if (this.dist >= stride) { this.dist -= stride; this.step(); }
   }
 }
 

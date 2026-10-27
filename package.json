@@ -13,7 +13,8 @@
     "route": "node tools/route-check.mjs",
     "thumbs": "node tools/thumbs.mjs",
     "inventory": "node tools/inventory.mjs",
-    "bake-motions": "node tools/bake-motions.mjs"
+    "bake-motions": "node tools/bake-motions.mjs",
+    "footsteps": "node tools/footsteps.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",

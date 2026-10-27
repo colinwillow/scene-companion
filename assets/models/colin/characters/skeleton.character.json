@@ -9,5 +9,31 @@
     "run": "standing_run_forward",
     "hit": "Hit_To_Body",
     "death": "Shoulder_Hit_And_Fall"
+  },
+  "events": {
+    "standing_walk_forward": [
+      {
+        "t": 0.367,
+        "name": "foot",
+        "foot": "L"
+      },
+      {
+        "t": 1.054,
+        "name": "foot",
+        "foot": "R"
+      }
+    ],
+    "standing_run_forward": [
+      {
+        "t": 0.211,
+        "name": "foot",
+        "foot": "L"
+      },
+      {
+        "t": 0.587,
+        "name": "foot",
+        "foot": "R"
+      }
+    ]
   }
 }

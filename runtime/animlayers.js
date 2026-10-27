@@ -15,10 +15,11 @@ export function bodyMasks(bones, roots = DEFAULT_MASK_ROOTS.upper) {
 }
 
 // Which of a clip's events fired between two playback times. `wrapped` = the clip looped in between (now < prev).
-// events: [{ t: seconds, name }]. Events exactly at `prev` fired last tick, so the window is (prev, now].
+// events: [{ t: seconds, name, …extra }]. Events exactly at `prev` fired last tick, so the window is (prev, now].
+// Returns the event objects (extra fields ride along, e.g. { name: 'foot', foot: 'L' }).
 export function eventsCrossed(events, prev, now, wrapped = false) {
   if (!events?.length) return [];
-  return events.filter(e => (wrapped ? (e.t > prev || e.t <= now) : (e.t > prev && e.t <= now))).map(e => e.name);
+  return events.filter(e => (wrapped ? (e.t > prev || e.t <= now) : (e.t > prev && e.t <= now)));
 }
 
 // Validator: character.json `events` and `masks`.
