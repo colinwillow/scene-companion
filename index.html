@@ -103,7 +103,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint } from './runtime/editing.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -163,7 +163,7 @@ async function rebuild() {
   gizmo?.detach();
   world?.dispose();
   world = new World(renderer, { tier: $('tier').value });
-  window.__sc = { world, data }; // debug/test hook (headless checks, future MCP)
+  window.__sc = { world, data, camera, orbit }; // debug/test hook (headless checks, future MCP)
   await world.load(data);
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
@@ -228,6 +228,26 @@ function renderTree() {
     ul.append(li);
   }
   ul.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+}
+// Where new things go: cast a ray through the middle of the screen and land on the ground or a Solid
+// (platforms, blocks); missing those, the y=0 plane; looking at the sky, below the orbit focus. Uses the
+// editor's camera, so it's wherever you're looking, however far you've panned.
+const dropRay = new THREE.Raycaster();
+function viewDropPoint() {
+  camera.updateMatrixWorld();
+  dropRay.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const surfaces = [...world.entities.values()].filter(e => !e.object3d.isLight && isDropSurface(e.id, e.resolved)).map(e => e.object3d);
+  const hit = dropRay.intersectObjects(surfaces, true).find(h => h.object.visible && h.object.isMesh && !h.object.userData.outline);
+  const plane = dropRay.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+  return dropPoint(hit && hit.point.toArray(), plane && plane.toArray(), orbit.target.toArray());
+}
+// Duplicate puts the copy beside the original as seen from the camera (screen-right), a body-width away.
+function duplicateOffset(id) {
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).setY(0);
+  if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+  const o = world.getEntity(id)?.object3d, size = o ? new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()) : null;
+  const gap = size && isFinite(size.x) ? Math.min(Math.max(size.x, size.z) + 0.3, 20) : 1;
+  return right.normalize().multiplyScalar(Math.max(gap, 0.5)).toArray();
 }
 // Move the orbit target to the object, keeping the camera's angle and distance.
 function frame(id) {
@@ -302,7 +322,7 @@ function renderPanel() {
         } catch (err) { showErr('Send to Blender: ' + err.message); }
         setTimeout(() => (btn.innerHTML = a === 'blender' ? blenderLabel() : label), 3000);
       }
-      if (a === 'dup') { record(); const c = duplicateEntity(data, e.id); await rebuild(); select(c.id); }
+      if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await rebuild(); select(c.id); }
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }
     };
     panel.append(acts);
@@ -483,6 +503,8 @@ async function editorCommand(op, args) {
     const spawns = op === 'spawn' ? [args] : op === 'batch' ? (args.calls || []).filter(c => c?.tool === 'spawn').map(c => c.args || {}) : [];
     for (const name of new Set(spawns.map(a => a.prefab).filter(n => typeof n === 'string' && /^[a-z0-9_]+$/.test(n) && !data.prefabs?.[n])))
       try { const r = await fetch(`./prefabs/${name}.prefab.json`); if (r.ok) ctx.library[name] = await r.json(); } catch {}
+    // spawn with no position: drop it where the editor is looking (screen centre on the ground / a solid)
+    if (spawns.some(a => a.position === undefined)) { const p = viewDropPoint(); for (const a of spawns) if (a.position === undefined) a.position = p; }
     if (COMMANDS[op].mutates && playing) throw new Error('Stop play mode first (use the stop tool) — edits made while playing are thrown away.');
     const before = structuredClone(data);
     const { result, changed } = runCommand(data, op, args, ctx);
@@ -561,10 +583,9 @@ $('add').onchange = () => {
 };
 async function addFrom(kind, name) {
   if (playing) return;                                 // adding is an edit-mode thing
-  const t = orbit.target;
   record();
   if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
-  const e = addEntity(data, { [kind]: name }, [t.x, 0, t.z]);
+  const e = addEntity(data, { [kind]: name }, viewDropPoint());
   await rebuild(); select(e.id); fillAdd();
 }
 

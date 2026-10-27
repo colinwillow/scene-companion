@@ -88,7 +88,7 @@ export const COMMANDS = {
       }
       const e = addEntity(data, prefab ? { prefab } : { asset }, position);
       if (id) e.id = id;
-      return { id: e.id };
+      return { id: e.id, position: e.position };
     },
   },
   move: {

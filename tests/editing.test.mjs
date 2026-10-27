@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset } from '../runtime/editing.js';
+import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint } from '../runtime/editing.js';
 
 const scene = () => ({
   assets: { crate: {}, tree_big: {} },
@@ -44,4 +44,19 @@ test('deleteEntity and setAsset', () => {
   assert.equal(setAsset(d, 'coin_01', 'tree_big'), true);
   assert.equal(d.entities[1].asset, 'tree_big');
   assert.equal(setAsset(d, 'coin_01', 'missing'), false);
+});
+
+test('drop surfaces: ground + Solid entities only', () => {
+  assert.equal(isDropSurface('ground', { asset: 'x' }), true);
+  assert.equal(isDropSurface('floor_a', { asset: 'ground_tile' }), true);
+  assert.equal(isDropSurface('plat_01', { behaviors: [{ type: 'Bob' }, { type: 'Solid' }] }), true);
+  assert.equal(isDropSurface('coin_01', { behaviors: [{ type: 'Bob' }] }), false);
+  assert.equal(isDropSurface('crate_01', {}), false);
+});
+
+test('drop point: surface hit, else y=0 plane, else below the focus', () => {
+  assert.deepEqual(dropPoint([1.23456, 2, 3], [9, 0, 9], [0, 0, 0]), [1.235, 2, 3]);
+  assert.deepEqual(dropPoint(null, [4, 0.0001, -5], [0, 3, 0]), [4, 0, -5]);
+  assert.deepEqual(dropPoint(null, [4000, 0, 0], [1, 3, 2]), [1, 0, 2]);   // ray grazing the horizon
+  assert.deepEqual(dropPoint(null, null, [1, 3, 2]), [1, 0, 2]);           // looking up at the sky
 });

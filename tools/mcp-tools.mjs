@@ -15,7 +15,7 @@ export const TOOLS = [
     inputSchema: obj({}) },
   { name: 'select', description: 'Select an entity in the editor and frame the camera on it (null id clears).',
     inputSchema: obj({ id: { type: ['string', 'null'] } }) },
-  { name: 'spawn', description: 'Add an entity from a prefab (the scene\'s, or any in prefabs/ — it gets added to the scene) or a scene asset. Returns its new id.',
+  { name: 'spawn', description: 'Add an entity from a prefab (the scene\'s, or any in prefabs/ — it gets added to the scene) or a scene asset. No position = where the editor camera is looking (screen centre, on the ground or a Solid). Returns its new id and position.',
     inputSchema: obj({ prefab: { type: 'string' }, asset: { type: 'string' }, position: vec3('Metres, Y up'), id: { type: 'string', description: 'Optional lowercase_with_underscores id' } }) },
   { name: 'move', description: 'Set position (metres), rotation (degrees) and/or scale of an entity.',
     inputSchema: obj({ id, position: vec3('Metres'), rotation: vec3('Degrees'), scale: vec3('Scale factors') }, ['id']) },

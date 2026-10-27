@@ -70,3 +70,18 @@ export function replaceModel(data, id, glb, assetDef) {
   e.asset = { variants: { web: { ...web, glb } } };
   return true;
 }
+
+// Where "＋Add" drops things: the surfaces the screen-centre ray may land on — anything with a Solid behavior,
+// plus the ground (id or asset named ground*). resolved: the entity with its prefab merged in.
+export function isDropSurface(id, resolved) {
+  if (/^ground/.test(id) || (typeof resolved?.asset === 'string' && /^ground/.test(resolved.asset))) return true;
+  return (resolved?.behaviors || []).some(b => b.type === 'Solid');
+}
+
+// Pick the drop point: the first surface hit, else where the ray meets the y=0 plane (if it's not absurdly far),
+// else straight below the orbit focus. Points are [x, y, z]; hit/plane may be null.
+export function dropPoint(hit, plane, focus, maxDist = 500) {
+  if (hit) return hit.map(r3);
+  if (plane && Math.hypot(plane[0] - focus[0], plane[2] - focus[2]) < maxDist) return [r3(plane[0]), 0, r3(plane[2])];
+  return [r3(focus[0]), 0, r3(focus[2])];
+}

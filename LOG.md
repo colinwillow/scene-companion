@@ -38,3 +38,4 @@
 - 2026-10-27 — Blender bridge MCP tools + connected dot — send_to_blender, blender_status, ● on → Blender; 90 tests; headless ✓ (build run)
 - 2026-10-27 — Blender bridge whole-prefab send — prefab option in editor/MCP/add-on/dev server; 91 tests; headless e2e ✓ (build run)
 - 2026-10-27 — Libraries panel v0 — 📚 Characters/Props/Motions, runtime/library.js; 92 tests; headless ✓ on Tiny Hop (build run)
+- 2026-10-27 — Add at view centre — screen-centre raycast to ground/Solids for ＋Add, Library, MCP spawn; Duplicate screen-right; 94 tests; headless ✓ (build run)
