@@ -91,3 +91,15 @@ test('batch runs several edits as one all-or-nothing change; set_animation sets 
   assert.equal(fresh.settings.look, 'pbr');
   assert.throws(() => sceneFromTemplate(base, ['nope']), /no nope/);
 });
+
+test('sceneForSave drops unused prefabs; sceneFromTemplate drops the template route', async () => {
+  const { sceneForSave, sceneFromTemplate } = await import('../runtime/commands.js');
+  const scene = { prefabs: { coin: './c.json', rock: './r.json' }, entities: [{ id: 'a', prefab: 'coin' }, { id: 'b' }] };
+  const { data, dropped } = sceneForSave(scene);
+  assert.deepEqual(Object.keys(data.prefabs), ['coin']);
+  assert.deepEqual(dropped, ['rock']);
+  assert.ok(scene.prefabs.rock, 'input untouched');
+  assert.deepEqual(sceneForSave({ prefabs: { rock: 'r' }, entities: [] }).data.prefabs, {});
+  const fresh = sceneFromTemplate({ settings: { look: 'toon', route: ['x'], routeKnownIssue: 'y' }, entities: [] });
+  assert.deepEqual(fresh.settings, { look: 'toon' });
+});

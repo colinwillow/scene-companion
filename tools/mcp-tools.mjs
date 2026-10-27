@@ -39,6 +39,6 @@ export const TOOLS = [
     inputSchema: obj({ clear: { type: 'boolean' } }) },
   { name: 'new_scene', description: 'Start a new scene file scenes/<name>.scene.json from a template scene (same look, sky, assets, prefabs; keeps its lights and any `keep` ids, e.g. the ground). Then pass scene: "./scenes/<name>.scene.json" to the other tools; the game plays at play.html?scene=… .',
     inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'lowercase-with-dashes' }, from: { type: 'string', description: 'Template scene (default ./scenes/tiny-hop.scene.json)' }, keep: { type: 'array', items: { type: 'string' }, description: 'Entity ids to keep besides lights' } }, required: ['name'] } },
-  { name: 'save_scene', description: 'Write the open scene back to its file in the repo (scenes/*.scene.json). Then run npm run check and commit.',
+  { name: 'save_scene', description: 'Write the open scene back to its file in the repo (scenes/*.scene.json). Prefabs no entity uses are dropped from the file, so spawn everything you need first. Then run npm run check and commit.',
     inputSchema: obj({}) },
 ];

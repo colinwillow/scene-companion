@@ -163,12 +163,21 @@ export const COMMANDS = {
   },
 };
 
+// A copy of the scene ready to write to disk: prefabs no entity uses are dropped (the validator warns about them).
+// → { data, dropped: [prefab names] }
+export function sceneForSave(scene) {
+  const used = new Set(scene.entities.map(e => e.prefab).filter(Boolean));
+  const data = structuredClone(scene), dropped = Object.keys(data.prefabs || {}).filter(n => !used.has(n));
+  for (const n of dropped) delete data.prefabs[n];
+  return { data, dropped };
+}
+
 // A fresh scene from an existing one: same settings, assets and prefabs; keeps its lights plus any ids in `keep`.
 export function sceneFromTemplate(base, keep = []) {
   const missing = keep.filter(id => !base.entities.some(e => e.id === id));
   if (missing.length) throw new Error(`Template has no ${missing.join(', ')}`);
   return {
-    settings: structuredClone(base.settings || {}),
+    settings: (({ route, routeKnownIssue, ...rest }) => structuredClone(rest))(base.settings || {}),   // the template's route is about its entities
     assets: structuredClone(base.assets || {}),
     prefabs: structuredClone(base.prefabs || {}),
     entities: base.entities.filter(e => e.light || keep.includes(e.id)).map(e => structuredClone(e)),

@@ -16,7 +16,7 @@ import { resolve, relative, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { TOOLS } from './mcp-tools.mjs';
-import { sceneFromTemplate } from '../runtime/commands.js';
+import { sceneForSave, sceneFromTemplate } from '../runtime/commands.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEV_URL = process.env.SC_DEV_URL || `ws://localhost:${process.env.PORT || 8080}/live`;
@@ -138,8 +138,10 @@ async function callTool(name, args = {}) {
     const file = resolve(ROOT, result.url.replace(/^\.\//, ''));
     const rel = relative(ROOT, file);
     if (rel.startsWith('..') || !/^scenes\/[\w.-]+\.scene\.json$/.test(rel.split('\\').join('/'))) throw new Error(`Refusing to write outside scenes/: ${rel}`);
-    await writeFile(file, JSON.stringify(result.data, null, 2) + '\n');
-    return [{ type: 'text', text: `Saved ${rel} (${result.data.entities.length} entities). Run \`npm run check\`, then commit.` }];
+    const { data, dropped } = sceneForSave(result.data);
+    await writeFile(file, JSON.stringify(data, null, 2) + '\n');
+    const note = dropped.length ? ` Dropped unused prefabs: ${dropped.join(', ')}.` : '';
+    return [{ type: 'text', text: `Saved ${rel} (${data.entities.length} entities).${note} Run \`npm run check\`, then commit.` }];
   }
   const r = await command(name, rest, scene);
   const out = [{ type: 'text', text: JSON.stringify(r.result ?? null, null, 1) }];

@@ -124,8 +124,6 @@
     "mutant": "./prefabs/mutant.prefab.json",
     "rock_tall": "./prefabs/rock_tall.prefab.json",
     "rock_round": "./prefabs/rock_round.prefab.json",
-    "rock_long": "./prefabs/rock_long.prefab.json",
-    "stepping_stone": "./prefabs/stepping_stone.prefab.json",
     "alien_mushroom": "./prefabs/alien_mushroom.prefab.json",
     "alien_rock": "./prefabs/alien_rock.prefab.json",
     "crates": "./prefabs/crates.prefab.json",

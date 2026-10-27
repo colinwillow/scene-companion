@@ -31,3 +31,4 @@
 - 2026-10-27 — Finish-line test — Sky Steps built through MCP alone (new_scene + batch + play/screenshot/save, 10 calls, ~4 min headless); new MCP tools new_scene/set_animation/batch; headless-always dev-server fix; route bot climbed it start → summit; 85 tests (build run)
 - 2026-10-27 — Route bot — tools/route-check.mjs + npm run route, settings.route in sky-steps/tiny-hop, validator checks route ids; Sky Steps passes, Tiny Hop bot knocked off the mover by the flying guard (build run)
 - 2026-10-27 — Route bot in CI-lite — npm run check:full (check + route bot per scene, summary), settings.routeKnownIssue for Tiny Hop's guard; Sky Steps ✓, Tiny Hop ⚠; 86 tests (build run)
+- 2026-10-27 — save_scene drops unused prefabs — sceneForSave(), new_scene drops template route; Sky Steps warnings gone, route still ✓; 87 tests (build run)
