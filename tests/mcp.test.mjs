@@ -17,13 +17,14 @@ test('MCP server lists tools and drives an editor through the dev server', async
   await wait(400);
 
   // fake editor
-  const data = { settings: {}, assets: { crate: {} }, prefabs: {}, entities: [{ id: 'crate_01', asset: 'crate', position: [0, 0, 0] }] };
+  const data = { settings: {}, assets: { crate: { variants: { web: { glb: './assets/models/crate.glb' } } } }, prefabs: {}, entities: [{ id: 'crate_01', asset: 'crate', position: [0, 0, 0] }] };
   const ed = new WebSocket(`ws://localhost:${PORT}/live`);
   await new Promise(r => ed.on('open', r));
   t.after(() => ed.close());
   ed.on('message', raw => {
     const m = JSON.parse(raw.toString());
     if (m.type !== 'cmd') return;
+    if (m.op === 'get_scene') return ed.send(JSON.stringify({ type: 'cmd-result', id: m.id, ok: true, result: { url: './scenes/fake.scene.json', data } }));
     try { const { result } = runCommand(data, m.op, m.args, { schemas: { Spin: Spin.schema } }); ed.send(JSON.stringify({ type: 'cmd-result', id: m.id, ok: true, result })); }
     catch (e) { ed.send(JSON.stringify({ type: 'cmd-result', id: m.id, ok: false, error: e.message })); }
   });
@@ -61,6 +62,15 @@ test('MCP server lists tools and drives an editor through the dev server', async
   r = await call('batch', { calls: [{ tool: 'move', args: { id: 'crate_01', position: [4, 0, 0] } }, { tool: 'set_animation', args: { id: 'crate_01', clip: 'Idle' } }] });
   assert.ok(!r.isError, r.content[0].text);
   assert.equal(data.entities[0].animation, 'Idle');
+
+  r = await call('blender_status', {});
+  assert.match(r.content[0].text, /isn't connected/);
+  r = await call('send_to_blender', { id: 'crate_01' });
+  assert.ok(!r.isError, r.content[0].text);
+  assert.match(r.content[0].text, /queued/);
+  assert.deepEqual(await (await fetch(`http://localhost:${PORT}/bridge/inbox`)).json(), [{ id: 'crate_01', glb: './assets/models/crate.glb', scene: './scenes/fake.scene.json' }]);
+  r = await call('blender_status', {});
+  assert.match(r.content[0].text, /is connected/);
 
   ed.close(); await wait(100);
   r = await call('list_entities', {});

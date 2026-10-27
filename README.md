@@ -43,4 +43,4 @@ Edits go through `runtime/commands.js` (schema-checked, all-or-nothing), are und
 3. In the editor (opened from the dev server), select an object with a model › **→ Blender**. It opens in Blender in a collection `SC <id>`.
 4. Edit it, press **Send Back** next to its name. The GLB is saved as `assets/models/bridge/<id>-<n>.glb` and the object switches to it in the editor (same id, transform, behaviors; undoable) and in live games. Save the scene and commit the new GLB.
 
-Draco on Send Back is on by default. The add-on only talks HTTP to the dev server (`/bridge/send|inbox|return|status`), so it works with the editor on a phone too.
+A green ● on **→ Blender** means the add-on is connected. Claude can do the same through MCP: `blender_status`, `send_to_blender {id}`. Draco on Send Back is on by default. The add-on only talks HTTP to the dev server (`/bridge/send|inbox|return|status`), so it works with the editor on a phone too.

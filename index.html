@@ -259,6 +259,15 @@ function control(def, value, onChange) {
   return row;
 }
 
+// Blender bridge: is the add-on polling the dev server? (checked every 3 s while live) — shown as a dot on → Blender
+let blenderOn = false;
+const blenderLabel = () => `→ Blender${blenderOn ? ' <span style="color:#3c6">●</span>' : ''}`;
+setInterval(async () => {
+  if (!liveOn()) return;
+  try { const st = await (await fetch('./bridge/status')).json(), on = st.blender !== null && st.blender < 5;
+    if (on !== blenderOn) { blenderOn = on; const b = document.querySelector('button[data-a="blender"]'); if (b) b.innerHTML = blenderLabel(); }
+  } catch {}
+}, 3000);
 // The asset an entity shows: prefab merged, scene asset key looked up.
 const assetOf = ent => (typeof ent.resolved.asset === 'object' ? ent.resolved.asset : data.assets?.[ent.resolved.asset]);
 function renderPanel() {
@@ -272,16 +281,16 @@ function renderPanel() {
     const acts = document.createElement('div'); acts.className = 'acts';
     const glb = modelPath(assetOf(ent));
     acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
-      (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on); Send Back replaces it here">→ Blender</button>` : '');
+      (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it here">${blenderLabel()}</button>` : '');
     acts.onclick = async ev => {
-      const a = ev.target.dataset.a; if (!a) return;
+      const btn = ev.target.closest('button'), a = btn?.dataset.a; if (!a) return;
       if (a === 'blender') {
         try {
           const r = await (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify({ id: e.id, glb, scene: SCENE_URL }) })).json();
           if (r.error) throw new Error(r.error);
-          ev.target.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
+          btn.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
         } catch (err) { showErr('Send to Blender: ' + err.message); }
-        setTimeout(() => (ev.target.textContent = '→ Blender'), 3000);
+        setTimeout(() => (btn.innerHTML = blenderLabel()), 3000);
       }
       if (a === 'dup') { record(); const c = duplicateEntity(data, e.id); await rebuild(); select(c.id); }
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }

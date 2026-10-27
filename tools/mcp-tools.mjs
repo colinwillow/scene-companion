@@ -39,6 +39,10 @@ export const TOOLS = [
     inputSchema: obj({ clear: { type: 'boolean' } }) },
   { name: 'new_scene', description: 'Start a new scene file scenes/<name>.scene.json from a template scene (same look, sky, assets, prefabs; keeps its lights and any `keep` ids, e.g. the ground). Then pass scene: "./scenes/<name>.scene.json" to the other tools; the game plays at play.html?scene=… .',
     inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'lowercase-with-dashes' }, from: { type: 'string', description: 'Template scene (default ./scenes/tiny-hop.scene.json)' }, keep: { type: 'array', items: { type: 'string' }, description: 'Entity ids to keep besides lights' } }, required: ['name'] } },
+  { name: 'send_to_blender', description: 'Open one object\'s model in Blender (needs the Scene Companion Blender add-on started). When the user presses Send Back there, the edited GLB replaces the model on that object in the editor.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, scene: { type: 'string' } }, required: ['id'] } },
+  { name: 'blender_status', description: 'Is the Scene Companion Blender add-on connected to the dev server?',
+    inputSchema: obj({}) },
   { name: 'save_scene', description: 'Write the open scene back to its file in the repo (scenes/*.scene.json). Prefabs no entity uses are dropped from the file, so spawn everything you need first. Then run npm run check and commit.',
     inputSchema: obj({}) },
 ];

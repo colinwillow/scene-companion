@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { TOOLS } from './mcp-tools.mjs';
 import { sceneForSave, sceneFromTemplate } from '../runtime/commands.js';
+import { modelPath } from '../runtime/editing.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEV_URL = process.env.SC_DEV_URL || `ws://localhost:${process.env.PORT || 8080}/live`;
@@ -142,6 +143,22 @@ async function callTool(name, args = {}) {
     await writeFile(file, JSON.stringify(data, null, 2) + '\n');
     const note = dropped.length ? ` Dropped unused prefabs: ${dropped.join(', ')}.` : '';
     return [{ type: 'text', text: `Saved ${rel} (${data.entities.length} entities).${note} Run \`npm run check\`, then commit.` }];
+  }
+  if (name === 'blender_status' || name === 'send_to_blender') {   // Blender bridge: plain HTTP on the dev server
+    const http = DEV_URL.replace(/^ws/, 'http').replace(/\/live$/, '');
+    if (name === 'blender_status') {
+      await link();
+      const st = await (await fetch(`${http}/bridge/status`)).json();
+      const on = st.blender !== null && st.blender < 5;
+      return [{ type: 'text', text: on ? `Blender is connected (polled ${st.blender} s ago).` : `Blender isn't connected${st.blender === null ? '' : ` (last seen ${st.blender} s ago)`}. In Blender: sidebar › Scene Companion › Start (add-on: tools/blender/scene_companion_bridge.py).` }];
+    }
+    const { result: ent } = await command('get_entity', { id: rest.id }, scene);
+    const { result: sc } = await command('get_scene', {}, scene);
+    const a = ent.resolved.asset, glb = modelPath(typeof a === 'object' ? a : sc.data.assets?.[a]);
+    if (!glb) throw new Error(`${rest.id} has no GLB model to edit`);
+    const r = await (await fetch(`${http}/bridge/send`, { method: 'POST', body: JSON.stringify({ id: rest.id, glb, scene: sc.url }) })).json();
+    if (r.error) throw new Error(r.error);
+    return [{ type: 'text', text: `Sent ${rest.id} (${glb}) to Blender${r.blender ? '' : " — queued; Blender isn't connected yet (sidebar › Scene Companion › Start)"}. When Colin presses Send Back, the edited model replaces it in the editor; then save_scene and commit the new GLB in assets/models/bridge/.` }];
   }
   const r = await command(name, rest, scene);
   if (name === 'list_library' && r.result) {           // prefab files the scene doesn't list yet (spawn adds them)

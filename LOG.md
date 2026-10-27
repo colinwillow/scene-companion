@@ -35,3 +35,4 @@
 - 2026-10-27 — spawn any prefab from prefabs/ — ctx.library in commands.js, editor fetch-on-demand, list_library morePrefabs; 88 tests; headless mcp-replay ✓ (build run)
 - 2026-10-27 — Add menu lists every prefab — prefabs/index.json (validate keeps it current), More prefabs group; 88 tests; headless ✓ (build run)
 - 2026-10-27 — Blender bridge add-on v0 — add-on + dev-server /bridge routes + editor → Blender / bridge-return swap; 90 tests; e2e headless with bpy 5.0 ✓; real Blender UI untested (build run)
+- 2026-10-27 — Blender bridge MCP tools + connected dot — send_to_blender, blender_status, ● on → Blender; 90 tests; headless ✓ (build run)

@@ -53,7 +53,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 
 ## Later
 - [x] Blender bridge add-on v0 — `tools/blender/scene_companion_bridge.py` (sidebar panel: server, Start/Stop, Send Back per model, Draco toggle) polls the dev server's new `/bridge/*` routes over plain HTTP; editor inspector **→ Blender** (when live); Send Back saves `assets/models/bridge/<id>-<n>.glb` and the editor swaps that one entity to it (pure `replaceModel()`, undoable, keeps height/frontSide). Tests for routes + swap. Checked end to end headless with Blender 5.0 (bpy): kitchen-sink robot → Blender → widened → back → editor shows it, no errors. Not tried in real Blender UI
-- [ ] [IN PROGRESS 03:16 UTC] Blender bridge: MCP tool `send_to_blender` / `blender_status`, and a "Blender connected" dot in the editor
+- [x] Blender bridge: MCP tools `send_to_blender {id}` / `blender_status` (tested in mcp.test), and a green ● on the editor's → Blender button while the add-on is polling (checked headless)
 - [ ] Blender bridge: send a whole prefab (update `prefabs/<name>.prefab.json` so every instance gets the edit) as an option next to the per-object swap
 - [ ] Libraries panel (characters, motions, sounds, props)
 - [ ] Generator plug-ins (image→3D, image gen)
