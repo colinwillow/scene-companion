@@ -5,6 +5,7 @@ import { LIGHT_FIELDS } from '../runtime/editing.js';
 import { characterVariant, checkCharacter } from '../runtime/character.js';
 import { checkPack, checkScenePacks } from '../runtime/packs.js';
 import { checkMotions, entityMotions } from '../runtime/motions.js';
+import { checkRules } from '../runtime/reactions.js';
 import { allEntities, walkEntities } from '../runtime/tree.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -56,6 +57,7 @@ const typeOk = (def, v) => ({
   string: typeof v === 'string',
   color: typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v),
   vec3: Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number'),
+  rules: checkRules(v).length === 0,
 }[def.type] ?? true);
 
 let errors = 0, warnings = 0;

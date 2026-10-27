@@ -8,6 +8,8 @@ import { mergeEntity, setOverride } from './prefabs.js';
 import { libraryPacks, setInstalled } from './packs.js';
 import { allEntities, findEntity, walkEntities, reparent } from './tree.js';
 import { searchMotions, addMotion, MOTION_STEM } from './motions.js';
+import { checkRules, describeRule } from './reactions.js';
+import { setOverride as setParamOverride } from './prefabs.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
 const isVec3 = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n));
@@ -35,6 +37,7 @@ export function checkParam(schemas, type, key, value) {
     case 'string': if (typeof value !== 'string') throw new Error(`${type}.${key} must be a string`); return value;
     case 'vec3': if (!isVec3(value)) throw new Error(`${type}.${key} must be [x, y, z]`); return value.map(r3);
     case 'color': if (typeof value !== 'string' && typeof value !== 'number') throw new Error(`${type}.${key} must be a colour`); return value;
+    case 'rules': { const bad = checkRules(value); if (bad.length) throw new Error(`${type}.${key}: ${bad.join('; ')}`); return value; }
     default: return value;
   }
 }
@@ -186,6 +189,20 @@ export const COMMANDS = {
       else if (typeof clip !== 'string') throw new Error('clip must be a clip name (see get_entity / the model) or null');
       else e.animation = clip;
       return { id, animation: e.animation ?? null };
+    },
+  },
+  add_reaction: {
+    mutates: true,
+    run(data, { id, rule }, ctx) {
+      const e = need(data, id);
+      const bad = checkRules([rule]); if (bad.length) throw new Error(bad.join('; ').replace(/rule 1: /g, ''));
+      const r = resolved(e, ctx.prefabs);
+      const cur = (r.behaviors || []).find(b => b.type === 'Reactions')?.params?.rules || [];
+      if (!(e.behaviors || []).some(b => b.type === 'Reactions') && !(r.behaviors || []).some(b => b.type === 'Reactions')) (e.behaviors ||= []).push({ type: 'Reactions', params: { rules: [] } });
+      const rules = [...cur, rule];
+      setParamOverride(e, 'Reactions', 'rules', rules);
+      const own = (e.behaviors || []).find(b => b.type === 'Reactions'); if (own) (own.params ||= {}).rules = rules;
+      return { id, rules: rules.map(describeRule) };
     },
   },
   search_motions: {

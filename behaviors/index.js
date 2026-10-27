@@ -1,5 +1,6 @@
 // Every behavior is registered here. Keep behaviors free of `three` imports.
 import { registerBehavior } from '../runtime/registry.js';
+import { WHEN, compare } from '../runtime/reactions.js';
 import { Behavior } from '../runtime/Behavior.js';
 import { roleClip } from '../runtime/character.js';
 
@@ -581,6 +582,78 @@ export class Spawner extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner })) {
+// "When this happens, (if …) do that" — rules authored in the inspector, no code (runtime/reactions.js has the vocabulary).
+// Edge-triggered: `near` fires when the target arrives, not every frame it stays. World variables live in world.vars
+// (seeded from settings.variables each Play).
+export class Reactions extends Behavior {
+  static schema = { rules: { type: 'rules', default: [] } };
+  start() { this.state = []; this.heard = {}; this.subscribed ||= new Set(); this.t = 0; this.started = false; this.world.vars ||= {}; }
+  onParamChanged() { this.state = []; }
+  listen(name) {
+    if (this.subscribed.has(name)) return; this.subscribed.add(name);
+    this.world.on(name, (...args) => { (this.heard[name] ||= []).push(args); });
+  }
+  dist(targetId) {
+    const t = targetId === 'self' ? this.entity : this.world.getEntity(targetId); if (!t?.object3d) return Infinity;
+    const p = this.entity.object3d.position, q = t.object3d.position;
+    return Math.hypot(q.x - p.x, q.y - p.y, q.z - p.z);
+  }
+  triggered(rule, st, dt) {
+    const w = { ...WHEN[rule.when?.type], ...rule.when };
+    switch (w.type) {
+      case 'start': return !this.started;
+      case 'timer': st.acc = (st.acc || 0) + dt; if (st.acc >= Math.max(0.05, w.every)) { st.acc = 0; return true; } return false;
+      case 'event': this.listen(w.name); return (this.heard[w.name] || []).some(args => !w.from || args[0] === w.from);
+      case 'near': case 'bumped': case 'leave': {
+        const inside = this.dist(w.target) <= w.radius, was = st.inside ?? false; st.inside = inside;
+        return w.type === 'leave' ? (was && !inside) : (inside && !was);
+      }
+      default: return false;
+    }
+  }
+  allowed(rule, st) {
+    const c = rule.if || {};
+    if (c.once && st.done) return false;
+    if (c.cooldown > 0 && this.t - (st.last ?? -Infinity) < c.cooldown) return false;
+    if (c.var) { const v = this.world.vars[c.var] ?? 0; if (!compare(v, c.op || '>=', c.value ?? 0)) return false; }
+    if (c.chance !== undefined && c.chance < 1) { const r = this.world.rng ? this.world.rng() : Math.random(); if (r >= c.chance) return false; }
+    return true;
+  }
+  target(id) { return !id || id === 'self' ? this.entity : this.world.getEntity(id); }
+  act(a) {
+    const W = this.world, me = this.entity;
+    switch (a.type) {
+      case 'play': {
+        const clip = me.roles?.[a.clip] || a.clip;
+        const base = a.layer === 'base';   // base loops until something else plays; upper is a one-off gesture over the legs
+        if (me.anim?.clips.includes(clip)) me.anim.play(clip, { layer: base ? 'base' : 'upper', once: !base, fade: 0.2, restart: !base });
+        break;
+      }
+      case 'look': { const t = this.target(a.target); if (t && t !== me) { const p = me.object3d.position, q = t.object3d.position; me.object3d.rotation.y = Math.atan2(q.x - p.x, q.z - p.z); } break; }
+      case 'say': W.emit('say', me.id, String(a.text ?? '')); break;
+      case 'sound': W.emit('sound', String(a.name ?? ''), me.id); break;
+      case 'emit': if (a.name) W.emit(a.name, me.id); break;
+      case 'set': if (a.var) { W.vars[a.var] = a.value; W.emit('vars', a.var, a.value); } break;
+      case 'add': if (a.var) { W.vars[a.var] = (W.vars[a.var] ?? 0) + (+a.value || 0); W.emit('vars', a.var, W.vars[a.var]); } break;
+      case 'spawn': if (a.prefab && W.spawn) { const p = me.object3d.position, o = a.offset || [0, 0, 0]; W.spawn(a.prefab, { position: [p.x + o[0], p.y + o[1], p.z + o[2]] })?.catch?.(() => {}); } break;
+      case 'hide': case 'show': { const t = this.target(a.target); if (t) t.object3d.visible = a.type === 'show'; break; }
+      case 'destroy': { const t = this.target(a.target); if (t) (W.destroy ? W.destroy(t.id) : (t.object3d.visible = false)); break; }
+    }
+  }
+  update(dt) {
+    if (this.entity.dormant) return;
+    this.t += dt;
+    const rules = this.params.rules || [];
+    rules.forEach((rule, i) => {
+      const st = (this.state[i] ||= {});
+      if (!this.triggered(rule, st, dt) || !this.allowed(rule, st)) return;
+      st.done = true; st.last = this.t;
+      for (const a of rule.do || []) this.act(a);
+    });
+    this.started = true; this.heard = {};
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

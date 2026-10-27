@@ -33,6 +33,8 @@ export const TOOLS = [
     inputSchema: obj({ id, values: { type: 'object' } }, ['id', 'values']) },
   { name: 'set_animation', description: 'Set the clip an entity shows while editing (and starts with), or null to clear.',
     inputSchema: obj({ id, clip: { type: ['string', 'null'] } }, ['id', 'clip']) },
+  { name: 'add_reaction', description: 'Give an entity a "when → (if) → do" rule (adds a Reactions behavior if needed). rule = { when: { type: near|leave|bumped|event|timer|start, …fields }, if?: { once, cooldown, chance (0..1), var, op, value }, do: [{ type: play|look|say|sound|emit|set|add|spawn|hide|show|destroy, …fields }] }. Fields: near/leave/bumped {target, radius}; event {name, from}; timer {every}; play {clip (or role), layer upper|base}; look {target}; say {text}; sound {name}; emit {name}; set/add {var, value}; spawn {prefab, offset}; hide/show/destroy {target: self|id}. Example: { when: { type: "near", target: "player", radius: 3 }, if: { cooldown: 5 }, do: [{ type: "look", target: "player" }, { type: "say", text: "Hey!" }] }. Undoable.',
+    inputSchema: obj({ id, rule: { type: 'object' } }, ['id', 'rule']) },
   { name: 'search_motions', description: "Search Colin's motion library (2,288 Mixamo clips via retarget-anims) by words in name/description/tags, e.g. 'sword slash', 'idle breathing', 'jump'. Returns stems for add_motion.",
     inputSchema: obj({ query: { type: 'string' }, limit: { type: 'number' } }) },
   { name: 'add_motion', description: 'Give a Mixamo-rigged entity a clip from the motion library (by stem from search_motions): retargeted onto its model at load, kept in the scene file, and played now unless play=false. Undoable.',

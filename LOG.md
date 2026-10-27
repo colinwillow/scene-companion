@@ -70,3 +70,4 @@
 - 2026-10-27 — Animation layers + frame events — upper/base layers with masks (no averaged bones), character.json masks/events, world events from clip frames; 165 tests; play.html still loads and animates headless (live session)
 - 2026-10-27 — Footsteps from the clips — tools/footsteps.mjs measures foot plants (most-forward rule) into character.json events for Zap/skeleton/mutant; Footsteps follows them; 168 tests (live session)
 - 2026-10-27 — Melee on the upper layer — Melee behavior, right-stick flick / F, Stompable.defeat + 'struck', on Tiny Hop/kitchen-sink players; 169 tests; checked headless (live session)
+- 2026-10-27 — Reactions v0 — when/if/do rules, world variables, inspector rule editor, MCP add_reaction, speech bubbles, kitchen-sink NPC demo; 173 tests; checked headless game + editor (live session)

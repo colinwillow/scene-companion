@@ -187,6 +187,7 @@ export class World {
 
   async load(sceneData) {
     this.data = sceneData;
+    this.vars = { ...(sceneData.settings?.variables || {}) };   // Reactions' world variables, fresh each Play
     const st = sceneData.settings || {};
     this.rng = createRng(playSeed(st));
     this.scene.background = new THREE.Color(st.background || '#202833');

@@ -29,6 +29,9 @@
     },
     "controls": {
       "jumpTap": "right"
+    },
+    "variables": {
+      "coins": 0
     }
   },
   "packs": [
@@ -409,7 +412,85 @@
         60,
         0
       ],
-      "animation": "Wave"
+      "animation": "Idle",
+      "behaviors": [
+        {
+          "type": "Reactions",
+          "params": {
+            "rules": [
+              {
+                "when": {
+                  "type": "near",
+                  "target": "player",
+                  "radius": 3.5
+                },
+                "if": {
+                  "cooldown": 3
+                },
+                "do": [
+                  {
+                    "type": "look",
+                    "target": "player"
+                  },
+                  {
+                    "type": "play",
+                    "clip": "Wave",
+                    "layer": "base"
+                  },
+                  {
+                    "type": "say",
+                    "text": "Hey there!"
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "type": "leave",
+                  "target": "player",
+                  "radius": 3.5
+                },
+                "do": [
+                  {
+                    "type": "play",
+                    "clip": "Idle",
+                    "layer": "base"
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "type": "event",
+                  "name": "pickup",
+                  "from": "coin_03"
+                },
+                "if": {
+                  "once": true
+                },
+                "do": [
+                  {
+                    "type": "look",
+                    "target": "player"
+                  },
+                  {
+                    "type": "play",
+                    "clip": "ThumbsUp",
+                    "layer": "base"
+                  },
+                  {
+                    "type": "say",
+                    "text": "Ooh, shiny!"
+                  },
+                  {
+                    "type": "add",
+                    "var": "coins",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "id": "coin_03",
