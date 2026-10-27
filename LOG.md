@@ -115,3 +115,4 @@
 - 2026-10-27 — Zap DNA gun — World.wear + Disguise + Blaster.dna + dna scene; 257 tests; checked headless (live session)
 - 2026-10-27 — Collider view (▦ in play) + solidOutline; 258 tests; checked headless (live session)
 - 2026-10-27 — Kit walls — KitWalls + his generated row + kit-row scene; 259 tests; checked headless (live session)
+- 2026-10-27 — Performance part 1 — walkShape cache (6× on 2,581 solids); 260 tests (live session)

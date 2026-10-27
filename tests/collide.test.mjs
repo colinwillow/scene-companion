@@ -77,3 +77,13 @@ test('solidOutline: a box by its bounds, a turned box turned', async () => {
   const b = solidOutline(mk([2, 1, 4], [1, 0.5, 2], 0.5, true));
   assert.equal(b.kind, 'obb'); assert.equal(b.yaw, 0.5); assert.deepEqual(b.half, [1, 0.5, 2]);
 });
+
+test('walkShape is cached until the solid moves, turns or is resized', async () => {
+  const { walkShape } = await import('../runtime/collide.js');
+  const pos = { x: 0, y: 0, z: 0 }, size = [2, 1, 2];
+  const solid = { params: { size, anchor: 'bottom', shape: 'box' }, entity: { object3d: { position: pos, rotation: { x: 0, y: 0, z: 0 } } },
+    box() { return { minX: pos.x - size[0] / 2, maxX: pos.x + size[0] / 2, minY: pos.y, maxY: pos.y + size[1], minZ: pos.z - size[2] / 2, maxZ: pos.z + size[2] / 2 }; } };
+  const a = walkShape(solid); assert.equal(walkShape(solid), a, 'same shape while nothing changed');
+  pos.x = 3; const b = walkShape(solid); assert.notEqual(b, a); assert.equal(b.near(3, 0).inside, true, 'moved: a fresh one');
+  size[1] = 4; assert.equal(walkShape(solid).maxY, 4, 'resized in place: a fresh one');
+});

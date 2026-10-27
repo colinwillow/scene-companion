@@ -167,7 +167,17 @@ export function topAt(b, x, z) {
 //   edges: the top edges of a box (each [[x,y,z],[x,y,z]]) — found ledges a skater can grind (none for a ramp or a dome)
 //   sloped: walkable curve or incline — stepped up onto (STEP_UP) instead of blocking like a box's side
 //   ref: a point that moves with the solid (riding moving platforms)
+// Cached per solid until it moves, turns or is resized: walking asks for every solid's shape every frame, and a scene of
+// breakable walls has thousands (the kit row: 2,581). A moving platform still gets a fresh one each frame it moves.
 export function walkShape(solid) {
+  const o = solid.entity?.object3d, p = o?.position, r = o?.rotation, P = solid.params || {}, z = P.size || [], m = solid._ws;
+  if (m && p && m.k[0] === p.x && m.k[1] === p.y && m.k[2] === p.z && m.k[3] === r?.x && m.k[4] === r?.y && m.k[5] === r?.z && m.k[6] === z[0] && m.k[7] === z[1] && m.k[8] === z[2]
+      && m.k[9] === P.anchor && m.k[10] === P.slope && m.k[11] === P.shape && m.k[12] === P.rotated) return m.shape;
+  const shape = walkShape0(solid);
+  if (p) solid._ws = { k: [p.x, p.y, p.z, r?.x, r?.y, r?.z, z[0], z[1], z[2], P.anchor, P.slope, P.shape, P.rotated], shape };
+  return shape;
+}
+function walkShape0(solid) {
   const s = shapeOf(solid);
   if (s.kind === 'box' || s.kind === 'ramp') {
     const b = s.box, R = b.slope ? b : null;
