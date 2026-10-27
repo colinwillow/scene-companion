@@ -1150,6 +1150,47 @@ export class Disguise extends Behavior {
   destroy() { if (this.entity.worn) this.world.wear?.(this.entity.id, null); }
 }
 
+// The INTACT walls of Colin's generated kit buildings (weirdport's buildKit): a root with `cells` ([[x, y], …] 3 m cells) and
+// `heights` ({"x,y": floors}) extras is walled from those numbers — his export bakes no collider for a wall — one turned box per
+// exposed cell edge per floor, on the building's frame (a cell spans local x 3x..3x+3, z −3y−3..−3y; origin at the front-left
+// corner). A side whose wall is a chunked `wallB_*` piece is left to `Breakables` (its chunks are the collider, and they break).
+export class KitWalls extends Behavior {
+  static schema = {
+    thick: { type: 'number', default: 0.25, min: 0.02, max: 1, step: 0.01 },   // m, inside the footprint
+  };
+  start() {
+    this.solids = []; const o = this.entity.object3d; o.updateMatrixWorld?.(true);
+    const roots = []; o.traverse?.(n => { if (n.userData?.cells && n.userData?.heights) roots.push(n); });
+    for (const R of roots) {
+      let cells, H; try { cells = JSON.parse(R.userData.cells); H = JSON.parse(R.userData.heights); } catch { continue; }
+      const bay = R.userData.bay_m || 3, fl = R.userData.floor_m || 3, V = R.position.constructor, Q = R.quaternion.constructor;
+      const yaw = (q => 2 * Math.atan2(q.y, q.w))(R.getWorldQuaternion(new Q())), h = (x, y) => H[`${x},${y}`] || 0;
+      const chunked = []; R.traverse(n => { if (n.userData?.chunks) chunked.push([n.localToWorld(new V(0, 0, 0)), n.localToWorld(new V(bay / (n.getWorldScale(new V()).x || 1), 0, 0))]); });   // a wallB_ piece runs one bay along its +x
+      const T = this.params.thick;
+      for (const [x, y] of cells) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const top = h(x, y), low = h(x + dx, y + dy); if (top <= low) continue;
+        // the edge in the building's frame: two corners, and the inward normal
+        const x0 = bay * x, x1 = bay * (x + 1), z0 = -bay * y, z1 = -bay * (y + 1);
+        const [a, b] = dx === 1 ? [[x1, z0], [x1, z1]] : dx === -1 ? [[x0, z0], [x0, z1]] : dy === 1 ? [[x0, z1], [x1, z1]] : [[x0, z0], [x1, z0]];
+        for (let f = low; f < top; f++) {
+          const ca = R.localToWorld(new V(a[0], f * fl, a[1])), cb = R.localToWorld(new V(b[0], f * fl, b[1]));
+          const at = (p, q) => Math.hypot(p.x - q.x, p.z - q.z) < 0.3 && Math.abs(p.y - q.y) < 0.5;
+          if (chunked.some(([p0, p1]) => (at(p0, ca) && at(p1, cb)) || (at(p0, cb) && at(p1, ca)))) continue;   // a breakable wall is there
+          const inX = -dx * T / 2, inZ = dy * T / 2;      // half the thickness, into the cell
+          const c = R.localToWorld(new V((a[0] + b[0]) / 2 + inX, (f + 0.5) * fl, (a[1] + b[1]) / 2 + inZ));
+          const size = dx ? [T, fl, bay] : [bay, fl, T];
+          const sol = Object.create(Solid.prototype);
+          sol.world = this.world; sol.params = { size, anchor: 'center', slope: false, shape: 'box', rotated: true, layer: 'default' };
+          sol.entity = { id: `${this.entity.id}#${R.name}:${x},${y}:${dx},${dy}:${f}`, owner: this.entity.id, object3d: { position: { x: c.x, y: c.y, z: c.z }, rotation: { x: 0, y: yaw, z: 0 } } };
+          this.solids.push(sol);
+        }
+      }
+    }
+    (this.world.solids ||= []).push(...this.solids);
+  }
+  destroy() { const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); } this.solids = []; }
+}
+
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
 // catches the lip — he hangs (`hangClip`). Tap: climb up over it (`climbClip`) and stand on top. Stick pulled away: let go.
 // Every distance is a share of his height (the PlayerController's `height`), so it fits any body.
@@ -2259,6 +2300,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, Blaster, Projectile, Disguise, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Blaster, Projectile, Disguise, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

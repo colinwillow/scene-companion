@@ -1,0 +1,202 @@
+{
+  "settings": {
+    "look": "pbr",
+    "background": "#dfe6ee",
+    "fog": [
+      40,
+      140
+    ],
+    "sky": {
+      "elevation": 22,
+      "azimuth": 135,
+      "turbidity": 5,
+      "rayleigh": 1.4,
+      "exposure": 0.55,
+      "sunColor": "#ffeedd",
+      "sunIntensity": 3.2,
+      "envIntensity": 1.0
+    },
+    "fogColor": "#e6ecf2",
+    "post": {
+      "ao": true,
+      "bloom": {
+        "strength": 0.35,
+        "radius": 0.5,
+        "threshold": 0.85
+      },
+      "vignette": 0.25
+    },
+    "variables": {}
+  },
+  "assets": {
+    "floor": {
+      "variants": {
+        "web": {
+          "primitive": "plane",
+          "size": [
+            90,
+            1,
+            90
+          ],
+          "color": "#e9edf1",
+          "roughness": 0.9
+        }
+      }
+    },
+    "zap": {
+      "variants": {
+        "web": {
+          "character": "./assets/models/colin/characters/zap.character.json"
+        }
+      }
+    },
+    "blaster": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/props/blaster.glb"
+        }
+      }
+    },
+    "test_house": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/buildings/building_kit_test_visual.glb",
+          "collision": "./assets/models/colin/buildings/building_kit_test_collision.glb"
+        }
+      }
+    },
+    "kit_row": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/buildings/building_kit_generated_visual.glb",
+          "collision": "./assets/models/colin/buildings/building_kit_collision.glb"
+        }
+      }
+    }
+  },
+  "entities": [
+    {
+      "id": "sun",
+      "light": {
+        "type": "directional",
+        "intensity": 2.4
+      },
+      "position": [
+        8,
+        14,
+        6
+      ]
+    },
+    {
+      "id": "sky_fill",
+      "light": {
+        "type": "hemisphere",
+        "color": "#dfeaff",
+        "groundColor": "#8a8f99",
+        "intensity": 1.1
+      }
+    },
+    {
+      "id": "floor",
+      "asset": "floor",
+      "position": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "player",
+      "asset": "zap",
+      "position": [
+        24,
+        0,
+        -9.5
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Health",
+          "params": {
+            "max": 5
+          }
+        },
+        {
+          "type": "PlayerController",
+          "params": {
+            "speed": 6,
+            "jumpSpeed": 8
+          }
+        },
+        {
+          "type": "Animator"
+        },
+        {
+          "type": "Blaster",
+          "params": {
+            "gun": "blaster"
+          }
+        }
+      ],
+      "children": [
+        {
+          "id": "blaster",
+          "asset": "blaster",
+          "behaviors": [
+            {
+              "type": "Mount",
+              "params": {
+                "bone": "weapon_root_right",
+                "unit": 0.01321
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "test_house",
+      "asset": "test_house",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Breakables"
+        },
+        {
+          "type": "KitParts"
+        }
+      ]
+    },
+    {
+      "id": "kit_row",
+      "asset": "kit_row",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Breakables"
+        },
+        {
+          "type": "KitParts"
+        },
+        {
+          "type": "KitWalls"
+        }
+      ]
+    }
+  ],
+  "prefabs": {
+    "bolt": "./prefabs/bolt.prefab.json"
+  }
+}
