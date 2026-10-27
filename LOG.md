@@ -66,3 +66,4 @@
 - 2026-10-27 — Bake motions — tools/bake-motions.mjs (node retarget + glTF animation append), World skips baked stems, MCP search_motions/add_motion; 157 tests; checked headless: baked clip plays with no library (live session)
 - 2026-10-27 — Faster rebuilds — shared loader/caches across Worlds, dispose keeps cached resources; headless rebuild 352 s → ~130 s (live session)
 - 2026-10-27 — Drag to re-parent in List — long-press + drag onto a row / the top strip; checked headless both ways (live session)
+- 2026-10-27 — Collision queries — runtime/collide.js raycast/sweep/overlap/lineClear, Solid shape/rotated/layer, Chase sight (mutant); 162 tests (live session)
