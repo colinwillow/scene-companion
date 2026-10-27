@@ -215,7 +215,7 @@ function placeBubbles() {
   }
 }
 // ---- HUD
-const hearts = (n, max) => '❤'.repeat(n) + '♡'.repeat(Math.max(0, max - n));
+const hearts = (n, max) => max > 10 ? `❤ ${Math.ceil(n)} / ${max}` : '❤'.repeat(n) + '♡'.repeat(Math.max(0, max - n));   // a big health pool reads as a number, not a wall of hearts
 function hud() {
   const h = player.behaviors.find(b => b.constructor.name === 'Health');
   $('hearts').textContent = h ? hearts(h.current, h.params.max) : '';
