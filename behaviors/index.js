@@ -2751,6 +2751,7 @@ export class Tilemap extends Behavior {
     W.drawTiles?.(this.entity, { cells, nRows, ...opts, sheet: P.sheet, frames: P.frames });
   }
   paint(c, r, key) { this.params.rows = paintCell(this.params.rows, c, r, key); this.build(); return this.params.rows; }
+  onParamChanged(key, value) { this.params[key] = value; this.build(); }
   onMoved() { this.build(); }
   destroy() { const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); } this.solids = []; }
 }

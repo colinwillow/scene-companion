@@ -88,6 +88,12 @@
   #scatterBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
     display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid #3ddc84; border-radius:14px; padding:6px 8px; }
   #scatterBar[hidden] { display:none; }
+  #tileBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:#151a22ee; border:1px solid var(--line); border-radius:12px; padding:8px; }
+  #tileBar[hidden] { display:none; }
+  #tilePal { display:flex; gap:6px; flex-wrap:wrap; }
+  #tilePal button { width:40px; height:40px; border-radius:8px; border:2px solid var(--line); image-rendering:pixelated; font-size:18px; color:var(--text); background-color:#0e1218; }
+  #tilePal button.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
   #scatterBar select { background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px; font:inherit; max-width:150px; }
   #scatterBar small { color:var(--dim); }
   #scatterBar label { display:flex; gap:4px; align-items:center; }
@@ -138,6 +144,7 @@
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="tileBar" hidden><span id="tilePal"></span><small id="tileHint">1 finger paints · 2 fingers orbit</small><button id="tileDone">Done</button></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
   <div class="tlRow"><b id="tlWho"></b><select id="tlClip"></select><button id="tlPlay">⏸</button><button id="tlLoop" class="on" title="Loop">🔁</button>
@@ -173,6 +180,7 @@ import { findEntity, allEntities, descendantIds, reparent } from './runtime/tree
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { searchMotions, addMotion, motionsBase } from './runtime/motions.js';
 import { guessGrid, parseClipText, clipText, spriteVariant } from './runtime/sprites.js';
+import * as TILE from './runtime/tilemap.js';
 import * as RX from './runtime/reactions.js';
 import * as TL from './runtime/timeline.js';
 import { History } from './runtime/history.js';
@@ -696,6 +704,7 @@ function renderPanel() {
       const lab = document.createElement('label'); lab.textContent = key; row.prepend(lab);
       box.append(row);
     }
+    if (b.type === 'Tilemap' && !playing) { const pb = document.createElement('button'); pb.textContent = '🧱 Paint tiles'; pb.onclick = () => tilePaint(e.id); box.append(pb); }
     panel.append(box);
   });
 
@@ -791,12 +800,78 @@ const endStroke = async e => {
 renderer.domElement.addEventListener('pointerup', endStroke);
 renderer.domElement.addEventListener('pointercancel', endStroke);
 
+// ---- 🧱 tile painting: with a Tilemap's palette open, one finger paints the picked tile on the map's plane (side view: the
+// plane through the entity facing +z; top view: the top of the first layer), ✕ erases; two fingers still orbit. The live
+// Tilemap repaints as the finger moves; the rows are written to the scene once per stroke (one undo step).
+let tileOn = null, tileKey = null, tileStroke = null;
+const tilePointers = new Set();
+function tileInst() { return world.getEntity(tileOn)?.behaviors.find(b => b.constructor.name === 'Tilemap'); }
+function tilePaint(id) {
+  if (playing) return;
+  if (scatterOn) $('scatter').onclick();
+  tileOn = id; const T = tileInst(); if (!T) { tileOn = null; return; }
+  const P = T.params, [cols, rows] = P.frames || [1, 1], keys = Object.keys(P.legend || {});
+  tileKey = keys[0] ?? '#';
+  $('tilePal').innerHTML = '';
+  for (const k of [...keys, '.']) {
+    const b = document.createElement('button'), L = P.legend[k] || {};
+    b.title = k === '.' ? 'erase' : `“${k}”${L.solid === false ? ' (not solid)' : ''}`;
+    if (k === '.') b.textContent = '✕';
+    else if (L.color) b.style.backgroundColor = L.color;
+    else if (P.sheet) { const f = L.frame ?? 0; Object.assign(b.style, { backgroundImage: `url(${P.sheet})`, backgroundSize: `${cols * 100}% ${rows * 100}%`,
+      backgroundPosition: `${cols > 1 ? (f % cols) / (cols - 1) * 100 : 0}% ${rows > 1 ? Math.floor(f / cols) / (rows - 1) * 100 : 0}%` }); }
+    else b.textContent = k;
+    b.onclick = () => { tileKey = k; for (const x of $('tilePal').children) x.classList.toggle('on', x === b); };
+    if (k === tileKey) b.classList.add('on');
+    $('tilePal').append(b);
+  }
+  $('tileBar').hidden = false; openSheet(false);
+  orbit.touches.ONE = -1; orbit.mouseButtons.LEFT = -1;
+}
+function tileStop() { tileOn = null; tileStroke = null; $('tileBar').hidden = true; orbit.touches.ONE = savedNav.touch; orbit.mouseButtons.LEFT = savedNav.mouse; }
+$('tileDone').onclick = tileStop;
+window.__scTile = { tilePaint, tileStop };   // test hook (headless checks)
+function tileAt(e) {
+  const T = tileInst(); if (!T) return;
+  const P = T.params, o = T.entity.object3d.position, top = P.plane === 'top';
+  ray.setFromCamera(ndcOf(e), camera);
+  const plane = new THREE.Plane(top ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1), top ? -(o.y + P.cell) : -o.z), hit = new THREE.Vector3();
+  if (!ray.ray.intersectPlane(plane, hit)) return;
+  const { nRows } = TILE.mapSize(P.rows), at = TILE.cellAt(hit.x - o.x, hit.y - o.y, hit.z - o.z, nRows, { cell: P.cell, plane: P.plane });
+  if (!at) return;
+  const k = top ? `${at.c},${at.r}` : `${at.c},${nRows - 1 - at.r}`;   // by height from the bottom: rows added on top shift r, not that
+  if (tileStroke.done.has(k)) return; tileStroke.done.add(k);
+  T.paint(at.c, at.r, tileKey);
+  tileStroke.changed = true;
+}
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!tileOn) return;
+  tilePointers.add(e.pointerId);
+  if (tilePointers.size > 1) { tileStroke = null; return; }
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  record(); tileStroke = { id: e.pointerId, done: new Set(), changed: false };
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+  tileAt(e);
+});
+renderer.domElement.addEventListener('pointermove', e => { if (tileOn && tileStroke && e.pointerId === tileStroke.id) tileAt(e); });
+const tileEnd = async e => {
+  tilePointers.delete(e.pointerId);
+  if (!tileOn || !tileStroke || e.pointerId !== tileStroke.id) return;
+  const changed = tileStroke.changed; tileStroke = null;
+  if (!changed) return;
+  const ent = findEntity(data, tileOn)?.entity, T = tileInst();
+  if (ent && T) setOverride(ent, 'Tilemap', 'rows', [...T.params.rows]);
+  await refresh();
+};
+renderer.domElement.addEventListener('pointerup', tileEnd);
+renderer.domElement.addEventListener('pointercancel', tileEnd);
+
 // ---- tapping: select in edit mode, move the player in play mode
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 let downAt = null;
 renderer.domElement.addEventListener('pointerdown', e => (downAt = [e.clientX, e.clientY]));
 renderer.domElement.addEventListener('pointerup', e => {
-  if (scatterOn) return;
+  if (scatterOn || tileOn) return;
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8 || gizmo.dragging) return;
   ptr.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(ptr, camera);
