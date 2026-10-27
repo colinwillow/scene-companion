@@ -225,6 +225,7 @@ export class World {
     const all = [...this.entities.values()];
     all.forEach(ent => this.attachBehaviors(ent));
     this.startBehaviors(all);
+    this.fitSkinnedBounds();
     this.ready = true;   // fully built (the editor ignores Play until then)
   }
 
@@ -307,6 +308,19 @@ export class World {
     return ent;
   }
 
+  // Skinned meshes get a real bounding sphere (three skins every vertex through the bones once) with `room` × headroom for a
+  // flip or a wall run, and are culled like everything else — the loader leaves them unculled because their stored bounds are
+  // the bind pose, which for Colin's rigs (armature 0.01) is nowhere near the body.
+  fitSkinnedBounds(root = this.scene, room = 1.6) {
+    root.updateMatrixWorld(true);
+    root.traverse(o => {
+      if (!o.isSkinnedMesh || o.userData.fitBounds) return;
+      o.skeleton?.update?.(); o.computeBoundingSphere();
+      if (!(o.boundingSphere?.radius > 0)) return;
+      o.boundingSphere.radius *= room; o.userData.fitBounds = true; o.frustumCulled = true;
+    });
+  }
+
   // Instance repeated STATIC props (Play only): entities sharing one asset, with no behaviors that move or change them (only
   // Solid / Surface / CollisionMesh), no children and no animation, become one InstancedMesh per mesh of the model — eleven trees
   // are a handful of draws instead of eleven times as many. The entities stay (their colliders, picking by id); only their meshes
@@ -374,6 +388,7 @@ export class World {
     o.add(root);
     ent.roles = character?.roles ? { ...character.roles } : null;
     ent.anim = root.userData.clips?.length ? this.makeAnimator(root, root.userData.clips, ent.roles?.idle, { masks: character?.masks, events: character?.events, emit: (name, info) => this.emit(name, id, info) }) : null;
+    this.fitSkinnedBounds(root);
     this.emit('wear', id, asset); return true;
   }
 
@@ -401,6 +416,7 @@ export class World {
     const added = [...this.entities.values()].filter(x => !before.has(x.id));
     added.forEach(x => this.attachBehaviors(x));
     this.startBehaviors(added);
+    this.fitSkinnedBounds(ent.object3d);
     this.emit('spawned', ent.id);
     return ent;
   }
