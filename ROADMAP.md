@@ -119,7 +119,7 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 
 ## Stage 8 — Community library (SPEC §7e; needs accounts from tier 1)
 - [ ] Share to community toggle: upload an asset to the shared library with licence (CC0/CC-BY/paid), auto-categorized (characters, NPCs, props, weapons, buildings, VFX, animations, levels)
-- [ ] Quality gate: validator + budgets + thumbnails must pass before an asset goes public; report what to fix
+- [ ] [IN PROGRESS] Quality gate: validator + budgets + thumbnails must pass before an asset goes public; report what to fix
 - [ ] Browse: sections ranked by stars, search, creator profiles, comments, collections; install into a project in one tap
 - [ ] Bounties: post a request with a reward, creators deliver privately or publicly, payouts via a payments provider
 - [ ] Marketplace: paid asset packs + level packs next to the free library
