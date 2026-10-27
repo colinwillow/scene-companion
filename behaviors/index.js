@@ -5,6 +5,7 @@ import { Behavior } from '../runtime/Behavior.js';
 import { roleClip } from '../runtime/character.js';
 import { topAt, walkShape } from '../runtime/collide.js';
 import { placeCollider } from '../runtime/colliders.js';
+import { ik2 } from '../runtime/ik.js';
 export { topAt };
 
 // Face a heading. Writing rotation.y alone is wrong once the rotation has been through a quaternion (interpolation,
@@ -384,6 +385,40 @@ export class Vault extends Behavior {
       const pc = this.pc; pc.grounded = false; pc.sinceGround = 1; pc.vy = -2; pc.airTime = 0.2;
       pc.carry = [A.dx * P.out, A.dz * P.out];
     }
+  }
+}
+
+// Two hands on the sword (zap's katLeftGrip): after the pose, the left arm reaches (two-bone IK) so the left PALM lands on the
+// mounted prop's handle, `at` prop units from its root (zap: 8 down the katana's grip). Only in the stance clips (`clips`), on
+// the ground; it eases off for jumps, swings (an upper-layer clip), wall runs and ledges, and comes back eased.
+export class HandGrip extends Behavior {
+  static schema = {
+    prop:  { type: 'string', default: '' },                          // the mounted prop's id ('' = my first child with a Mount)
+    at:    { type: 'vec3', default: [0, -8, 0] },                     // grip point, in the prop's own units
+    palm:  { type: 'number', default: 0.75, min: 0, max: 1, step: 0.05 },   // how far from wrist to finger root the palm sits
+    clips: { type: 'string', default: 'katana_idle, katana_walk, katana_run, run_fast' },
+    side:  { type: 'string', default: 'Left' },                       // which hand: Left | Right
+    ease:  { type: 'number', default: 0.08, min: 0.01, max: 1, step: 0.01 },  // s half-life in and out
+  };
+  start() { this.w = 0; this.bones = null; }
+  lateUpdate(dt) {
+    const e = this.entity, o = e.object3d, anim = e.anim; if (!anim) return;
+    if (!this.bones) {
+      const S = this.params.side, g = n => o.getObjectByName?.(`mixamorig_${S}${n}`);
+      const hand = g('Hand');
+      this.bones = { up: g('Arm'), mid: g('ForeArm'), hand, finger: hand?.children.find(c => c.isBone && /Middle1$|Index1$/.test(c.name)) };
+    }
+    const B = this.bones; if (!B.up || !B.mid || !B.hand) return;
+    const propId = this.params.prop || (e.children || []).find(id => this.world.getEntity?.(id)?.behaviors?.some(b => b instanceof Mount));
+    const prop = propId && this.world.getEntity?.(propId); if (!prop?.object3d?.visible) return;
+    const pc = e.behaviors.find(b => b instanceof PlayerController);
+    const want = this.params.clips.split(',').map(x => x.trim()).includes(anim.current) && !anim.layer('upper') && !e.mover && (!pc || pc.grounded) && !e.defeated ? 1 : 0;
+    this.w += (want - this.w) * (1 - Math.pow(0.5, dt / this.params.ease));
+    if (this.w < 0.01) return;
+    o.updateMatrixWorld(true);
+    const V = o.position.constructor, [ax, ay, az] = this.params.at, target = prop.object3d.localToWorld(new V(ax, ay, az));
+    if (B.finger) { const w0 = B.hand.getWorldPosition(new V()), f0 = B.finger.getWorldPosition(new V()); target.sub(f0.sub(w0).multiplyScalar(this.params.palm)); }
+    ik2(B.up, B.mid, B.hand, target, this.w);
   }
 }
 
@@ -1032,6 +1067,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

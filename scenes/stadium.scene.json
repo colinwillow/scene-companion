@@ -393,6 +393,9 @@
         },
         {
           "type": "Melee"
+        },
+        {
+          "type": "HandGrip"
         }
       ],
       "children": [
@@ -938,6 +941,9 @@
             ],
             "shape": "capsule"
           }
+        },
+        {
+          "type": "HandGrip"
         }
       ],
       "children": [
