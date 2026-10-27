@@ -11,6 +11,8 @@ const files = walk('assets').filter(p => ASSET_EXT.test(p)).map(p => ({ path: p.
 const REG = 'assets/ids.json', registry = existsSync(REG) ? JSON.parse(readFileSync(REG, 'utf8')) : {};
 const { registry: next, moved, added, gone } = reconcile(registry, files, () => randomUUID().slice(0, 13));
 writeFileSync(REG, JSON.stringify(Object.fromEntries(Object.entries(next).sort((a, b) => a[1].path.localeCompare(b[1].path))), null, 1) + '\n');
+// the Library's Sounds tab reads this list (a folder can't be listed from a web page)
+writeFileSync('assets/audio/index.json', JSON.stringify(files.map(f => f.path).filter(p => /\.(mp3|ogg|wav)$/i.test(p)).map(p => './' + p).sort(), null, 1) + '\n');
 let refs = 0;
 if (Object.keys(moved).length) {
   const jsons = ['scenes', 'prefabs', 'packs', 'assets'].filter(existsSync).flatMap(d => walk(d)).filter(p => p.endsWith('.json') && !p.endsWith('ids.json'));

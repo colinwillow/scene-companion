@@ -137,7 +137,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
   <div class="tlRow"><b id="tlWho"></b><select id="tlClip"></select><button id="tlPlay">⏸</button><button id="tlLoop" class="on" title="Loop">🔁</button>
@@ -1131,6 +1131,22 @@ async function renderLib() {
     };
     ul.append(add);
     return;
+  } else if (libTab === 'sounds') {
+    // Sound files (assets/audio/index.json, written by `npm run assets`): ▶ hears it, a tap gives the selected object an
+    // AudioSource playing it (set `on` in the inspector to tie it to an event — shoot, chunk, land …).
+    let list = []; try { list = await (await fetch('./assets/audio/index.json')).json(); } catch {}
+    if (seq !== libSeq) return;
+    const ent = world.getEntity(selectedId);
+    items = filterNames(list.map(p => p.split('/').pop().replace(/\.(mp3|ogg|wav)$/i, '')), q).map(n => {
+      const path = list.find(p => p.split('/').pop().replace(/\.(mp3|ogg|wav)$/i, '') === n);
+      return { name: n, sub: path.split('/').slice(-2, -1)[0], btn: '▶', act: () => { try { new Audio(path).play(); } catch {} },
+        pick: async () => {
+          if (playing || !ent) { $('libCount').textContent = playing ? 'Stop play to add things' : 'Select an object first — the sound plays from it'; return; }
+          record(); (ent.data.behaviors ||= []).push({ type: 'AudioSource', params: { clip: path } }); await rebuild(); select(selectedId);
+          $('libCount').textContent = `${selectedId} plays ${n} — set "on" in its AudioSource to tie it to an event`;
+        } };
+    });
+    $('libCount').textContent = `${items.length} sounds — ▶ to hear, tap to put it on ${selectedId || 'the selected object'}`;
   } else if (libTab === 'motions') {
     const ent = world.getEntity(selectedId);
     if (!ent?.anim) { $('libCount').textContent = 'Select an animated object to see its motions'; ul.innerHTML = ''; return; }

@@ -1,0 +1,12 @@
+[
+ "./assets/audio/colin/blaster_sound_01.mp3",
+ "./assets/audio/colin/blaster_sound_02.mp3",
+ "./assets/audio/colin/box_break_01.mp3",
+ "./assets/audio/colin/explosion_small.mp3",
+ "./assets/audio/colin/hit_sound_01.mp3",
+ "./assets/audio/colin/metal_clang_01.mp3",
+ "./assets/audio/colin/metal_ping_01.mp3",
+ "./assets/audio/colin/powerup_01.mp3",
+ "./assets/audio/colin/swoosh_01.mp3",
+ "./assets/audio/colin/swoosh_02.mp3"
+]
