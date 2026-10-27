@@ -144,3 +144,4 @@
 - 2026-10-27 — Quality gate (local) — runtime/quality.js + npm run quality; 4 character thumbnails; 287 tests (live session)
 - 2026-10-27 — Libraries: Sounds tab (▶ preview, tap adds AudioSource); assets/audio/index.json from npm run assets (live session)
 - 2026-10-27 — Generator plug-ins part 1 — generators/*.gen.mjs registry, dev server /gen/list + POST /gen/<id> (?dry=1), OpenAI image gen saves to assets/generated/; 292 tests (live session)
+- 2026-10-27 — Generator plug-ins part 2 — Library Generate tab (search box = prompt, → 3D on pictures, tap a model to add), generators/tripo-model.gen.mjs (front view → mesh → texture → GLB); Library tabs scroll on phones; 293 tests; tab checked headless (live session)

@@ -184,5 +184,5 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Libraries: Sounds tab lists assets/audio files (from `npm run assets`) with ▶ preview; tap adds an AudioSource to the selected entity. Thumbnails already cached in thumbs/; every character has one now
 - [x] Libraries: motions from Colin's mocap library (`retarget-anims`, Mixamo names) applied to any Mixamo character — already built: Motions tab search + live retarget (d7d0a47), bake into a GLB (4bf8090), Forge round trip (d86a116)
 - [x] Generator plug-ins, part 1: a generator registry (runtime/generators.js) + dev-server `POST /gen/<id>` running image gen (OpenAI) into assets/generated/, key from env or the network proxy, `--dry` safe
-- [ ] [IN PROGRESS] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
+- [x] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)

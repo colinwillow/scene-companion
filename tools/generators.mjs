@@ -23,15 +23,15 @@ export async function runGenerator(gens, id, raw, { root, dry = false, ctx = {} 
   if (!g) return { status: 404, body: { error: `no generator '${id}'`, have: Object.keys(gens) } };
   const { ok, input, errors } = checkGenInput(g, raw);
   if (!ok) return { status: 400, body: { error: errors.join('; ') } };
-  const out = await g.run(input, { ...ctx, dry });
+  const out = await g.run(input, { root, ...ctx, dry });
   if (out?.dry) return { status: 200, body: { dry: out.dry } };
   if (!out?.bytes || !out.ext) return { status: 500, body: { error: `${id} returned nothing` } };
   const dir = join(root, 'assets/generated'); await mkdir(dir, { recursive: true });
-  const name = genFileName(input.prompt, out.ext, await readdir(dir));
+  const name = genFileName(input.prompt || String(input.image || '').split('/').pop().replace(/\.[a-z]+$/i, ''), out.ext, await readdir(dir));
   await writeFile(join(dir, name), out.bytes);
   let list = []; try { list = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8')); } catch {}
   const path = `./assets/generated/${name}`;
-  list.push({ path, kind: g.kind, generator: id, prompt: input.prompt });
+  list.push({ path, kind: g.kind, generator: id, prompt: input.prompt || input.image });
   await writeFile(join(dir, 'index.json'), JSON.stringify(list, null, 1) + '\n');
   return { status: 200, body: { path, kind: g.kind, bytes: out.bytes.length } };
 }

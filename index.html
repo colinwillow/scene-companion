@@ -60,8 +60,8 @@
   .parentRow { display:flex; gap:8px; align-items:center; margin:0 0 8px; color:var(--dim); font-size:13px; }
   .parentRow select { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
   .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
-  #lib .tabs { display:flex; gap:6px; margin-bottom:6px; }
-  #lib .tabs button { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
+  #lib .tabs { display:flex; gap:6px; margin-bottom:6px; overflow-x:auto; scrollbar-width:none; }
+  #lib .tabs button { flex:1 0 auto; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
   #lib .tabs button.on { background:var(--accent); color:#111; }
   #tree, #lib { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:38vh; display:none; flex-direction:column;
     background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; }
@@ -137,7 +137,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
   <div class="tlRow"><b id="tlWho"></b><select id="tlClip"></select><button id="tlPlay">⏸</button><button id="tlLoop" class="on" title="Loop">🔁</button>
@@ -1131,6 +1131,26 @@ async function renderLib() {
     };
     ul.append(add);
     return;
+  } else if (libTab === 'generate') {
+    // Generator plug-ins (generators/*.gen.mjs, run by the dev server with its own keys): the search box is the prompt.
+    // A picture can go on to 3D (→ 3D); a model is added at the view centre. Without `npm run dev` there is nothing to call.
+    let gl = null, made = [];
+    try { const r = await fetch('./gen/list', { cache: 'no-store' }); if (r.ok) gl = await r.json(); } catch {}
+    try { made = await (await fetch('./assets/generated/index.json', { cache: 'no-store' })).json(); } catch {}
+    if (seq !== libSeq) return;
+    items = [];
+    const to3d = gl?.generators.find(g => g.kind === 'model' && g.fields.image);
+    if (!gl) items.push({ name: 'Generators need the dev server', sub: 'run npm run dev on your computer and open the editor from it', header: true });
+    else for (const g of gl.generators.filter(g => g.fields.prompt?.required))
+      items.push({ name: `✨ ${g.label}`, sub: q ? `“${q}”` : 'type what you want in the search box, then tap here', pick: () => q && generate(g.id, { prompt: q }) });
+    if (made.length) items.push({ name: 'Made so far', header: true });
+    for (const m of made.slice().reverse()) {
+      const name = m.path.split('/').pop();
+      items.push(m.kind === 'image'
+        ? { name, sub: m.prompt, thumb: m.path, pick: () => window.open(m.path, '_blank'), ...(to3d ? { btn: '→ 3D', act: () => generate(to3d.id, { image: m.path }) } : {}) }
+        : { name, sub: `3D · ${m.prompt} — tap to add`, pick: () => addGenerated(m.path) });
+    }
+    $('libCount').textContent = genBusy ? `Generating… (${genBusy})` : gl ? `${gl.generators.length} generator(s)${gl.problems.length ? ' · skipped: ' + gl.problems.join('; ') : ''}` : '';
   } else if (libTab === 'sounds') {
     // Sound files (assets/audio/index.json, written by `npm run assets`): ▶ hears it, a tap gives the selected object an
     // AudioSource playing it (set `on` in the inspector to tie it to an event — shoot, chunk, land …).
@@ -1191,6 +1211,25 @@ async function renderLib() {
       b.onclick = ev => { ev.stopPropagation(); it.act(); }; li.append(b); }
     ul.append(li);
   }
+}
+var genBusy = '';
+async function generate(id, input) {
+  if (genBusy) return;
+  genBusy = id; renderLib();
+  try {
+    const r = await fetch(`./gen/${id}`, { method: 'POST', body: JSON.stringify(input) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) showErr(`${id}: ${j.error || r.status}`);
+  } catch (e) { showErr(`${id}: ${e.message}`); }
+  genBusy = ''; renderLib();
+}
+async function addGenerated(path) {
+  if (playing) return;
+  record();
+  const name = path.split('/').pop().replace(/\.glb$/, '');
+  data.assets = { ...data.assets, [name]: { variants: { web: { glb: path } } } };
+  const e = addEntity(data, { asset: name }, viewDropPoint());
+  await refresh(); select(e.id); fillAdd();
 }
 function closeLib() { $('lib').classList.remove('open'); $('libBtn').classList.remove('on'); }
 $('libBtn').onclick = () => {

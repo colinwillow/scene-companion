@@ -45,3 +45,29 @@ test('runGenerator: dry spends nothing, a real run saves the file and lists it',
   assert.equal((await runGenerator(gens, 'nope', {}, { root })).status, 404);
   assert.equal((await runGenerator(gens, 'openai-image', {}, { root })).status, 400);
 });
+
+test('tripo-model: uploads the picture, waits on both tasks, saves the textured GLB', async () => {
+  const { gens } = await loadGenerators(new URL('../generators', import.meta.url).pathname);
+  const root = await mkdtemp(join(tmpdir(), 'gen-'));
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  await mkdir(join(root, 'assets/generated'), { recursive: true });
+  await writeFile(join(root, 'assets/generated/barrel_1.png'), Buffer.from([1, 2, 3]));
+  const calls = [], polls = { m1: 0, t1: 0 };
+  const ok = data => ({ ok: true, json: async () => ({ code: 0, data }) });
+  const fakeFetch = async (url, opts = {}) => {
+    calls.push(`${opts.method || 'GET'} ${url.replace('https://openapi.tripo3d.ai/v3', '')}`);
+    if (url.endsWith('/files')) return ok({ file_token: 'tok' });
+    if (url.endsWith('/multiview-to-model')) { assert.equal(JSON.parse(opts.body).inputs[0].front, 'tok'); return ok({ task_id: 'm1' }); }
+    if (url.endsWith('/models/texture')) { assert.equal(JSON.parse(opts.body).input, 'm1'); return ok({ task_id: 't1' }); }
+    const t = url.match(/tasks\/(\w+)/)?.[1];
+    if (t) return ok(++polls[t] < 2 ? { status: 'running' } : { status: 'success', task_id: t, output: { model_url: 'https://cdn/x.glb' } });
+    return { ok: true, arrayBuffer: async () => new Uint8Array([103, 108, 84, 70]).buffer };
+  };
+  const dry = await runGenerator(gens, 'tripo-model', { image: './assets/generated/barrel_1.png' }, { root, dry: true });
+  assert.equal(dry.body.dry.mesh.body.face_limit, 8000);
+  const r = await runGenerator(gens, 'tripo-model', { image: './assets/generated/barrel_1.png' }, { root, ctx: { fetch: fakeFetch, env: {}, sleep: async () => {} } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.path, './assets/generated/barrel_1_1.glb');
+  assert.equal(calls.filter(c => c.includes('/tasks/')).length, 4);
+  await assert.rejects(runGenerator(gens, 'tripo-model', { image: '../secret.png' }, { root }), /inside the project/);
+});
