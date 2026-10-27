@@ -433,7 +433,11 @@ var sendSelect;
 // are undoable like any other edit, and show up on screen (and in live games) immediately.
 async function editorCommand(op, args) {
   if (COMMANDS[op]) {
-    const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs };
+    const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs, library: {} };
+    // spawning a prefab the scene doesn't list yet: fetch it from prefabs/ (commands.js adds it to the scene)
+    const spawns = op === 'spawn' ? [args] : op === 'batch' ? (args.calls || []).filter(c => c?.tool === 'spawn').map(c => c.args || {}) : [];
+    for (const name of new Set(spawns.map(a => a.prefab).filter(n => typeof n === 'string' && /^[a-z0-9_]+$/.test(n) && !data.prefabs?.[n])))
+      try { const r = await fetch(`./prefabs/${name}.prefab.json`); if (r.ok) ctx.library[name] = await r.json(); } catch {}
     if (COMMANDS[op].mutates && playing) throw new Error('Stop play mode first (use the stop tool) — edits made while playing are thrown away.');
     const before = structuredClone(data);
     const { result, changed } = runCommand(data, op, args, ctx);

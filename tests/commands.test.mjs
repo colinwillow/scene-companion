@@ -103,3 +103,21 @@ test('sceneForSave drops unused prefabs; sceneFromTemplate drops the template ro
   const fresh = sceneFromTemplate({ settings: { look: 'toon', route: ['x'], routeKnownIssue: 'y' }, entities: [] });
   assert.deepEqual(fresh.settings, { look: 'toon' });
 });
+
+test('spawn adds a prefab from prefabs/ (ctx.library) to the scene; later batch calls resolve it', async () => {
+  const { runCommand } = await import('../runtime/commands.js');
+  const data = { assets: {}, prefabs: { coin: './prefabs/coin.prefab.json' }, entities: [] };
+  const ctx = { schemas: { Spin: { speed: { type: 'number', default: 1, min: 0, max: 10 } } }, prefabs: { coin: {} },
+                library: { stone: { asset: 'x', behaviors: [{ type: 'Spin' }] } } };
+  assert.throws(() => runCommand(data, 'spawn', { prefab: 'nope' }, ctx), /in prefabs\//);
+  runCommand(data, 'batch', { calls: [
+    { tool: 'spawn', args: { prefab: 'stone', id: 'stone_01' } },
+    { tool: 'set_param', args: { id: 'stone_01', type: 'Spin', key: 'speed', value: 3 } },   // needs the prefab's Spin
+  ] }, ctx);
+  assert.equal(data.prefabs.stone, './prefabs/stone.prefab.json');
+  assert.equal(data.prefabs.coin, './prefabs/coin.prefab.json');
+  assert.equal(data.entities[0].prefab, 'stone');
+  const before = structuredClone(data);
+  assert.throws(() => runCommand(data, 'batch', { calls: [{ tool: 'spawn', args: { prefab: 'stone' } }, { tool: 'spawn', args: {} }] }, { library: {} }));
+  assert.deepEqual(data, before, 'failed batch leaves the scene untouched');
+});

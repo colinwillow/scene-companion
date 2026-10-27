@@ -72,9 +72,14 @@ export const COMMANDS = {
   },
   spawn: {
     mutates: true,
-    run(data, { prefab, asset, position = [0, 0, 0], id }) {
+    run(data, { prefab, asset, position = [0, 0, 0], id }, ctx = {}) {
       if (!prefab && !asset) throw new Error('spawn needs a prefab or an asset (see list_library)');
-      if (prefab && !data.prefabs?.[prefab]) throw new Error(`No prefab "${prefab}" in this scene. Prefabs: ${Object.keys(data.prefabs || {}).join(', ')}`);
+      if (prefab && !data.prefabs?.[prefab]) {
+        // ctx.library: prefab files from prefabs/ the host fetched ({ name: json }); spawning one adds it to the scene
+        if (!ctx.library?.[prefab]) throw new Error(`No prefab "${prefab}" in this scene or in prefabs/. Scene prefabs: ${Object.keys(data.prefabs || {}).join(', ')}`);
+        data.prefabs = { ...data.prefabs, [prefab]: `./prefabs/${prefab}.prefab.json` };
+        ctx.prefabs = { ...ctx.prefabs, [prefab]: ctx.library[prefab] };      // so later calls in a batch resolve it
+      }
       if (asset && !data.assets?.[asset]) throw new Error(`No asset "${asset}" in this scene. Assets: ${Object.keys(data.assets || {}).join(', ')}`);
       if (!isVec3(position)) throw new Error('position must be [x, y, z] in metres');
       if (id !== undefined) {

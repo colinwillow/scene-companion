@@ -8,7 +8,7 @@
 // No editor open? It opens a headless one (SC_HEADLESS=auto|off|always, needs playwright); no dev server? It starts one.
 // Env: SC_DEV_URL (default ws://localhost:8080/live), SC_TIMEOUT_MS (default 30000; adding objects rebuilds the scene, slow on old phones).
 import { WebSocket } from 'ws';
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile, readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -144,6 +144,11 @@ async function callTool(name, args = {}) {
     return [{ type: 'text', text: `Saved ${rel} (${data.entities.length} entities).${note} Run \`npm run check\`, then commit.` }];
   }
   const r = await command(name, rest, scene);
+  if (name === 'list_library' && r.result) {           // prefab files the scene doesn't list yet (spawn adds them)
+    const have = new Set(r.result.prefabs || []);
+    r.result.morePrefabs = (await readdir(join(ROOT, 'prefabs')).catch(() => [])).filter(f => f.endsWith('.prefab.json'))
+      .map(f => f.slice(0, -'.prefab.json'.length)).filter(n => !have.has(n)).sort();
+  }
   const out = [{ type: 'text', text: JSON.stringify(r.result ?? null, null, 1) }];
   if (r.image) out.push({ type: 'image', data: r.image, mimeType: r.mime || 'image/jpeg' });
   return out;
