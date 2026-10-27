@@ -230,5 +230,9 @@
  "4f08f9af-84c0": {
   "path": "assets/sprites/blob/blob.png",
   "sha": "7713575535a4758d"
+ },
+ "4cda82e5-d55d": {
+  "path": "assets/sprites/tiles/tiles.png",
+  "sha": "531c02a9d6c3af9c"
  }
 }

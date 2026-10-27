@@ -10,6 +10,7 @@ import { placeCollider } from '../runtime/colliders.js';
 import { ik2 } from '../runtime/ik.js';
 import { yawOf } from '../runtime/yaw.js';
 import { clipFrame, spriteRole } from '../runtime/sprites.js';
+import { tileCells, tileRuns, runBox, mapSize, paintCell } from '../runtime/tilemap.js';
 import { TriGrid, meshTriangles } from '../runtime/trimesh.js';
 export { yawOf };
 export { topAt };
@@ -2723,6 +2724,37 @@ export class Parallax extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, SpriteAnimator, Parallax, Trigger, Dormant, Spawner, Reactions })) {
+// A tilemap (runtime/tilemap.js): rows of text, a legend, and a tile sheet. Solid tiles become colliders, merged into one
+// box per horizontal run; the World draws the tiles (world.drawTiles). The editor paints it through paint(c, r, key).
+export class Tilemap extends Behavior {
+  static schema = {
+    rows:   { type: 'hidden', default: ['....', '####'] },     // top row first; '.' = empty
+    legend: { type: 'hidden', default: { '#': { frame: 0 } } }, // char → { frame (in the sheet) | color, solid (default true) }
+    sheet:  { type: 'string', default: '' },                     // a tile sheet PNG (empty = flat colours)
+    frames: { type: 'vec2', default: [4, 1] },                   // the sheet's [cols, rows]
+    cell:   { type: 'number', default: 1, min: 0.25, max: 8, step: 0.25 },  // metres per tile
+    depth:  { type: 'number', default: 1, min: 0.1, max: 20, step: 0.1 },   // side view: how deep the tiles are in z
+    plane:  { type: 'string', default: 'side' },                 // side | top
+  };
+  start() { this.solids = []; this.build(); }
+  build() {
+    const P = this.params, W = this.world, all = (W.solids ||= []), o = this.entity.object3d, p = o.position;
+    for (const s of this.solids) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); }
+    const cells = tileCells(P.rows, P.legend), { nRows } = mapSize(P.rows), opts = { cell: P.cell, depth: P.depth, plane: P.plane };
+    this.solids = tileRuns(cells).map((run, i) => {
+      const { c, size } = runBox(run, nRows, opts), s = Object.create(Solid.prototype);
+      s.world = W; s.params = { size, anchor: 'center', slope: false, shape: 'box', rotated: false, layer: 'default' };
+      s.entity = { id: `${this.entity.id}#${i}`, owner: this.entity.id, object3d: { position: { x: p.x + c[0], y: p.y + c[1], z: p.z + c[2] }, rotation: { x: 0, y: 0, z: 0 } } };
+      return s;
+    });
+    all.push(...this.solids);
+    W.drawTiles?.(this.entity, { cells, nRows, ...opts, sheet: P.sheet, frames: P.frames });
+  }
+  paint(c, r, key) { this.params.rows = paintCell(this.params.rows, c, r, key); this.build(); return this.params.rows; }
+  onMoved() { this.build(); }
+  destroy() { const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); } this.solids = []; }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, AudioSource, Emitter, Trail, HudLabel, HudBar, HudPrompt, Checkpoint, CameraRig, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, SpriteAnimator, Parallax, Tilemap, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

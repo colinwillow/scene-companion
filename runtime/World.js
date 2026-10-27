@@ -15,6 +15,8 @@ import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
 import { proceduralTexture } from './textures.js';
 import { frameUV, normClips } from './sprites.js';
+import { cellCentre } from './tilemap.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { characterVariant } from './character.js';
 import { childIdFor, mergeTags, matchesQuery, spawnId } from './tree.js';
 import { createTime, createRng, playSeed } from './time.js';
@@ -199,6 +201,36 @@ export class World {
     sprite.setFrame(variant.frame ?? 0);
     root.userData.sprite = sprite;
     return root;
+  }
+
+  // A Tilemap's picture: every tile a box (cell × cell × depth) whose faces show its frame of the sheet (or its colour),
+  // merged into ONE mesh under the entity, replacing the last one. Called again whenever the map is painted or moved.
+  async drawTiles(ent, { cells, nRows, cell, depth, plane, sheet, frames }) {
+    const token = (ent.tileToken = (ent.tileToken || 0) + 1);
+    let tex = null;
+    if (sheet) {
+      this.spriteTex ||= new Map();
+      if (!this.spriteTex.has(sheet)) this.spriteTex.set(sheet, new THREE.TextureLoader().loadAsync(sheet).then(t => {
+        t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; }).catch(() => null));
+      tex = await this.spriteTex.get(sheet);
+      if (token !== ent.tileToken) return;                 // painted again while the sheet loaded
+    }
+    const [cols, rows] = frames || [1, 1], col = new THREE.Color(), geos = [];
+    for (const t of cells) {
+      const g = new THREE.BoxGeometry(cell, cell, plane === 'top' ? cell : depth), uv = g.attributes.uv, f = frameUV(t.frame, cols, rows);
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, f.offset[0] + uv.getX(i) * f.repeat[0], f.offset[1] + uv.getY(i) * f.repeat[1]);
+      col.set(t.color || (tex ? '#ffffff' : '#8a7a66'));
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 3).map((_, i) => [col.r, col.g, col.b][i % 3]), 3));
+      g.translate(...cellCentre(t.c, t.r, nRows, { cell, depth, plane }));
+      geos.push(g);
+    }
+    const old = ent.object3d.getObjectByName('__tiles');
+    if (old) { old.geometry.dispose(); old.material.dispose(); ent.object3d.remove(old); }
+    if (!geos.length) return;
+    const mesh = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshStandardMaterial({ map: tex, vertexColors: true, roughness: 0.9 }));
+    geos.forEach(g => g.dispose());
+    mesh.name = '__tiles'; mesh.castShadow = mesh.receiveShadow = true; mesh.userData.entityId = ent.id;
+    ent.object3d.add(mesh);
   }
 
   buildLight(l) {

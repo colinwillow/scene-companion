@@ -2,7 +2,7 @@
 // Draws the test sprite sheet (assets/sprites/blob/blob.png): a little green alien, 32 px frames on a 4 × 2 grid —
 //   0-1 idle (a bob), 2-5 run (legs swapping, a lean), 6 jump (stretched, legs tucked), 7 fall (squashed, arms up).
 // A stand-in so 2D works before real art; node's own zlib writes the PNG.
-import { deflateSync } from 'node:zlib';
+import { encodePNG } from './png.mjs';
 import { writeFileSync } from 'node:fs';
 
 const F = 32, COLS = 4, ROWS = 2, W = F * COLS, H = F * ROWS, px = new Uint8Array(W * H * 4);
@@ -26,11 +26,6 @@ frame(0, {}); frame(1, { bob: 1, sy: 1.05 });
 frame(2, { lean: 2, legs: [-4, 3] }); frame(3, { lean: 2, bob: 1, legs: [0, 0] }); frame(4, { lean: 2, legs: [3, -4] }); frame(5, { lean: 2, bob: 1, legs: [0, 0] });
 frame(6, { bob: 3, sx: 0.85, sy: 1.15, legs: Object.assign([-1, 1], { tuck: 3 }), arms: 4 }); frame(7, { sx: 1.15, sy: 0.9, legs: [-3, 3], arms: 6 });
 
-const crcT = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
-const crc = b => { let c = 0xffffffff; for (const x of b) c = crcT[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
-const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
-const raw = Buffer.alloc((W * 4 + 1) * H); for (let y = 0; y < H; y++) Buffer.from(px.buffer, y * W * 4, W * 4).copy(raw, y * (W * 4 + 1) + 1);
-const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr.set([8, 6, 0, 0, 0], 8);
 const out = process.argv[2] || 'assets/sprites/blob/blob.png';
-writeFileSync(out, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
+writeFileSync(out, encodePNG(px, W, H));
 console.log(`wrote ${out} (${W}×${H}, ${COLS}×${ROWS} frames of ${F} px)`);

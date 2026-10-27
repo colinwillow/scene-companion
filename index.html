@@ -475,7 +475,7 @@ function control(def, value, onChange) {
   } else if (def.type === 'boolean') {
     row.innerHTML = `<input type="checkbox" ${value ? 'checked' : ''}>`;
     row.firstChild.onchange = e => onChange(e.target.checked);
-  } else if (def.type === 'vec3') {
+  } else if (def.type === 'vec3' || def.type === 'vec2') {
     value.forEach((v, i) => {
       const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = v;
       inp.onchange = () => { const nv = [...value]; nv[i] = +inp.value; value = nv; onChange(nv); };
@@ -686,6 +686,7 @@ function renderPanel() {
     if (!Cls) { box.innerHTML += `<div class="hint">unknown behavior</div>`; panel.append(box); return; }
     const params = { ...Object.fromEntries(Object.entries(Cls.schema).map(([k, d]) => [k, d.default])), ...(b.params || {}) };
     for (const [key, def] of Object.entries(Cls.schema)) {
+      if (def.type === 'hidden') continue;             // data the behavior's own tools edit (a tilemap's rows, fitted colliders)
       const row = control(def, params[key], v => {
         record(`param:${e.id}:${b.type}:${key}`);
         setOverride(e, b.type, key, v);                           // authored data (override if prefab)

@@ -149,3 +149,4 @@
 - 2026-10-27 — 2D part 2 — sprite variant (sheet, frames, clips) + SpriteAnimator, Blob Hop scene, tools/make-sprite.mjs; 299 tests; checked headless (live session)
 - 2026-10-27 — 2D part 2b — editor sprite slicer (Library 2D tab, grid preview, clip text, device PNG); assets/sprites/index.json from npm run assets; 300 tests; slice → add checked headless (live session)
 - 2026-10-27 — 2D part 3a — Parallax behavior + world.view; hills and clouds in the 2D scenes; 301 tests; checked headless (live session)
+- 2026-10-27 — 2D part 3b — Tilemap behavior (text rows, legend, sheet, merged run colliders), World.drawTiles, stand-in tile sheet, tools/png.mjs, Tile Hop scene; 304 tests; checked headless (live session)
