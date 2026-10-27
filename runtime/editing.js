@@ -97,3 +97,40 @@ export function snapXZ(p, step = GRID.move) {
   const s = v => r3(Math.round(v / step) * step);
   return [s(p[0]), r3(p[1]), s(p[2])];
 }
+
+// Light entities ({ id, light: { type, color, intensity, … }, position }). The inspector draws these fields per type.
+// Physical units (three r155+): point/spot intensity is in candela, so they need bigger numbers than the sun.
+export const LIGHT_FIELDS = {
+  directional: { color: { type: 'color', default: '#ffffff' }, intensity: { type: 'number', default: 2, min: 0, max: 8, step: 0.1 }, shadows: { type: 'boolean', default: true } },
+  hemisphere:  { color: { type: 'color', default: '#ffffff' }, groundColor: { type: 'color', default: '#444444' }, intensity: { type: 'number', default: 1, min: 0, max: 4, step: 0.05 } },
+  ambient:     { color: { type: 'color', default: '#ffffff' }, intensity: { type: 'number', default: 0.5, min: 0, max: 4, step: 0.05 } },
+  point: { color: { type: 'color', default: '#ffd9a0' }, intensity: { type: 'number', default: 20, min: 0, max: 200, step: 1 },
+           distance: { type: 'number', default: 10, min: 0, max: 60, step: 0.5 }, shadows: { type: 'boolean', default: false } },
+  spot:  { color: { type: 'color', default: '#ffffff' }, intensity: { type: 'number', default: 40, min: 0, max: 400, step: 1 },
+           distance: { type: 'number', default: 15, min: 0, max: 80, step: 0.5 }, angle: { type: 'number', default: 35, min: 5, max: 85, step: 1 },
+           penumbra: { type: 'number', default: 0.3, min: 0, max: 1, step: 0.05 }, shadows: { type: 'boolean', default: false } },
+};
+
+// Add a point / spot (or any type above) light at a position (point lights hang 2.5 m above it, spots 4 m).
+export function addLight(data, type, position = [0, 0, 0]) {
+  const fields = LIGHT_FIELDS[type];
+  if (!fields) throw new Error(`Light type must be one of ${Object.keys(LIGHT_FIELDS).join(', ')}`);
+  const lift = type === 'point' ? 2.5 : type === 'spot' ? 4 : 0;
+  const e = { id: nextId(ids(data), `${type}_light`), light: { type, ...Object.fromEntries(Object.entries(fields).map(([k, d]) => [k, d.default])) },
+    position: [position[0], position[1] + lift, position[2]].map(r3) };
+  data.entities.push(e);
+  return e;
+}
+
+// Set one light field (validated against LIGHT_FIELDS). → true if it changed
+export function setLightValue(data, id, key, value) {
+  const e = data.entities.find(x => x.id === id);
+  const def = e?.light && LIGHT_FIELDS[e.light.type]?.[key];
+  if (!def) return false;
+  if (def.type === 'number') value = Math.min(def.max, Math.max(def.min, +value));
+  if (def.type === 'boolean') value = !!value;
+  if (def.type === 'color' && !/^#[0-9a-f]{6}$/i.test(value)) return false;
+  if (e.light[key] === value) return false;
+  e.light[key] = value;
+  return true;
+}

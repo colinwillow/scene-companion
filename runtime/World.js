@@ -119,6 +119,14 @@ export class World {
       light.shadow.radius = ultra ? 4 : 2;
       this.scene.add(light.target);
       this.shadowLights = [...(this.shadowLights || []), light];
+      if (l.shadows === false) light.castShadow = false;
+    } else if (l.type === 'point' || l.type === 'spot') {
+      // Lamps, torches, spotlights. Shadows are off unless asked for (each one costs a shadow pass on a phone).
+      light = l.type === 'point'
+        ? new THREE.PointLight(l.color || '#ffd9a0', l.intensity ?? 20, l.distance ?? 10, 2)
+        : new THREE.SpotLight(l.color || '#ffffff', l.intensity ?? 40, l.distance ?? 15, THREE.MathUtils.degToRad(l.angle ?? 35), l.penumbra ?? 0.3, 2);
+      if (light.isSpotLight) { light.add(light.target); light.target.position.set(0, -1, 0); }   // aims down; rotate the entity to aim
+      if (l.shadows) { light.castShadow = true; light.shadow.mapSize.set(512, 512); light.shadow.bias = -0.0005; }
     } else if (l.type === 'hemisphere') {
       light = new THREE.HemisphereLight(l.color || '#ffffff', l.groundColor || '#444444', l.intensity ?? 1);
     } else {

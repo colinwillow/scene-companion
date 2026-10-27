@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ } from '../runtime/editing.js';
+import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround, snapXZ, addLight, setLightValue, LIGHT_FIELDS } from '../runtime/editing.js';
 
 const scene = () => ({
   assets: { crate: {}, tree_big: {} },
@@ -71,4 +71,19 @@ test('ground taps count as empty', () => {
 test('grid snap rounds x/z to 0.5 m, keeps the surface height', () => {
   assert.deepEqual(snapXZ([1.26, 2.37, -0.74]), [1.5, 2.37, -0.5]);
   assert.deepEqual(snapXZ([0.2, 0, 0.3], 1), [0, 0, 0]);
+});
+
+test('lights: add point/spot with defaults, lifted; set values clamped and validated', () => {
+  const d = scene();
+  const pt = addLight(d, 'point', [1, 0, 2]);
+  assert.equal(pt.id, 'point_light_01'); assert.deepEqual(pt.position, [1, 2.5, 2]);
+  assert.equal(pt.light.intensity, LIGHT_FIELDS.point.intensity.default);
+  const sp = addLight(d, 'spot', [0, 0, 0]);
+  assert.equal(sp.position[1], 4); assert.equal(sp.light.angle, 35);
+  assert.throws(() => addLight(d, 'laser'));
+  assert.equal(setLightValue(d, 'point_light_01', 'intensity', 9999), true);
+  assert.equal(pt.light.intensity, 200);
+  assert.equal(setLightValue(d, 'point_light_01', 'color', 'red'), false);
+  assert.equal(setLightValue(d, 'point_light_01', 'angle', 20), false, 'points have no angle');
+  assert.equal(setLightValue(d, 'crate_01', 'intensity', 1), false);
 });

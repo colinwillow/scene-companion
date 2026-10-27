@@ -114,7 +114,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS } from './runtime/editing.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -196,6 +196,14 @@ async function rebuild() {
   world.scene.add(gizmo.getHelper());
   gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]);
   applySnap();
+  // Lights are invisible: give point / spot lights a small glowing marker so they can be tapped and dragged.
+  for (const ent of world.entities.values()) {
+    const t = ent.data.light?.type;
+    if (!['point', 'spot'].includes(t)) continue;           // the sun follows the camera focus (shadows), so it isn't draggable
+    const m = new THREE.Mesh(t === 'spot' ? new THREE.ConeGeometry(0.22, 0.4, 12).translate(0, -0.1, 0) : new THREE.SphereGeometry(0.2, 12, 8),
+      new THREE.MeshBasicMaterial({ color: ent.data.light.color || '#ffffff', toneMapped: false, fog: false }));
+    m.castShadow = false; ent.object3d.add(m); ent.object3d.userData.marker = m;   // sc:overlay (editor only)
+  }
   selBox = new THREE.BoxHelper(undefined, 0xff8a3d); selBox.raycast = () => {}; selBox.visible = false;   // sc:overlay
   selBox.material.depthTest = false; selBox.renderOrder = 999;
   world.scene.add(selBox);
@@ -220,7 +228,7 @@ function select(id) {
   if (!id && !wideNow()) openSheet(false);         // deselecting gives the view back on phones
   updateChip();
   const ent = world.getEntity(id);
-  if (ent && !ent.data.light && !playing) gizmo?.attach(ent.object3d); else gizmo?.detach();   // gizmo is made at the end of the first rebuild
+  if (ent && (!ent.data.light || ent.object3d.userData.marker) && !playing) gizmo?.attach(ent.object3d); else gizmo?.detach();   // gizmo is made at the end of the first rebuild
   renderPanel();
   renderTree();
   if (libTab === 'motions') renderLib();
@@ -378,6 +386,26 @@ function renderPanel() {
   pos.innerHTML = `<label>position</label>`;
   pos.append(...control({ type: 'vec3' }, e.position || [0, 0, 0], v => { record(`pos:${e.id}`); e.position = v; ent.object3d.position.fromArray(v); }).children);
   panel.append(pos);
+
+  if (e.light && LIGHT_FIELDS[e.light.type]) {
+    const box = document.createElement('div'); box.className = 'beh';
+    box.innerHTML = `<b>☀ ${e.light.type} light</b>`;
+    for (const [key, def] of Object.entries(LIGHT_FIELDS[e.light.type])) {
+      const row = control(def, e.light[key] ?? def.default, async v => {
+        record(`light:${e.id}:${key}`);                                       // one undo step per slider drag
+        if (!setLightValue(data, e.id, key, v)) return;
+        const L = ent.object3d, val = e.light[key];
+        if (key === 'shadows') { await rebuild(); select(e.id); return; }     // shadow maps are set up at build
+        if (key === 'color') { L.color.set(val); L.userData.marker?.material.color.set(val); }
+        else if (key === 'groundColor') L.groundColor.set(val);
+        else if (key === 'angle') L.angle = THREE.MathUtils.degToRad(val);
+        else L[key] = val;                                                     // intensity, distance, penumbra
+      });
+      const lab = document.createElement('label'); lab.textContent = key; row.prepend(lab);
+      box.append(row);
+    }
+    panel.append(box);
+  }
 
   if (ent.anim) {
     const row = document.createElement('div'); row.className = 'row';
@@ -616,7 +644,8 @@ function fillAdd() {
   $('add').innerHTML = `<option value="">＋ Add</option>` +
     (pf.length ? `<optgroup label="Prefabs">${pf.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
     (more.length ? `<optgroup label="More prefabs">${more.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
-    (as.length ? `<optgroup label="Models">${as.map(n => `<option value="asset:${n}">${n}</option>`).join('')}</optgroup>` : '');
+    (as.length ? `<optgroup label="Models">${as.map(n => `<option value="asset:${n}">${n}</option>`).join('')}</optgroup>` : '') +
+    `<optgroup label="Lights"><option value="light:point">💡 point light</option><option value="light:spot">🔦 spot light</option></optgroup>`;
 }
 fillAdd();
 $('add').onchange = () => {
@@ -627,7 +656,7 @@ async function addFrom(kind, name) {
   if (playing) return;                                 // adding is an edit-mode thing
   record();
   if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
-  const e = addEntity(data, { [kind]: name }, viewDropPoint());
+  const e = kind === 'light' ? addLight(data, name, viewDropPoint()) : addEntity(data, { [kind]: name }, viewDropPoint());
   await rebuild(); select(e.id); fillAdd();
 }
 
@@ -707,7 +736,7 @@ renderer.setAnimationLoop(() => {
   world.followFocus(orbit.target);
   if (playing) world.update(dt);
   const selObj = !playing && world.getEntity(selectedId)?.object3d;   // highlight what's selected
-  if (selBox) { selBox.visible = !!selObj && !selObj.isLight; if (selBox.visible) selBox.setFromObject(selObj); }
+  if (selBox) { selBox.visible = !!selObj && (!selObj.isLight || !!selObj.userData.marker); if (selBox.visible) selBox.setFromObject(selObj); }
   orbit.update();
   if (post) post.render(); else renderer.render(world.scene, camera);
 });

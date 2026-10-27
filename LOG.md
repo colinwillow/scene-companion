@@ -44,3 +44,4 @@
 - 2026-10-27 — Double jump — PlayerController airJumps, Animator doubleJumpClip, Sky Steps front_flip on the 2nd jump; 101 tests; headless ✓; route ✓ (build run)
 - 2026-10-27 — Level-building kit v1 — 8 kit_* prefabs (pivot bottom + Solid), ▦ Snap in the editor, kit course in kitchen-sink, chip width fix; 102 tests; headless ✓; ramps → new item (build run)
 - 2026-10-27 — Art direction 1/3: Trigger + Dormant — trigger_zone prefab, primitive opacity, kitchen-sink ambush; 104 tests; headless ✓ (build run)
+- 2026-10-27 — Art direction 2/3: editable lights — point/spot lights, editor markers + Add › Lights + inspector fields; 105 tests; headless ✓ (build run)
