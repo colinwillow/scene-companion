@@ -78,3 +78,4 @@
 - 2026-10-27 — Timeline edits — trim/rate/mask clip variants + frame events saved on the object, MCP add_clip_variant/add_frame_event, per-object rebuild for clip/event/motion changes; 180 tests; checked headless (live session)
 - 2026-10-27 — Forge round trip — /forge/ served from zap, → Forge / ⇦ From Forge in the inspector via the bridge return; checked headless (live session)
 - 2026-10-27 — Goblin samurai step 1 — docs/goblin-extraction.md maps zap's goblin systems (wall run, high bar, katana, springs) to behaviors + engine gaps (live session)
+- 2026-10-27 — Rebuild-free, the rest — lights + look switch in place, Play/Stop via World.reset (no model rebuild); 181 tests; checked headless (live session)

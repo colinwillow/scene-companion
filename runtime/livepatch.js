@@ -7,14 +7,17 @@ import { allEntities, walkEntities } from './tree.js';
 
 const DEG = Math.PI / 180;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// Settings other than the look (the look switches in place through world.setLook).
+const sameSettings = (world, a, b) => same({ ...a, look: 0 }, { ...b, look: 0 }) && (a?.look === b?.look || !!world.setLook);
+const syncLook = (world, prev, next) => { if (prev.settings?.look !== next.settings?.look && world.setLook) { world.setLook(next.settings?.look || 'toon'); return true; } return false; };
 
 export function applyScene(world, prev, next) {
   if (!prev) return 'rebuild';
   // Ids with their parent, so moving an entity under another parent also rebuilds.
   const ids = d => { const out = []; walkEntities(d.entities, (e, { parent }) => { out.push(`${parent?.id ?? ''}/${e.id}`); }); return out.sort(); };
-  if (!same(ids(prev), ids(next)) || !same(prev.assets, next.assets) || !same(prev.prefabs, next.prefabs) || !same(prev.settings, next.settings))
+  if (!same(ids(prev), ids(next)) || !same(prev.assets, next.assets) || !same(prev.prefabs, next.prefabs) || !sameSettings(world, prev.settings, next.settings))
     return 'rebuild';
-  let changed = false;
+  let changed = syncLook(world, prev, next);
   const strip = e => { const { children, ...rest } = e; return rest; };   // a child's edit is patched on the child itself
   const before = new Map(allEntities(prev).map(e => [e.id, strip(e)]));
   for (const full of allEntities(next)) {
@@ -48,7 +51,7 @@ export function applyScene(world, prev, next) {
 // The editor's version: also handles objects ADDED or REMOVED (duplicate, delete, add, undo/redo of those) in place —
 // destroy the removed, build only the new (world.add), then patch the rest — instead of rebuilding the whole World,
 // which re-builds every model, look and shadow. Falls back to 'rebuild' for anything else structural (re-parenting,
-// assets/settings changes, lights coming or going, prefab files changing). Async because building a model is.
+// assets/settings changes other than the look, the sun coming or going, prefab files changing). Async because building a model is.
 export async function patchScene(world, prev, next) {
   if (!prev || !world.add) return 'rebuild';
   const withParent = d => { const m = new Map(); walkEntities(d.entities, (e, { parent }) => m.set(e.id, { e, parent: parent?.id ?? null })); return m; };
@@ -61,10 +64,12 @@ export async function patchScene(world, prev, next) {
   const removed = [...P.keys()].filter(id => !N.has(id) || redoAll.has(id)), added = [...N.keys()].filter(id => !P.has(id) || redoAll.has(id));
   const moved = [...N.keys()].filter(id => P.has(id) && !redoAll.has(id) && P.get(id).parent !== N.get(id).parent);
   if (!removed.length && !added.length && !moved.length) return applyScene(world, prev, next);
-  if (!same(prev.assets, next.assets) || !same(prev.settings, next.settings)) return 'rebuild';
+  if (!same(prev.assets, next.assets) || !sameSettings(world, prev.settings, next.settings)) return 'rebuild';
   const prefabsOk = Object.entries(prev.prefabs || {}).every(([k, v]) => same(next.prefabs?.[k], v));     // only new prefabs listed
   if (!prefabsOk) return 'rebuild';
-  if ([...removed.map(id => P.get(id).e), ...added.map(id => N.get(id).e)].some(e => e.light)) return 'rebuild';   // the editor draws light markers at build
+  // Lights come and go in place too (the editor adds markers after a patch), except the sun: it drives the shadow box.
+  if ([...removed.map(id => P.get(id).e), ...added.map(id => N.get(id).e)].some(e => e.light && !['point', 'spot', 'hemisphere', 'ambient'].includes(e.light.type))) return 'rebuild';
+  syncLook(world, prev, next);
   world.data = next;
   for (const [k, url] of Object.entries(next.prefabs || {})) if (!prev.prefabs?.[k] && typeof url === 'object') (world.prefabs ||= {})[k] = url;
   // remove roots of removed subtrees (children go with them)

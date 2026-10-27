@@ -249,23 +249,29 @@ async function rebuild() {
   if (coarse) gizmo.setSize(1.6);                 // fatter handles for fingers
   gizmo.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; if (e.value) record(); });
   gizmo.addEventListener('objectChange', syncTransformToData);
+  gizmo.getHelper().userData.noLook = true;   // a look switch must not repaint the gizmo
   world.scene.add(gizmo.getHelper());
   gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]);
   applySnap();
-  // Lights are invisible: give point / spot lights a small glowing marker so they can be tapped and dragged.
-  for (const ent of world.entities.values()) {
-    const t = ent.data.light?.type;
-    if (!['point', 'spot'].includes(t)) continue;           // the sun follows the camera focus (shadows), so it isn't draggable
-    const m = new THREE.Mesh(   // sc:overlay (editor-only light marker)
-      t === 'spot' ? new THREE.ConeGeometry(0.22, 0.4, 12).translate(0, -0.1, 0) : new THREE.SphereGeometry(0.2, 12, 8),
-      new THREE.MeshBasicMaterial({ color: ent.data.light.color || '#ffffff', toneMapped: false, fog: false }));
-    m.castShadow = false; ent.object3d.add(m); ent.object3d.userData.marker = m;   // sc:overlay (editor only)
-  }
+  addLightMarkers();
   selBox = new THREE.BoxHelper(undefined, 0xff8a3d); selBox.raycast = () => {}; selBox.visible = false;   // sc:overlay
   selBox.material.depthTest = false; selBox.renderOrder = 999;
   world.scene.add(selBox);
   if (selectedId && !playing) select(selectedId);
   renderTree();
+}
+
+// Lights are invisible: give point / spot lights a small glowing marker so they can be tapped and dragged. Safe to call
+// again after an in-place patch (only lights without one get one).
+function addLightMarkers() {
+  for (const ent of world.entities.values()) {
+    const t = ent.data.light?.type;
+    if (!['point', 'spot'].includes(t) || ent.object3d.userData.marker) continue;   // the sun follows the camera focus (shadows), so it isn't draggable
+    const m = new THREE.Mesh(   // sc:overlay (editor-only light marker)
+      t === 'spot' ? new THREE.ConeGeometry(0.22, 0.4, 12).translate(0, -0.1, 0) : new THREE.SphereGeometry(0.2, 12, 8),
+      new THREE.MeshBasicMaterial({ color: ent.data.light.color || '#ffffff', toneMapped: false, fog: false }));
+    m.castShadow = false; m.userData.noLook = true; ent.object3d.add(m); ent.object3d.userData.marker = m;   // sc:overlay (editor only)
+  }
 }
 
 // ---- editor: write gizmo changes back into scene data
@@ -771,6 +777,11 @@ const entityIdOf = o => { while (o) { if (o.userData.entityId) return o.userData
 
 // ---- toolbar
 $('play').onclick = async () => {
+  if (!world?.ready || $('play').dataset.busy) return;   // still loading, or a Play/Stop is under way
+  $('play').dataset.busy = '1';
+  try { await playToggle(); } finally { delete $('play').dataset.busy; }
+};
+async function playToggle() {
   if (scatterOn) $('scatter').onclick();                // the brush is an edit-mode tool
   playing = !playing;
   $('play').textContent = playing ? '■ Stop' : '▶ Play';
@@ -778,12 +789,14 @@ $('play').onclick = async () => {
   $('add').disabled = playing;
   $('undo').disabled = playing || !hist.canUndo; $('redo').disabled = playing || !hist.canRedo;
   score = 0; $('score').textContent = '★ 0';
-  await rebuild();                       // Play and Stop both rebuild from authored data
+  // Play and Stop rewind the loaded world to the authored data (models kept); a full rebuild only if that fails.
+  try { gizmo?.detach(); await world.reset(data); addLightMarkers(); select(selectedId && world.getEntity(selectedId) ? selectedId : null); }
+  catch (err) { console.warn('reset failed, rebuilding', err); await rebuild(); }
   renderPanel();
-};
+}
 let modeIdx = 0;
 $('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; $('mode').textContent = ['Move', 'Rotate', 'Scale'][modeIdx]; gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
-$('look').onchange = async () => { record(); data.settings.look = $('look').value; await rebuild(); };
+$('look').onchange = async () => { record(); data.settings.look = $('look').value; world.setLook(data.settings.look); world.data = data; };
 $('tier').onchange = rebuild;
 // ---- save to GitHub (fine-grained token with Contents read/write, kept on this device only)
 function ghSettings(reset) {
@@ -934,6 +947,7 @@ async function refresh(before = lastBefore) {
   const r = await patchScene(world, before, data).catch(() => 'rebuild');
   if (r === 'rebuild') return rebuild();
   world.data = data; window.__sc.data = data;
+  addLightMarkers();
   if (selectedId && !world.getEntity(selectedId)) selectedId = null;
   renderTree();
 }

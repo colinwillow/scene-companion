@@ -78,7 +78,9 @@ export class World {
   lineClear(a, b, opts) { return lineClear(this.solids || [], a, b, opts); }
 
   // ---- events (score, etc.)
-  on(name, fn) { (this.listeners[name] ||= []).push(fn); }
+  // Listeners a behavior adds (in start) are remembered, so reset() can drop them and keep the page's own.
+  on(name, fn) { (this.listeners[name] ||= []).push(fn); if (this.starting) (this.owned ||= new Set()).add(fn); }
+  startBehaviors(ents) { this.starting = true; try { ents.forEach(ent => ent.behaviors.forEach(b => b.start())); } finally { this.starting = false; } }
   emit(name, ...args) { (this.listeners[name] || []).forEach(fn => fn(...args)); }
 
   getEntity(id) { return this.entities.get(id); }
@@ -208,7 +210,8 @@ export class World {
     // Behaviors attach after every object exists, so they can find each other.
     const all = [...this.entities.values()];
     all.forEach(ent => this.attachBehaviors(ent));
-    all.forEach(ent => ent.behaviors.forEach(b => b.start()));
+    this.startBehaviors(all);
+    this.ready = true;   // fully built (the editor ignores Play until then)
   }
 
   attachBehaviors(ent) {
@@ -285,7 +288,7 @@ export class World {
     applyLookTo(ent.object3d, this.look || 'toon');
     const added = [...this.entities.values()].filter(x => !before.has(x.id));
     added.forEach(x => this.attachBehaviors(x));
-    added.forEach(x => x.behaviors.forEach(b => b.start()));
+    this.startBehaviors(added);
     this.emit('spawned', ent.id);
     return ent;
   }
@@ -299,9 +302,10 @@ export class World {
     const before = new Set(this.entities.keys());
     const ent = await this.buildEntity(authored, parentEnt);
     applyLookTo(ent.object3d, this.look || 'toon');
+    if (this.look === 'baked') ent.object3d.traverse(o => { if (o.isLight) o.visible = false; });   // baked draws unlit
     const added = [...this.entities.values()].filter(x => !before.has(x.id));
     added.forEach(x => this.attachBehaviors(x));
-    added.forEach(x => x.behaviors.forEach(b => b.start()));
+    this.startBehaviors(added);
     return ent;
   }
 
@@ -313,12 +317,62 @@ export class World {
     ent.destroyed = true;
     ent.behaviors.forEach(b => b.destroy());
     ent.object3d.removeFromParent();
-    if (ent.anim?.mixer) this.mixers = this.mixers.filter(m => m !== ent.anim.mixer);
+    if (ent.anim?.mixer) { this.mixers = this.mixers.filter(m => m !== ent.anim.mixer); this.animators = (this.animators || []).filter(a => a !== ent.anim); }
     const parent = ent.parent && this.entities.get(ent.parent);
     if (parent) parent.children = parent.children.filter(c => c !== id);
     this.entities.delete(id);
     this.emit('destroyed', id);
     return true;
+  }
+
+  // Switch the look (toon / baked / pbr) in place: materials are re-made from each model's own, outlines come and go.
+  setLook(look) { this.look = look; if (this.data?.settings) this.data.settings.look = look; applyLook(this, look); }
+
+  // Back to the authored scene WITHOUT rebuilding models — the editor's Play / Stop. Behaviors are torn down and made
+  // fresh, spawned objects go, destroyed authored ones come back, every transform / visibility / animation / variable /
+  // clock / seed returns to what the scene file says. Models, looks and shaders are kept, which is the slow part.
+  async reset(sceneData = this.data) {
+    this.data = sceneData;
+    const st = sceneData.settings || {};
+    for (const [name, list] of Object.entries(this.listeners)) this.listeners[name] = list.filter(fn => !this.owned?.has(fn));
+    this.owned = new Set();
+    for (const ent of this.entities.values()) { ent.behaviors.forEach(b => b.destroy()); ent.behaviors = []; }
+    for (const ent of [...this.entities.values()]) if (ent.spawned && this.entities.has(ent.id)) this.destroy(ent.id);
+    // authored objects a behavior destroyed (or that are missing): build them again (roots of missing subtrees only)
+    const missing = [];
+    const authoredById = new Map();
+    const walk = (list, parent) => list.forEach(e => {
+      authoredById.set(e.id, e);
+      if (!this.entities.has(e.id)) missing.push({ e, parent }); else walk(e.children || [], e.id);
+    });
+    walk(sceneData.entities, null);
+    for (const { e, parent } of missing) {
+      const ent = await this.buildEntity(e, parent ? this.entities.get(parent) : null);
+      applyLookTo(ent.object3d, this.look || 'toon');
+    }
+    const KEEP = new Set(['id', 'object3d', 'data', 'resolved', 'behaviors', 'children', 'parent', 'depth', 'tags', 'prefab', 'spawned', 'inherited', 'roles', 'anim']);
+    for (const ent of this.entities.values()) {
+      for (const k of Object.keys(ent)) if (!KEEP.has(k)) delete ent[k];   // defeated, dormant, hp… set by behaviors
+      const a = !ent.inherited && authoredById.get(ent.id);   // the latest authored data (edits since the build)
+      if (a) { ent.data = a; ent.resolved = a.prefab ? mergeEntity(this.prefabs[a.prefab], a) : a; }
+      const o = ent.object3d, e = ent.resolved;
+      o.position.fromArray(e.position || [0, 0, 0]);
+      o.rotation.set(...(e.rotation || [0, 0, 0]).map(d => THREE.MathUtils.degToRad(d)));
+      o.scale.fromArray(e.scale || [1, 1, 1]);
+      o.visible = true;
+      if (ent.anim) {
+        ent.anim.stop('upper', { fade: 0 });
+        ent.anim.mixer.stopAllAction();
+        ent.anim.play(ent.anim.startClip, { fade: 0, restart: true });
+      }
+    }
+    this.vars = { ...(st.variables || {}) };
+    this.rng = createRng(playSeed(st));
+    this.time = createTime(); this.t = 0; this.spawnSeq = {};
+    this.input = { move: [0, 0], jump: false };
+    const all = [...this.entities.values()];
+    all.forEach(ent => this.attachBehaviors(ent));
+    this.startBehaviors(all);
   }
 
   // Entities matching a tag ('enemy'), a query ({ tag, prefab, id, near: [x,y,z], radius }) or a function.
@@ -454,7 +508,8 @@ export class World {
         }
       },
     };
-    anim.play(startClip || (anim.clips.includes('Idle') ? 'Idle' : anim.clips[0]), { fade: 0 });
+    anim.startClip = startClip && anim.clips.includes(startClip) ? startClip : (anim.clips.includes('Idle') ? 'Idle' : anim.clips[0]);
+    anim.play(anim.startClip, { fade: 0 });
     (this.animators ||= []).push(anim);
     return anim;
   }

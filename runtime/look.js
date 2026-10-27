@@ -66,19 +66,31 @@ function addOutline(mesh) {
   mesh.userData.outline = hull;
 }
 
+// Every converted material remembers the one it was made from (`lookSource`), so a later look switch starts from the
+// model's own material rather than from a toon copy of it.
 function convert(mat, look) {
-  const base = { color: mat.color?.clone(), map: mat.map || null, transparent: mat.transparent, opacity: mat.opacity, depthWrite: mat.depthWrite };
-  if (look === 'toon') return toonMaterial(base);
-  if (look === 'baked') return new THREE.MeshBasicMaterial(base);
-  return mat; // pbr keeps the standard material
+  const src = mat.userData?.lookSource || mat;
+  if (look === 'pbr') return src; // pbr keeps the standard material
+  const base = { color: src.color?.clone(), map: src.map || null, transparent: src.transparent, opacity: src.opacity, depthWrite: src.depthWrite };
+  const out = look === 'toon' ? toonMaterial(base) : new THREE.MeshBasicMaterial(base);
+  out.userData.lookSource = src;
+  return out;
+}
+// Meshes a look applies to: skips the sky, outline hulls and anything marked `userData.noLook` (editor overlays, gizmo).
+function lookMeshes(root) {
+  const out = [];
+  const walk = o => { if (o.userData?.noLook || o.name === '__sky' || o.name === '__outline') return; if (o.isMesh) out.push(o); o.children.forEach(walk); };
+  walk(root);
+  return out;
 }
 
 // Convert the materials under one object (the whole scene on load; a spawned entity later).
 export function applyLookTo(root, look) {
-  const meshes = [];
-  root.traverse(o => { if (o.isMesh && o.name !== '__sky' && o.name !== '__outline') meshes.push(o); });
-  for (const o of meshes) {
+  for (const o of lookMeshes(root)) {
+    const was = [].concat(o.material);
     o.material = Array.isArray(o.material) ? o.material.map(m => convert(m, look)) : convert(o.material, look);
+    for (const m of was) if (m.userData?.lookSource && !m.userData.shared && ![].concat(o.material).includes(m)) m.dispose();   // a toon/baked copy we made
+    if (look !== 'toon' && o.userData.outline) { o.userData.outline.removeFromParent(); delete o.userData.outline; }
     // Outlines on toon, except big flat floors (they'd draw a dark rim along the horizon).
     const big = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
     if (look === 'toon' && ![].concat(o.material).some(m => m.transparent && m.opacity < 1) && big.radius * Math.max(...o.getWorldScale(new THREE.Vector3()).toArray()) < 6) addOutline(o);
@@ -96,8 +108,8 @@ export function applyLook(world, look) {
   if (look === 'pbr') {
     if (world.skyEnv) scene.environment = world.skyEnv;          // lit by the sky
     else {
-      const pmrem = new THREE.PMREMGenerator(renderer);
-      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      if (!world.roomEnv) { const pmrem = new THREE.PMREMGenerator(renderer); world.roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; pmrem.dispose(); }
+      scene.environment = world.roomEnv;   // made once per World, so switching looks back and forth doesn't leak
     }
   } else {
     scene.environment = null;
