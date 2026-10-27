@@ -64,3 +64,5 @@
 - 2026-10-27 — Inventory — tools/inventory.mjs + INVENTORY.md/inventory.json over 15 repos (3,211 unique GLBs), status tracking, validate warning; 2 tests; first item from the in-chat loop with the asset repos (live session)
 - 2026-10-27 — Motion library — Motions tab searches retarget-anims (2,288 clips), in-browser retarget via vendored Forge layer 1, entity.motions, dev-server /motions/ from a local checkout (never committed); 4 tests; checked headless: Zap gets Box_Jump + Breathing_Idle, no errors (live session)
 - 2026-10-27 — Bake motions — tools/bake-motions.mjs (node retarget + glTF animation append), World skips baked stems, MCP search_motions/add_motion; 157 tests; checked headless: baked clip plays with no library (live session)
+- 2026-10-27 — Faster rebuilds — shared loader/caches across Worlds, dispose keeps cached resources; headless rebuild 352 s → ~130 s (live session)
+- 2026-10-27 — Drag to re-parent in List — long-press + drag onto a row / the top strip; checked headless both ways (live session)

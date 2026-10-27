@@ -68,6 +68,10 @@
   #lib li .packbtn { margin-left:auto; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; font-size:12px; font-weight:400; }
   #lib li.head { cursor:default; font-weight:700; padding-top:12px; border-bottom:1px solid var(--line); border-radius:0; }
   #tree li.sel small { color:#111a; }
+  #tree li.dragging { opacity:.55; outline:2px dashed var(--accent); }
+  #treeList.dragmode { touch-action:none; }
+  #tree li.drop { outline:2px solid var(--accent); background:#ffffff14; }
+  #treeCount.drop { color:var(--accent); font-weight:700; }
   #tree li small, #lib li small { color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #tree .count, #lib .count { color:var(--dim); font-size:12px; margin:0 0 4px 2px; }
   @media (orientation: landscape) and (min-width: 600px) {
@@ -279,7 +283,10 @@ function renderTree() {
     li.firstChild.textContent = (e.depth ? '↳ ' : '') + e.id;
     if (e.depth) li.style.paddingLeft = `${8 + e.depth * 16}px`;   // children sit under their parent (they move with it)
     li.lastChild.textContent = entityTags(e).join(' · ');
+    li.dataset.id = e.id;
+    if (!e.inherited && !e.data?.light) li.onpointerdown = ev => treeDragStart(ev, li, e.id);
     li.onclick = () => {
+      if (treeDrag.justDropped) return;
       let id = e.id; while (world.getEntity(id)?.inherited) id = world.getEntity(id).parent;   // prefab children belong to the prefab file
       select(id); frame(id);
       if (!wide) { $('tree').classList.remove('open'); $('list').classList.remove('on'); }   // phone portrait: give the view back
@@ -288,6 +295,51 @@ function renderTree() {
   }
   ul.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
+// ☰ List drag to re-parent: long-press a row (works with a thumb — HTML drag-and-drop doesn't on iOS), drag it onto
+// another row to nest it there, or onto the count strip at the top to make it top level. Same reparent() as the
+// inspector's Parent picker: it stays where it is in the world, and one undo puts it back.
+var treeDrag = { timer: 0, id: null, active: false, over: null, justDropped: false };
+function treeDragStart(ev, li, id) {
+  if (playing || ev.button > 0) return;
+  clearTimeout(treeDrag.timer);
+  const x0 = ev.clientX, y0 = ev.clientY;
+  const cancel = () => { clearTimeout(treeDrag.timer); removeEventListener('pointermove', early); };
+  const early = m => { if (Math.hypot(m.clientX - x0, m.clientY - y0) > 8) cancel(); };   // moved first = a scroll, not a drag
+  addEventListener('pointermove', early); addEventListener('pointerup', cancel, { once: true });
+  treeDrag.timer = setTimeout(() => {
+    removeEventListener('pointermove', early);
+    Object.assign(treeDrag, { id, active: true, over: null });
+    li.classList.add('dragging'); $('treeList').classList.add('dragmode');
+    $('treeCount').dataset.was = $('treeCount').textContent; $('treeCount').textContent = `⇡ drop here: ${id} to top level · or onto a row to nest`;
+    navigator.vibrate?.(15);
+    addEventListener('pointermove', treeDragMove); addEventListener('pointerup', treeDragEnd, { once: true });
+  }, 350);
+}
+function treeDragMove(ev) {
+  const el = document.elementFromPoint(ev.clientX, ev.clientY);
+  const row = el?.closest?.('#treeList li'), top = el?.closest?.('#treeCount');
+  const target = row ? row.dataset.id : top ? '' : null;   // '' = top level
+  treeDrag.over = target;
+  document.querySelectorAll('#treeList li.drop, #treeCount.drop').forEach(n => n.classList.remove('drop'));
+  if (row && target !== treeDrag.id) row.classList.add('drop'); else if (top) top.classList.add('drop');
+}
+async function treeDragEnd() {
+  removeEventListener('pointermove', treeDragMove);
+  const { id, over } = treeDrag;
+  Object.assign(treeDrag, { active: false, id: null, over: null, justDropped: true });
+  setTimeout(() => { treeDrag.justDropped = false; }, 0);   // swallow the click that follows the drop
+  $('treeList').classList.remove('dragmode'); $('treeCount').classList.remove('drop');
+  if ($('treeCount').dataset.was) $('treeCount').textContent = $('treeCount').dataset.was;
+  if (over === null || over === id) { renderTree(); return; }
+  const cur = findEntity(data, id)?.parent?.id || '';
+  if (over === cur) { renderTree(); return; }
+  const before = structuredClone(data);
+  try { reparent(data, id, over || null); } catch (x) { showErr(x.message); renderTree(); return; }
+  hist.record(before); updateUndo();
+  await rebuild(); select(id); renderTree();
+}
+// iOS: once a drag is live, stop the list scrolling under the thumb.
+$('treeList').addEventListener('touchmove', ev => { if (treeDrag.active) ev.preventDefault(); }, { passive: false });
 // Where new things go: cast a ray through the middle of the screen and land on the ground or a Solid
 // (platforms, blocks); missing those, the y=0 plane; looking at the sky, below the orbit focus. Uses the
 // editor's camera, so it's wherever you're looking, however far you've panned.
