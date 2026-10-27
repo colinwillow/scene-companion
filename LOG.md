@@ -131,3 +131,4 @@
 - 2026-10-27 — Particles part 3 — Emitter.while (grind sparks, charge glow), bolt trail; 273 tests (live session)
 - 2026-10-27 — VFX workspace part 1 — vfx.html, fx library save/load; checked headless (live session)
 - 2026-10-27 — HUD part 1 — HudLabel + HudBar; 276 tests; checked headless (live session)
+- 2026-10-27 — Editor: 🎬 scene picker (scenes/index.json) — Colin couldn't reach any scene but the kitchen sink (live session)

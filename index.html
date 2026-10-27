@@ -15,6 +15,7 @@
   #bar button, #bar select { background:var(--panel); color:var(--text); border:1px solid var(--line);
     border-radius:10px; padding:8px 11px; font:inherit; }
   #bar select { max-width:88px; }
+  #bar #scenePick { max-width:230px; font-weight:700; }
   #bar button.on { background:var(--accent); color:#111; border-color:var(--accent); }
   #score { margin-left:auto; padding:8px 11px; background:var(--panel); border-radius:10px; }
   #panel { position:fixed; left:0; right:0; bottom:0; height:var(--sheet, 42vh); z-index:2; display:flex; flex-direction:column;
@@ -117,6 +118,7 @@
 </head>
 <body>
 <div id="bar">
+  <select id="scenePick" title="Open another scene"></select>
   <button id="list" title="All objects">☰ List</button>
   <button id="libBtn" title="Libraries: characters, props, motions">📚 Library</button>
   <button id="play">▶ Play</button>
@@ -184,6 +186,13 @@ const $ = id => document.getElementById(id);
 
 // ---- the single source of truth: scene data
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/kitchen-sink.scene.json';
+// The scene picker: every example scene (scenes/index.json); choosing one reopens the editor on it.
+fetch('./scenes/index.json').then(r => r.json()).then(list => {
+  const sel = document.getElementById('scenePick'), here = SCENE_URL.replace(/^\.\//, '');
+  if (!list.some(s => s.file.replace(/^\.\//, '') === here)) list.unshift({ file: SCENE_URL, title: SCENE_URL.split('/').pop() });
+  for (const s of list) { const o = new Option('🎬 ' + s.title, s.file); o.selected = s.file.replace(/^\.\//, '') === here; sel.append(o); }
+  sel.onchange = () => { location.href = `./index.html?scene=${encodeURIComponent(sel.value)}`; };
+}).catch(() => {});
 let loadedText = await (await fetch(SCENE_URL)).text();   // what the repo had when we opened it
 const data = JSON.parse(loadedText);
 
