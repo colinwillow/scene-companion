@@ -22,6 +22,9 @@
   #msg { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:#0008; z-index:3; font-size:30px; }
   #msg button { font:700 18px system-ui; padding:12px 22px; border-radius:14px; border:none; background:#ff8a3d; color:#111; }
   #err { position:fixed; left:8px; right:8px; top:calc(50px + env(safe-area-inset-top)); z-index:4; background:#5a1d1d; color:#ffd9d9; border-radius:10px; padding:10px; font:12px/1.4 ui-monospace,monospace; white-space:pre-wrap; }
+  #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
+    font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
+  #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -37,6 +40,7 @@
 <div id="hint">Left side: drag to move · Right side: drag to look · Jump on enemies</div>
 <div id="msg"><div id="msgText"></div><button id="again">Play again</button></div>
 <div id="err" hidden></div>
+<div id="liveBadge" hidden>● LIVE</div>
 <script>
 function showErr(m){const e=document.getElementById('err');e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;}
 addEventListener('error',e=>showErr(e.message));
@@ -190,8 +194,10 @@ let liveStatus = '';
       data = msg.data;
       if (result === 'rebuild') await start();
       liveStatus = result;
+      if (result !== 'none') { const b = $('liveBadge'); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 300); }
     };
-    ws.onclose = () => setTimeout(connect, 3000);
+    ws.onopen = () => ($('liveBadge').hidden = false);
+    ws.onclose = () => { $('liveBadge').hidden = true; setTimeout(connect, 3000); };
   };
   if (location.protocol.startsWith('http')) connect();
 }

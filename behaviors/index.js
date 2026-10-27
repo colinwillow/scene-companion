@@ -15,6 +15,7 @@ export class Bob extends Behavior {
     speed:  { type: 'number', default: 2,   min: 0, max: 10, step: 0.1 },
   };
   start() { this.baseY = this.entity.object3d.position.y; }
+  onMoved() { this.baseY = this.entity.object3d.position.y; }
   update(dt, t) {
     this.entity.object3d.position.y = this.baseY + Math.sin(t * this.params.speed) * this.params.height;
   }
@@ -156,6 +157,7 @@ export class PlayerController extends Behavior {
     this.world.on('bounce', s => { this.vy = (s ?? 0.7) * this.params.jumpSpeed; this.grounded = false; });
     this.world.on('hurt', dmg => this.hurt(dmg ?? 1));
   }
+  onMoved() { const p = this.entity.object3d.position; this.spawn = [p.x, p.y, p.z]; this.vy = 0; }
   hurt(dmg) {
     if (this.hurtTimer > 0 || this.dead) return;
     this.hurtTimer = this.params.invulnerable;
@@ -245,6 +247,7 @@ export class Chase extends Behavior {
     returnHome: { type: 'boolean', default: true },
   };
   start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; }
+  onMoved() { this.start(); }
   update(dt) {
     if (this.entity.object3d.visible === false) return;
     const t = this.world.getEntity(this.params.targetId); if (!t) return;

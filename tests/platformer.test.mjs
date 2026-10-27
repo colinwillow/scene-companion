@@ -125,3 +125,13 @@ test('landing after a real fall emits land', () => {
   p.y = 2; run(pc, 60);
   assert.ok(w.emitted.some(([n]) => n === 'land'));
 });
+
+test('moving the player or a chaser live updates spawn / home', () => {
+  const { pc, p } = setup();
+  p.x = 3; p.y = 1; pc.onMoved();
+  assert.deepEqual(pc.spawn, [3, 1, 0]);
+  const w = fakeWorld([fakeEntity('player', [0, 0, 0])]);
+  const e = fakeEntity('c', [1, 0, 1]); const c = attach(Chase, e, {}, w);
+  e.object3d.position.x = 9; c.onMoved();
+  assert.deepEqual(c.home, [9, 1]);
+});

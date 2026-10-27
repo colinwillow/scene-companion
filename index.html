@@ -54,6 +54,9 @@
   @media (orientation: landscape) and (min-width: 600px) {
     #tree { right:auto; width:260px; top:0; bottom:0; max-height:none; padding-top:60px; border-bottom:none; border-right:1px solid var(--line); }
   }
+  #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
+    font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
+  #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -77,6 +80,7 @@
   <span id="score">★ 0</span>
 </div>
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
+<div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="panel"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
 
@@ -381,19 +385,20 @@ $('push').onclick = async () => {
   setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
 };
 
+function flashLive() { const b = $('liveBadge'); b.classList.add('flash'); clearTimeout(flashLive.t); flashLive.t = setTimeout(() => b.classList.remove('flash'), 300); }
 // ---- live link: when served by `npm run dev`, every edit is sent to running games (play.html) to hot-patch.
 {
   let ws, lastSent = '';
   const connect = () => {
     try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live`); } catch { return; }
-    ws.onopen = () => { lastSent = ''; $('play').title = 'Live link on'; };
-    ws.onclose = () => setTimeout(connect, 3000);
+    ws.onopen = () => { lastSent = ''; $('play').title = 'Live link on'; $('liveBadge').hidden = false; };
+    ws.onclose = () => { $('liveBadge').hidden = true; setTimeout(connect, 3000); };
   };
   if (location.protocol.startsWith('http') && new URLSearchParams(location.search).get('live') !== '0') connect();
   setInterval(() => {
     if (ws?.readyState !== 1) return;
     const text = JSON.stringify({ type: 'scene', url: SCENE_URL, data });
-    if (text !== lastSent) { ws.send(text); lastSent = text; }
+    if (text !== lastSent) { ws.send(text); lastSent = text; flashLive(); }
   }, 250);
 }
 
