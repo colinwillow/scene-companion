@@ -35,6 +35,7 @@ function toonMaterial(base) {
 }
 
 const OUTLINE = new THREE.MeshBasicMaterial({ color: '#141821', side: THREE.BackSide });
+OUTLINE.userData.shared = true;   // one material for every hull: a World's dispose() leaves it alone
 OUTLINE.onBeforeCompile = shader => {
   shader.uniforms.outlineWidth = { value: 0.025 };
   shader.vertexShader = 'uniform float outlineWidth;\n' + shader.vertexShader.replace(

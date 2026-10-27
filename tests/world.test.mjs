@@ -95,3 +95,24 @@ test('dispose clears entities', async () => {
   w.dispose();
   assert.equal(w.entities.size, 0);
 });
+
+test('Worlds share one loader + model cache, and dispose() never frees cached geometry', async () => {
+  const THREE = await import('three');
+  const { markShared, clearAssetCache } = await import('../runtime/World.js');
+  const geo = new THREE.BoxGeometry(), mat = new THREE.MeshStandardMaterial();
+  const gscene = new THREE.Group(); gscene.add(new THREE.Mesh(geo, mat));
+  let freed = 0; geo.addEventListener('dispose', () => freed++);
+  const data = () => ({ settings: { look: 'baked' }, entities: [{ id: 'a', asset: { variants: { web: { glb: 'fake.glb', scale: 1 } } } }] });
+  const w1 = new World(fakeRenderer());
+  w1.gltfCache.set('fake.glb', Promise.resolve(markShared({ scene: gscene, animations: [] })));
+  await w1.load(data());
+  const w2 = new World(fakeRenderer());
+  assert.equal(w2.loader, w1.loader, 'one loader (one Draco worker pool) per page');
+  assert.equal(w2.gltfCache, w1.gltfCache, 'one parsed-GLB cache per page');
+  w1.dispose();
+  await w2.load(data());
+  assert.equal(freed, 0, 'cached geometry survives the old World being disposed');
+  assert.ok(w2.getEntity('a'));
+  clearAssetCache();
+  assert.equal(w2.gltfCache.size, 0);
+});

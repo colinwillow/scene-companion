@@ -26,6 +26,27 @@ function asBones(node) {
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
+const GLTF_CACHE = new Map(), MOTION_CACHE = new Map();
+const SHARED = new WeakSet();   // geometries + materials owned by the caches: a World's dispose() must not free them
+let LOADER = null;
+function sharedLoader() {
+  if (LOADER) return LOADER;
+  LOADER = new GLTFLoader();
+  // Colin's characters are Draco-compressed. The decoder is vendored next to the pages so it works offline.
+  if (typeof document !== 'undefined') {
+    const draco = new DRACOLoader();
+    draco.setDecoderPath(new URL('../vendor/draco/', import.meta.url).href);
+    LOADER.setDRACOLoader(draco);
+  }
+  return LOADER;
+}
+export function markShared(gltf) {
+  gltf.scene.traverse(o => { if (o.geometry) SHARED.add(o.geometry); for (const m of [].concat(o.material || [])) SHARED.add(m); });
+  return gltf;
+}
+// Forget cached models (e.g. a GLB was replaced on disk under the same path).
+export function clearAssetCache() { GLTF_CACHE.clear(); MOTION_CACHE.clear(); }
+
 export class World {
   constructor(renderer, { tier = 'web' } = {}) {
     this.renderer = renderer;
@@ -33,14 +54,11 @@ export class World {
     this.scene = new THREE.Scene();
     this.entities = new Map();
     this.listeners = {};
-    this.loader = new GLTFLoader();
-    // Colin's characters are Draco-compressed. The decoder is vendored next to the pages so it works offline.
-    if (typeof document !== 'undefined') {
-      const draco = new DRACOLoader();
-      draco.setDecoderPath(new URL('../vendor/draco/', import.meta.url).href);
-      this.loader.setDRACOLoader(draco);
-    }
-    this.gltfCache = new Map();   // path → Promise<gltf>, so many entities share one download
+    // One loader, one Draco worker pool and one parsed-GLB cache for the whole page, shared by every World: the editor
+    // builds a new World on every structural edit (duplicate, undo, re-parent), and a per-World cache meant downloading,
+    // Draco-decoding and re-uploading every model again each time (ROADMAP: "editor rebuild is very slow").
+    this.loader = sharedLoader();
+    this.gltfCache = GLTF_CACHE;   // path → Promise<gltf>, so many entities (and Worlds) share one download
     this.characterCache = new Map();   // character.json path → Promise<json>
     this.characters = {};              // character.json path → json (loaded), for the editor
     this.mixers = [];
@@ -72,7 +90,7 @@ export class World {
   async buildObject(variant) {
     if (!variant) return new THREE.Group();
     if (variant.glb) {
-      if (!this.gltfCache.has(variant.glb)) this.gltfCache.set(variant.glb, this.loader.loadAsync(variant.glb));
+      if (!this.gltfCache.has(variant.glb)) this.gltfCache.set(variant.glb, this.loader.loadAsync(variant.glb).then(markShared));
       const gltf = await this.gltfCache.get(variant.glb);
       const model = cloneSkinned(gltf.scene);
       model.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
@@ -291,7 +309,7 @@ export class World {
   // dev server) or a missing clip is a warning, never a broken scene.
   async loadMotions(model, variant, stems) {
     const base = motionsBase(this.data?.settings);
-    this.motionCache ||= new Map();
+    this.motionCache = MOTION_CACHE;
     const out = await Promise.all(stems.map(stem => {
       const key = `${variant.glb}|${variant.height ?? ''}|${stem}`;
       if (!this.motionCache.has(key)) this.motionCache.set(key, (async () => {
@@ -380,7 +398,7 @@ export class World {
 
   dispose() {
     for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.destroy());
-    this.scene.traverse(o => { o.geometry?.dispose(); [].concat(o.material || []).forEach(m => m.dispose()); });
+    this.scene.traverse(o => { if (o.geometry && !SHARED.has(o.geometry)) o.geometry.dispose(); [].concat(o.material || []).forEach(m => { if (!SHARED.has(m) && !m.userData?.shared) m.dispose(); }); });
     this.entities.clear();
     this.mixers.forEach(m => m.stopAllAction());
     this.mixers = [];
