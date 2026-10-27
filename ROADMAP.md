@@ -175,8 +175,12 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 
 ## Later
 - [ ] 2D/2.5D (SPEC §7f): sprite + sprite-sheet import with slicing and named clip roles, orthographic side/top-down cameras and plane-locked collision, tilemap painting, parallax layers, and a 3D-character → sprite-sheet renderer
+  - [ ] 2D part 1: `settings.camera2d` (orthographic side or top view, follows the player) + plane-locked movement/collision (z pinned for side view) — a tiny side-scroller scene proves it
+  - [ ] 2D part 2: sprite + sprite-sheet import with slicing and named clip roles (idle/run/jump)
+  - [ ] 2D part 3: tilemap painting in the editor, parallax layers
+  - [ ] 2D part 4: render a 3D character into a sprite sheet
 - [ ] Ship anywhere: Capacitor wrapper → iOS/Android builds from a scene; export to Godot `.tscn`, then Unity/Unreal
-- [ ] Pack unlocks: purchase/unlock flow, licence per pack, free starter pack bundled
+- [ ] Pack unlocks: purchase/unlock flow, licence per pack, free starter pack bundled — local unlock codes + the starter pack already work (?unlock=, packs/colin-starter); the PURCHASE half needs a payments account (blocked on Colin)
 - [x] Blender bridge add-on v0 — `tools/blender/scene_companion_bridge.py` (sidebar panel: server, Start/Stop, Send Back per model, Draco toggle) polls the dev server's new `/bridge/*` routes over plain HTTP; editor inspector **→ Blender** (when live); Send Back saves `assets/models/bridge/<id>-<n>.glb` and the editor swaps that one entity to it (pure `replaceModel()`, undoable, keeps height/frontSide). Tests for routes + swap. Checked end to end headless with Blender 5.0 (bpy): kitchen-sink robot → Blender → widened → back → editor shows it, no errors. Not tried in real Blender UI
 - [x] Blender bridge: MCP tools `send_to_blender {id}` / `blender_status` (tested in mcp.test), and a green ● on the editor's → Blender button while the add-on is polling (checked headless)
 - [x] Blender bridge: whole-prefab send — editor **→ Blender: all <prefab>** on prefab instances (MCP `send_to_blender {prefab:true}`); Send Back saves `bridge/<prefab>-<n>.glb` and rewrites the prefab file's web glb, editors rebuild. Tested (routes) + headless e2e with bpy: kitchen-sink trees round-tripped, no errors. Not undoable by design (it's a file edit)
