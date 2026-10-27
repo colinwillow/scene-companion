@@ -54,3 +54,4 @@
 - 2026-10-27 — character.json + clip roles — runtime/character.js, World loader, Animator/Stompable read roles, validator; Zap/skeleton/mutant converted; 115 tests; headless ✓; route ✓ Sky Steps (build run)
 - 2026-10-27 — Characters follow-ups — Blender/Replace via character variants, Library › Characters from character index, Motions role labels; 116 tests; headless ✓ (build run)
 - 2026-10-27 — Pack format — runtime/packs.js, validator, packs/colin-starter, Library › Packs tab, Library render race fix; 119 tests; headless ✓ (build run)
+- 2026-10-27 — Thumbnail studio — tools/thumbs.mjs + thumbs.html, 34 thumbs + 3 turntables, Library rows show them, pack thumbnails filled; 122 tests; headless ✓ (live session)

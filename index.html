@@ -60,6 +60,8 @@
   #tree ul, #lib ul { list-style:none; margin:0; padding:0; overflow:auto; touch-action:pan-y; flex:1; }
   #tree li, #lib li { padding:9px 8px; border-radius:8px; display:flex; gap:8px; align-items:baseline; cursor:pointer; }
   #tree li.sel { background:var(--accent); color:#111; }
+  #lib li.thumb { align-items:center; padding:5px 8px; }
+  #lib li img { width:44px; height:44px; flex:none; border-radius:9px; background:#262e40; object-fit:contain; }
   #lib li.head { cursor:default; font-weight:700; padding-top:12px; border-bottom:1px solid var(--line); border-radius:0; }
   #tree li.sel small { color:#111a; }
   #tree li small, #lib li small { color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -746,6 +748,8 @@ addEventListener('keydown', e => {
 // is looking (on the floor). Picking a prefab the scene doesn't list adds it to the scene's prefabs.
 let prefabLibrary = [];
 fetch('./prefabs/index.json').then(r => (r.ok ? r.json() : [])).then(names => { prefabLibrary = Array.isArray(names) ? names : []; fillAdd(); }).catch(() => {});
+let thumbIndex = {};          // thumbs/index.json from tools/thumbs.mjs: { 'prefab:tree': './thumbs/prefab/tree.png', … }
+fetch('./thumbs/index.json').then(r => (r.ok ? r.json() : {})).then(j => { thumbIndex = j || {}; if ($('lib').classList.contains('open')) renderLib(); }).catch(() => {});
 let characterLibrary = [];   // Library › Characters: bare characters from their character.json files
 fetch('./assets/models/colin/characters/index.json').then(r => (r.ok ? r.json() : [])).then(paths => { characterLibrary = characterEntries(paths); }).catch(() => {});
 function fillAdd() {
@@ -807,7 +811,7 @@ async function renderLib() {
       const its = filterNames(packItems(pk), q);
       if (!its.length && q) continue;
       items.push({ name: `📦 ${pk.name}`, sub: `v${pk.version} · ${pk.tier}${pk.tier === 'unlock' ? ' 🔒' : ''} · ${packItems(pk).length} items`, header: true });
-      for (const i of its) items.push({ name: i.name, sub: i.kind === 'character' ? 'character' : 'prefab',
+      for (const i of its) items.push({ name: i.name, thumb: thumbIndex[`${i.kind}:${i.name}`], sub: i.kind === 'character' ? 'character' : 'prefab',
         pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom('prefab', i.name); if (!wide) closeLib(); } });
     }
     $('libCount').textContent = playing ? 'Stop play to add things' : `${libPacks.length} installed pack${libPacks.length === 1 ? '' : 's'} — tap an item to add it at the view centre`;
@@ -822,7 +826,7 @@ async function renderLib() {
     $('libCount').textContent = `${selectedId}: ${items.length} motion${items.length === 1 ? '' : 's'}`;
   } else {
     const group = libraryGroups(libPrefabs, data)[libTab].concat(libTab === 'characters' ? characterLibrary : []);
-    items = filterNames(group, q).map(i => ({ name: i.name,
+    items = filterNames(group, q).map(i => ({ name: i.name, thumb: thumbIndex[`${i.kind}:${i.name}`],
       sub: i.kind === 'prefab' ? (data.prefabs?.[i.name] ? 'prefab' : 'prefab · not in scene yet') : i.kind === 'character' ? 'character · plays its roles' : 'model',
       pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom(i.kind, i.name); if (!wide) closeLib(); } }));
     $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to add at the view centre`;
@@ -833,6 +837,7 @@ async function renderLib() {
     const li = document.createElement('li');
     li.innerHTML = '<span></span><small></small>';
     li.firstChild.textContent = it.name; li.lastChild.textContent = it.sub;
+    if (it.thumb) { const img = new Image(); img.src = it.thumb; img.alt = ''; img.loading = 'lazy'; li.prepend(img); li.classList.add('thumb'); }
     if (it.header) li.className = 'head'; else li.onclick = it.pick;
     ul.append(li);
   }

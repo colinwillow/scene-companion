@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Thumbnail studio</title>
+<style>html,body{margin:0;background:#1b2130;color:#cfd6e4;font:14px system-ui,sans-serif;touch-action:manipulation}
+#out{display:flex;flex-wrap:wrap;gap:8px;padding:12px}#out figure{margin:0;text-align:center}#out img{width:128px;height:128px;background:#262e40;border-radius:12px}</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head><body>
+<div id="out"></div>
+<script type="module">
+// Thumbnail studio: renders one prefab or character at a time, lit and framed the same way every time, on a
+// transparent background. tools/thumbs.mjs drives it headless (window.renderThumb) and writes thumbs/*.png.
+// Open it in a browser to eyeball the set: thumbs.html shows every thumbnail listed in thumbs/index.json.
+import * as THREE from 'three';
+import { World } from './runtime/World.js';
+import { framing, TURNTABLE_FRAMES, cropSquare } from './runtime/thumbs.js';
+import './behaviors/index.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 500);
+
+// The studio lights: a warm key, a cool fill from the sky, the same for every item.
+const LIGHTS = [
+  { id: 'key', light: { type: 'directional', intensity: 2.4, shadows: false }, position: [4, 7, 5] },
+  { id: 'fill', light: { type: 'hemisphere', color: '#cfe0ff', groundColor: '#4a4036', intensity: 1.1 } },
+];
+
+// item: { kind: 'prefab', name } | { kind: 'character', name, path }. → PNG data URL (a strip of frames for turntable)
+window.renderThumb = async (item, { size = 256, look = 'toon', turntable = false } = {}) => {
+  renderer.setSize(size, size);
+  const entity = item.kind === 'character'
+    ? { id: 'item', asset: { variants: { web: { character: item.path } } } }
+    : { id: 'item', prefab: item.name };
+  const scene = { settings: { look }, prefabs: item.kind === 'prefab' ? { [item.name]: `./prefabs/${item.name}.prefab.json` } : {},
+    entities: [entity, ...LIGHTS] };
+  const world = new World(renderer, { tier: 'web' });
+  try {
+    await world.load(scene);
+    world.scene.background = null; world.scene.fog = null;
+    const ent = world.getEntity('item'), obj = ent.object3d;
+    obj.traverse(o => { o.visible = true; });                          // trigger zones etc. hide themselves on start
+    if (ent.anim) { const idle = ent.roles?.idle || ent.resolved.animation; if (idle) ent.anim.play(idle, { fade: 0 }); }
+    for (const m of world.mixers) m.update(0.4);                       // settle into the idle pose
+    obj.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(obj, true);
+    if (box.isEmpty()) throw new Error('nothing to draw');
+    // Bounding boxes of skinned (esp. Tripo) rigs can be far off, so frame loosely, render big, then crop every
+    // frame to the union of the visible pixels (alpha) and scale that square into `size`.
+    const frames = turntable ? TURNTABLE_FRAMES : 1, big = size * 2;
+    renderer.setSize(big, big);
+    const shots = [];
+    for (let f = 0; f < frames; f++) {
+      const { position, target } = framing(box.min.toArray(), box.max.toArray(), camera.fov, f / frames * 360);
+      camera.position.fromArray(position); camera.lookAt(...target);
+      renderer.render(world.scene, camera);
+      const c = document.createElement('canvas'); c.width = c.height = big;
+      const cx = c.getContext('2d', { willReadFrequently: true }); cx.drawImage(renderer.domElement, 0, 0);
+      shots.push(cx);
+    }
+    const rect = cropSquare(shots.map(cx => alphaBounds(cx.getImageData(0, 0, big, big))), big);
+    if (!rect) throw new Error('nothing visible');
+    const strip = document.createElement('canvas'); strip.width = size * frames; strip.height = size;
+    const ctx = strip.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    shots.forEach((cx, f) => ctx.drawImage(cx.canvas, rect.x, rect.y, rect.s, rect.s, f * size, 0, size, size));
+    return strip.toDataURL('image/png');
+  } finally { world.dispose(); }
+};
+// Pixel bounds of everything not see-through: { x0, y0, x1, y1 } or null.
+function alphaBounds({ data, width, height }) {
+  let x0 = width, y0 = height, x1 = -1, y1 = -1;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (data[(y * width + x) * 4 + 3] > 8) {
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
+}
+window.thumbsReady = true;
+
+// Browsing mode: show what's already rendered.
+if (!new URLSearchParams(location.search).has('headless')) {
+  try {
+    const idx = await (await fetch('./thumbs/index.json')).json();
+    for (const [key, src] of Object.entries(idx)) {
+      const f = document.createElement('figure');
+      f.innerHTML = `<img alt=""><figcaption></figcaption>`;
+      f.firstChild.src = src; f.lastChild.textContent = key;
+      document.getElementById('out').append(f);
+    }
+  } catch { document.getElementById('out').textContent = 'No thumbnails yet: run node tools/thumbs.mjs'; }
+}
+</script>
+</body></html>

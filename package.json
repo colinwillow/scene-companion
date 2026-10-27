@@ -10,7 +10,8 @@
     "check:full": "node tools/check-full.mjs",
     "dev": "node tools/dev-server.mjs",
     "mcp": "node tools/mcp-server.mjs",
-    "route": "node tools/route-check.mjs"
+    "route": "node tools/route-check.mjs",
+    "thumbs": "node tools/thumbs.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",
