@@ -392,6 +392,52 @@ export class Vault extends Behavior {
   }
 }
 
+// The zoom (zap's ZOOM, PARKOUR.md): HOLD the left pad in place (world.input.charge) on the ground to wind up — he slows and the
+// charge builds over `time` s; let go and he dashes along his facing (or the stick) at `slow`..`fast` m/s by the charge, in the
+// `clip` run, for `dash` s, then hands his speed back (it bleeds off). Under `min` of a charge it is nothing. Emits 'zoom'
+// (power 0..1) — the game page widens the lens with it.
+export class Zoom extends Behavior {
+  static schema = {
+    clip:  { type: 'string', default: 'ninja_run' },
+    time:  { type: 'number', default: 1.1, min: 0.2, max: 4, step: 0.05 },    // s to a full charge
+    min:   { type: 'number', default: 0.25, min: 0, max: 1, step: 0.05 },    // share of a full charge that does anything
+    slow:  { type: 'number', default: 10, min: 1, max: 40, step: 0.5 },      // m/s at the smallest charge
+    fast:  { type: 'number', default: 17, min: 1, max: 40, step: 0.5 },      // m/s at a full charge
+    dash:  { type: 'number', default: 0.7, min: 0.1, max: 3, step: 0.05 },   // s at speed
+    still: { type: 'number', default: 0.15, min: 0, max: 1, step: 0.05 },    // move speed × this while charging
+  };
+  start() { this.pc = this.entity.behaviors.find(b => b instanceof PlayerController); this.charge = 0; this.run = null; this.clip = this.params.clip; }
+  destroy() { if (this.entity.mover === this) this.entity.mover = null; }
+  update(dt) {
+    const pc = this.pc, P = this.params, o = this.entity.object3d, p = o.position, input = this.world.input || {};
+    if (!pc || dt <= 0) return;
+    if (this.run) {
+      const R = this.run; R.t += dt;
+      const v = R.v * (1 - 0.35 * R.t / P.dash);
+      const nx = p.x + R.dx * v * dt, nz = p.z + R.dz * v * dt;
+      const hit = this.world.sweep?.([p.x, p.y + 0.5, p.z], [R.dx, 0, R.dz], pc.params.radius, { maxDist: v * dt + 0.05, ignore: this.entity.id });
+      if (hit || R.t >= P.dash) { this.end(hit ? 0 : v); return; }
+      p.x = nx; p.z = nz;
+      return;
+    }
+    if (input.charge && pc.grounded && !this.entity.mover) {
+      if (!this.charge) this.world.emit('charge', this.entity.id);
+      this.charge = Math.min(1, this.charge + dt / P.time); this.entity.moveScale = P.still;
+      return;
+    }
+    if (this.charge > 0) {                     // let go
+      const k = this.charge; this.charge = 0; this.entity.moveScale = 1;
+      if (k < P.min || !pc.grounded) return;
+      const m = input.move || [0, 0], mag = Math.hypot(m[0], m[1]), y = yawOf(o);
+      const dx = mag > 0.3 ? m[0] / mag : Math.sin(y), dz = mag > 0.3 ? m[1] / mag : Math.cos(y);
+      this.run = { t: 0, dx, dz, v: P.slow + (P.fast - P.slow) * k };
+      setYaw(o, Math.atan2(dx, dz)); this.entity.mover = this;
+      this.world.emit('zoom', this.entity.id, k);
+    }
+  }
+  end(v) { const R = this.run; this.run = null; if (this.entity.mover === this) this.entity.mover = null; if (v > 0) this.pc.carry = [R.dx * v * 0.6, R.dz * v * 0.6]; }
+}
+
 // A high bar (zap's HBAR): marks this entity as a bar to swing on — its centre is the entity's position, its axis the entity's
 // local X (turn the entity to turn the bar). The HighBar behavior on the player does the swinging.
 export class Bar extends Behavior {
@@ -1189,6 +1235,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

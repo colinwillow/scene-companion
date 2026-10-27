@@ -104,14 +104,14 @@ const input = { move: [0, 0], jump: false, attack: null };
 const stickL = { x: 0, y: 0, down: false }, stickR = { x: 0, y: 0, down: false };
 const YAW_RATE = 2.9;                        // rad/s at full right-stick deflection (rollergirl's CAM.yawRate)
 
-addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; });
-addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; if (e.code === 'KeyC') input.charge = true; });
+addEventListener('keyup', e => { keys.delete(e.code); if (e.code === 'KeyC') input.charge = false; });
 
 // Twin sticks: left = move, right = orbit (yaw only); a TAP jumps — right stick, or either (settings.controls.jumpTap).
 // A right-stick FLICK strikes in the flicked direction (Melee behavior); hold and the left flick stay free.
 const jumpTap = () => { input.jump = true; $('hint').style.opacity = 0; };
 const tapEither = () => (data.settings?.controls?.jumpTap === 'either');
-bindStick($('stkL'), stickL, { onTap: () => { if (tapEither()) jumpTap(); } });
+bindStick($('stkL'), stickL, { onTap: () => { if (tapEither()) jumpTap(); }, onHold: on => { input.charge = on; } });   // left hold in place = charge (Zoom)
 bindStick($('stkR'), stickR, { onTap: jumpTap, onFlick: (fx, fy) => { input.attack = [fx, fy]; } });   // right flick = strike that way (Melee)
 for (const p of [$('stkL'), $('stkR')]) p.addEventListener('pointerdown', () => ($('hint').style.opacity = 0));
 const cv = renderer.domElement;
@@ -128,6 +128,7 @@ function readInput() {
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
   world.input.move = [rx * ix - fx * iy, rz * ix - fz * iy];
   if (input.jump) { world.input.jump = true; input.jump = false; }
+  world.input.charge = !!input.charge;
   if (input.attack) {                        // screen flick → world direction, same mapping as the move stick; [0,0] = facing
     const [ax, ay] = input.attack, l = Math.hypot(ax, ay) || 1;
     world.input.attack = l > 1e-3 && (ax || ay) ? [(rx * ax - fx * ay) / l, (rz * ax - fz * ay) / l] : [0, 0];
@@ -183,6 +184,7 @@ async function start() {
   world.on('say', (id, text) => say(id, text));                                // Reactions → speech bubble
   world.on('hud', (text, secs) => hudMsg(text, secs));                         // Reactions → on-screen message
   world.on('shake', (amount, secs) => { shake = { amp: amount, t: secs, dur: secs }; });
+  world.on('zoom', (_id, power) => { fovKick = Math.max(fovKick, 14 * (power ?? 1)); });   // a Zoom dash widens the lens
   world.on('end', text => end(text));
   world.on('loadScene', url => { location.search = `?scene=${encodeURIComponent(url)}`; });   // Footsteps varies the pitch (world.rng)
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
@@ -217,12 +219,13 @@ function updateCamera(dt, snap) {
   const blocked = allowed < CAM_DIST - 0.01;
   camera.position.lerp(camPos, snap || blocked ? 1 : 1 - Math.exp(-dt * 8));
   camera.lookAt(focus);
+  if (fovKick > 0.01 || camera.fov !== 60) { fovKick *= Math.exp(-dt * 2.5); camera.fov = 60 + fovKick; camera.updateProjectionMatrix(); }
   if (shake.t > 0) {                           // Reactions' shake: a decaying jitter on top of the follow cam
     shake.t -= dt; const k = shake.amp * Math.max(0, shake.t / shake.dur), r = () => (Math.random() * 2 - 1) * k;
     camera.position.x += r(); camera.position.y += r() * 0.6; camera.position.z += r();
   }
 }
-let shake = { amp: 0, t: 0, dur: 1 };
+let shake = { amp: 0, t: 0, dur: 1 }, fovKick = 0;
 function hudMsg(text, secs = 2) {
   let el = document.getElementById('hudMsg');
   if (!el) { el = document.createElement('div'); el.id = 'hudMsg'; document.body.append(el); }

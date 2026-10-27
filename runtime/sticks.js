@@ -3,7 +3,7 @@
 // landing near a rim isn't instantly full travel. A short, small touch is a TAP (jump); a fast sweep + release is
 // a FLICK (free for future verbs, reported via onFlick). Pure maths at the top (tested), DOM binding below.
 
-export const STICK = { rad: 52, tapFar: 0.42, tapMs: 260, flickAt: 0.72, flickWithin: 280, flickLet: 260 };
+export const STICK = { rad: 52, tapFar: 0.42, tapMs: 260, flickAt: 0.72, flickWithin: 280, flickLet: 260, holdMs: 320 };   // holdMs: pressed and kept in place this long = a HOLD (onHold)
 
 // Thumb offset in px → stick vector in [-1, 1], clamped to the ring. → { x, y, px, py } (px/py: knob offset)
 export function stickVector(dx, dy, rad = STICK.rad) {
@@ -32,9 +32,9 @@ export function armFlick(hist, k = STICK) {
 
 // ---- DOM: el is a .pad with a .ring and a .knob inside. out gets { x, y, down }. Returns { release() }.
 const PADS = [];
-export function bindStick(el, out, { onTap, onFlick } = {}) {
+export function bindStick(el, out, { onTap, onFlick, onHold } = {}) {
   const ring = el.querySelector('.ring'), knob = el.querySelector('.knob');
-  let id = null, t0 = 0, far = 0, ox = 0, oy = 0, hist = [], flick = null;
+  let id = null, t0 = 0, far = 0, ox = 0, oy = 0, hist = [], flick = null, holdTimer = null, holding = false;
   // Where it rests when nobody holds it (a hint where to put your thumb); a landing thumb becomes the centre.
   const home = () => { const r = el.getBoundingClientRect(); return [el.dataset.side === 'right' ? r.width - 92 : 92, r.height - 92]; };
   const draw = (px, py, dx, dy) => {
@@ -63,12 +63,15 @@ export function bindStick(el, out, { onTap, onFlick } = {}) {
     hist = [{ x: 0, y: 0, t: t0 }];
     try { el.setPointerCapture(id); } catch {}
     out.down = true; el.classList.add('act'); move(e.clientX, e.clientY);
+    // a HOLD: the thumb down and still (inside the tap's radius) past holdMs — told on start and on release
+    if (onHold) { clearTimeout(holdTimer); holdTimer = setTimeout(() => { if (id !== null && far < STICK.tapFar) { holding = true; el.classList.add('hold'); onHold(true); } }, STICK.holdMs); }
   });
   el.addEventListener('pointermove', e => { if (e.pointerId === id) { move(e.clientX, e.clientY); e.stopPropagation(); } });
   const end = e => {
     if (e.pointerId !== id) return;
     const g = releaseGesture({ far, heldMs: performance.now() - t0, flick, now: performance.now() });
-    const f = flick; clear();
+    const f = flick, wasHold = holding; clearTimeout(holdTimer); holding = false; el.classList.remove('hold'); clear();
+    if (wasHold) { onHold?.(false); return; }
     if (g === 'tap') { onTap?.(); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
     if (g === 'flick') onFlick?.(f.x, f.y);
   };

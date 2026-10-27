@@ -408,6 +408,9 @@
           "type": "HighBar"
         },
         {
+          "type": "Zoom"
+        },
+        {
           "type": "Animator",
           "params": {
             "runSpeed": 4,
