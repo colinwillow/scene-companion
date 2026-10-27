@@ -170,6 +170,12 @@
             "runSpeed": 4.5
           }
         }
+,        {
+          "type": "Squash"
+        },
+        {
+          "type": "Footsteps"
+        }
       ]
     },
     {

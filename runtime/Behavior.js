@@ -29,7 +29,7 @@ export class Behavior {
   // Called by the editor when an authored value changes while playing.
   onParamChanged(key, value) { this.params[key] = value; }
 
-  // Called when the entity's authored transform is changed while running (live link). Re-read anything
-  // start() captured from the position (a base height, a home or spawn point).
+  // Called when the entity's authored position or scale is changed while running (live link). Re-read anything
+  // start() captured from it (a base height, a home or spawn point, a base scale).
   onMoved() {}
 }

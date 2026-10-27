@@ -218,6 +218,13 @@
             "runSpeed": 4.5
           }
         }
+,        {
+          "type": "Squash",
+          "params": {
+            "landEvent": "score",
+            "amount": 0.3
+          }
+        }
       ],
       "animation": "Idle"
     },

@@ -2,6 +2,7 @@
 // Usage: const sfx = createSfx(); sfx.unlock() on the first tap; sfx.play('jump').
 const SOUNDS = {
   jump:     [{ type: 'square',   f0: 330, f1: 660, dur: 0.12, vol: 0.12 }],
+  step:     [{ type: 'noise', dur: 0.04, vol: 0.05 }, { type: 'triangle', f0: 90, f1: 60, dur: 0.05, vol: 0.06 }],
   land:     [{ type: 'triangle', f0: 120, f1: 60,  dur: 0.08, vol: 0.18 }],
   coin:     [{ type: 'square',   f0: 988, f1: 988, dur: 0.07, vol: 0.10 }, { type: 'square', f0: 1319, f1: 1319, dur: 0.18, vol: 0.10, at: 0.07 }],
   stomp:    [{ type: 'square',   f0: 520, f1: 140, dur: 0.14, vol: 0.14 }, { type: 'noise', dur: 0.08, vol: 0.12 }],

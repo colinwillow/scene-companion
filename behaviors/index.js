@@ -290,6 +290,51 @@ export class Stompable extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable })) {
+// Squash & stretch on events (default: squash on 'land', stretch on 'jump'). Animates scale around the
+// authored scale and springs back; the authored scale itself is never changed.
+export class Squash extends Behavior {
+  static schema = {
+    amount:   { type: 'number', default: 0.22, min: 0, max: 0.8, step: 0.02 },  // 0.22 = 22% shorter on land
+    stretch:  { type: 'number', default: 0.12, min: 0, max: 0.8, step: 0.02 },  // taller on jump
+    duration: { type: 'number', default: 0.22, min: 0.05, max: 1, step: 0.01 }, // s to spring back
+    landEvent: { type: 'string', default: 'land' },
+    jumpEvent: { type: 'string', default: 'jump' },
+  };
+  start() {
+    this.onMoved(); this.k = 0; this.t = 1;
+    this.world.on(this.params.landEvent, () => { this.k = -this.params.amount; this.t = 0; });
+    this.world.on(this.params.jumpEvent, () => { this.k = this.params.stretch; this.t = 0; });
+  }
+  onMoved() { const s = this.entity.object3d.scale; if (s) this.base = [s.x, s.y, s.z]; }
+  update(dt) {
+    const s = this.entity.object3d.scale; if (!s || !this.base || this.t >= 1) return;
+    this.t = Math.min(1, this.t + dt / this.params.duration);
+    const f = this.k * (1 - this.t) * (1 - this.t) * Math.cos(this.t * Math.PI * 1.5);   // eased wobble back to 1
+    const y = 1 + f, xz = 1 / Math.sqrt(y);                                             // keep volume roughly
+    s.x = this.base[0] * xz; s.y = this.base[1] * y; s.z = this.base[2] * xz;
+  }
+}
+
+// Emits world 'step' events every `stride` metres walked on the ground (the game page plays a sound).
+// Needs a PlayerController on the same entity; strides lengthen when running.
+export class Footsteps extends Behavior {
+  static schema = {
+    stride:    { type: 'number', default: 0.75, min: 0.2, max: 3, step: 0.05 },  // metres per step at walk speed
+    runStride: { type: 'number', default: 1.3, min: 0.2, max: 4, step: 0.05 },   // metres per step at full speed
+  };
+  start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.dist = 0; }
+  update(dt) {
+    const p = this.entity.object3d.position, pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    const d = Math.hypot(p.x - this.last[0], p.z - this.last[1]);
+    this.last = [p.x, p.z];
+    const move = this.world.input?.move || [0, 0], push = Math.min(1, Math.hypot(move[0], move[1]));
+    if (!pc || !pc.grounded || push < 0.05 || dt <= 0) { this.dist = Math.min(this.dist, this.params.stride * 0.5); return; }
+    this.dist += d;
+    const stride = this.params.stride + (this.params.runStride - this.params.stride) * push;
+    if (this.dist >= stride) { this.dist -= stride; this.world.emit('step', this.entity.id); }
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Squash, Footsteps })) {
   registerBehavior(name, cls);
 }

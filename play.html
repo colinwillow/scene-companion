@@ -149,7 +149,7 @@ async function start() {
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
   world.on('gameover', () => { sfx.play('gameover'); end('Game over'); });
   world.on('health', () => { sfx.play('hurt'); hud(); });
-  for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
+  for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['step', 'step'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
   resize(); hud();

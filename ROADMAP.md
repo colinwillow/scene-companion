@@ -22,7 +22,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 ## Stage 2 — Skill
 - [x] Vibe-code a tiny game from scratch following SKILL.md — **Tiny Hop** (`play.html`): third-person, joystick + jump, chasers you stomp, 10 coins, platforms incl. a moving one. New behaviors Solid, PlayerController, Chase, Stompable; SKILL.md got a Game kit section (input, collision, events, game page vs editor).
 - [x] Tiny Hop feel pass: jump/fall animation clips, carry the player on moving platforms, camera collision, sounds — Animator plays `jumpClip`/`fallClip` when airborne (robot uses Jump); PlayerController rides moving solids; camera pulls in front of solids/floor (`runtime/camera.js`); synthesized sfx + 🔊 mute (`runtime/sfx.js`); new `pickup`/`stomp`/`land` events
-- [ ] [IN PROGRESS 2026-10-27 00:19 UTC] Tiny Hop: a proper fall clip (robot has none) and a landing squash; footstep sounds synced to the walk/run clips
+- [x] Tiny Hop: landing squash; footstep sounds — new `Squash` (event-driven squash & stretch around the authored scale) and `Footsteps` (a `step` event per stride, longer when running) behaviors; tiny-hop player has both, kitchen-sink player squashes on `score`
+- [ ] [blocked: needs a model with a fall clip — robot.glb has none] Tiny Hop: a proper fall clip (`Animator.fallClip` is ready; set it once a character with a Fall/Falling clip is in assets)
 - [x] Validator: catch hardcoded placement more robustly; check prefab references — set/assign/fromArray/copy literals in behaviors + game pages, comment-aware, camera exempt; prefab files (no id/position, asset, behavior params), unused prefabs, removeBehaviors typos, id style
 
 ## Stage 3 — Editor v1

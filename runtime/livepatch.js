@@ -24,7 +24,7 @@ export function applyScene(world, prev, next) {
     let moved = false;
     if (!same(old.position, authored.position) && authored.position) { [o.position.x, o.position.y, o.position.z] = authored.position; changed = moved = true; }
     if (!same(old.rotation, authored.rotation) && authored.rotation) { [o.rotation.x, o.rotation.y, o.rotation.z] = authored.rotation.map(d => d * DEG); changed = true; }
-    if (!same(old.scale, authored.scale) && authored.scale) { [o.scale.x, o.scale.y, o.scale.z] = authored.scale; changed = true; }
+    if (!same(old.scale, authored.scale) && authored.scale) { [o.scale.x, o.scale.y, o.scale.z] = authored.scale; changed = moved = true; }
     if (!same(old.animation, authored.animation) && authored.animation) { ent.anim?.play(authored.animation); changed = true; }
     // Behaviors: same list of types → push changed params live; otherwise rebuild.
     const pf = world.prefabs?.[authored.prefab];
@@ -36,7 +36,7 @@ export function applyScene(world, prev, next) {
       for (const [k, v] of Object.entries(b.params || {}))
         if (!same(oldB[i].params?.[k], v)) { live?.onParamChanged(k, structuredClone(v)); changed = true; }
     });
-    if (moved) ent.behaviors.forEach(b => b.onMoved?.());   // e.g. Bob re-reads its base height
+    if (moved) ent.behaviors.forEach(b => b.onMoved?.());   // e.g. Bob re-reads its base height, Squash its scale
     ent.data = authored;
   }
   return changed ? 'patched' : 'none';

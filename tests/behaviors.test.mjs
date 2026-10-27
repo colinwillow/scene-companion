@@ -158,3 +158,31 @@ test('Pickup emits pickup before score', () => {
   attach(Pickup, coin, {}, w).update();
   assert.deepEqual(w.emitted.map(x => x[0]), ['pickup', 'score']);
 });
+
+test('Squash wobbles scale around the authored scale on events and settles back exactly', async () => {
+  const { Squash } = await import('../behaviors/index.js');
+  const e = fakeEntity(); e.object3d.scale = { x: 2, y: 2, z: 2 };
+  const w = fakeWorld([e]);
+  const s = attach(Squash, e, { amount: 0.2, duration: 0.2 }, w);
+  w.emit('land');
+  s.update(0.01);
+  assert.ok(e.object3d.scale.y < 2 && e.object3d.scale.x > 2, 'squashed');
+  run(s, 30);
+  assert.deepEqual([e.object3d.scale.x, e.object3d.scale.y, e.object3d.scale.z], [2, 2, 2]);
+  w.emit('jump'); s.update(0.01);
+  assert.ok(e.object3d.scale.y > 2, 'stretched');
+});
+
+test('Footsteps emits a step per stride while walking on the ground only', async () => {
+  const { Footsteps, PlayerController } = await import('../behaviors/index.js');
+  const e = fakeEntity('player');
+  const w = fakeWorld([e]); w.input = { move: [1, 0] };
+  const pc = Object.assign(Object.create(PlayerController.prototype), { grounded: true });
+  e.behaviors.push(pc);
+  const f = attach(Footsteps, e, { stride: 0.5, runStride: 0.5 }, w);
+  for (let i = 0; i < 20; i++) { e.object3d.position.x += 0.1; f.update(0.1); }   // 2 m
+  assert.equal(w.emitted.filter(x => x[0] === 'step').length, 4);
+  pc.grounded = false;
+  for (let i = 0; i < 20; i++) { e.object3d.position.x += 0.1; f.update(0.1); }
+  assert.equal(w.emitted.filter(x => x[0] === 'step').length, 4, 'no steps in the air');
+});
