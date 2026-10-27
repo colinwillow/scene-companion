@@ -1,3 +1,5 @@
+import { createTime, createRng } from '../runtime/time.js';
+
 // Minimal stand-ins for the runtime, so behaviors run in plain Node (no three, no browser).
 export function fakeEntity(id = 'e', pos = [0, 0, 0]) {
   return {
@@ -12,6 +14,8 @@ export function fakeWorld(entities = []) {
   const listeners = {};
   return {
     emitted: [],
+    time: createTime(),
+    rng: createRng(1),
     getEntity: id => map.get(id),
     on(name, fn) { (listeners[name] ||= []).push(fn); },
     emit(name, ...args) { this.emitted.push([name, ...args]); (listeners[name] || []).forEach(fn => fn(...args)); },

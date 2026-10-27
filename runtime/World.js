@@ -12,6 +12,7 @@ import { applySky } from './sky.js';
 import { proceduralTexture } from './textures.js';
 import { characterVariant } from './character.js';
 import { childIdFor, mergeTags, matchesQuery, spawnId } from './tree.js';
+import { createTime, createRng, playSeed } from './time.js';
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -35,6 +36,8 @@ export class World {
     this.mixers = [];
     this.prefabs = {};
     this.t = 0;
+    this.time = createTime();      // fixed-step gameplay clock: scale, paused, hitStop (runtime/time.js)
+    this.rng = createRng(1);       // reseeded per load (= per Play) from settings.seed or a fresh seed
     this.input = { move: [0, 0], jump: false };   // filled by the game page; read by behaviors
   }
 
@@ -149,6 +152,7 @@ export class World {
   async load(sceneData) {
     this.data = sceneData;
     const st = sceneData.settings || {};
+    this.rng = createRng(playSeed(st));
     this.scene.background = new THREE.Color(st.background || '#202833');
     if (st.fog) this.scene.fog = new THREE.Fog(st.fogColor || st.background || '#202833', st.fog[0], st.fog[1]);
 
@@ -307,11 +311,36 @@ export class World {
   }
 
   // Runs in edit mode too, so authored animations preview while placing things.
-  animate(dt) { this.mixers.forEach(m => m.update(dt)); }
+  // Edit mode (playing = false) previews at normal speed; in play, animation follows time.scale / pause / hit-stop.
+  animate(dt, playing = true) { const d = playing ? this.time.visualDt(dt) : dt; this.mixers.forEach(m => m.update(d)); }
 
+  // Gameplay: behaviors update in fixed steps (world.time.step, 1/60 s) whatever the frame rate; between steps the
+  // moving entities are drawn interpolated (position + rotation), so 120 Hz screens stay smooth.
   update(dt) {
-    this.t += dt;
-    for (const ent of this.entities.values()) { if (!ent.destroyed) for (const b of ent.behaviors) { if (ent.destroyed) break; b.update(dt, this.t); } }
+    const time = this.time, n = time.advance(dt);
+    const movers = time.interpolate ? [...this.entities.values()].filter(e => e.behaviors.length && e.object3d && !e.destroyed) : [];
+    for (const e of movers) {                     // undo last frame's blend — unless something else moved it since
+      const l = e.lerp, o = e.object3d; if (!l) continue;
+      if (o.position.equals(l.ps) && o.quaternion.equals(l.qs)) { o.position.copy(l.p1); o.quaternion.copy(l.q1); }
+      else { l.p0.copy(o.position); l.p1.copy(o.position); l.q0.copy(o.quaternion); l.q1.copy(o.quaternion); }   // live-link move, respawn…
+    }
+    for (let i = 0; i < n; i++) {
+      if (i === n - 1) for (const e of movers) {
+        const l = (e.lerp ||= { p0: new THREE.Vector3(), q0: new THREE.Quaternion(), p1: new THREE.Vector3(), q1: new THREE.Quaternion(), ps: new THREE.Vector3(), qs: new THREE.Quaternion() });
+        l.p0.copy(e.object3d.position); l.q0.copy(e.object3d.quaternion);
+      }
+      this.t = time.tick();
+      for (const ent of this.entities.values()) { if (!ent.destroyed) for (const b of ent.behaviors) { if (ent.destroyed) break; b.update(time.step, this.t); } }
+      if (i === n - 1) for (const e of movers) { e.lerp.p1.copy(e.object3d.position); e.lerp.q1.copy(e.object3d.quaternion); }
+    }
+    for (const e of movers) {
+      const l = e.lerp; if (!l) continue;
+      // a teleport (respawn, live-link move) shouldn't smear across the screen
+      if (l.p0.distanceToSquared(l.p1) > 4) { l.p0.copy(l.p1); l.q0.copy(l.q1); }
+      e.object3d.position.lerpVectors(l.p0, l.p1, time.alpha);
+      e.object3d.quaternion.slerpQuaternions(l.q0, l.q1, time.alpha);
+      l.ps.copy(e.object3d.position); l.qs.copy(e.object3d.quaternion);
+    }
   }
 
   dispose() {

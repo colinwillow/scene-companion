@@ -339,6 +339,7 @@ export class Stompable extends Behavior {
     damage:   { type: 'number', default: 1, min: 0, max: 10, step: 1 },
     defeatClip: { type: 'string', default: '' },   // played once when stomped ('' = the character's death role; none = vanish at once)
     hideAfter:  { type: 'number', default: 1.5, min: 0, max: 10, step: 0.1 },  // s the defeat clip shows before it vanishes
+    hitStop:    { type: 'number', default: 0, min: 0, max: 0.3, step: 0.01 },  // s the whole game freezes on a stomp (impact punch; 0.05–0.08 feels good)
   };
   update(dt) {
     if (this.entity.dormant) return;
@@ -358,6 +359,7 @@ export class Stompable extends Behavior {
       const defeat = roleClip(P.defeatClip, 'death', this.entity.roles);
       if (defeat && anim?.clips.includes(defeat)) { anim.play(defeat, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
       else this.entity.object3d.visible = false;
+      if (P.hitStop > 0) this.world.time?.hitStop(P.hitStop);
       this.world.emit('stomp', this.entity.id);
       this.world.emit('score', P.points);
       this.world.emit('bounce', 0.7);

@@ -60,10 +60,26 @@ test('behaviors attach, unknown ones are skipped, and they run', async () => {
   w.on('score', p => scores.push(p));
   assert.equal(w.getEntity('odd').behaviors.length, 0);
   assert.equal(w.getEntity('coin').behaviors.length, 2);
+  w.time.interpolate = false;          // read the exact game state (interpolation is tested below)
   w.update(0.5);
   assert.deepEqual(scores, [5]);
   assert.equal(w.getEntity('coin').object3d.visible, false);
   assert.ok(Math.abs(w.getEntity('coin').object3d.rotation.y - 0.5) < 1e-9);
+});
+
+test('fixed step + interpolation: behaviors see whole steps, the screen sees a blend; outside moves stick', async () => {
+  const w = await load();
+  const coin = w.getEntity('coin').object3d;
+  w.update(0.5);                        // 30 steps; shown between step 29 and 30
+  assert.equal(w.time.frame, 30);
+  assert.ok(coin.rotation.y > 0.5 - 1 / 60 - 1e-6 && coin.rotation.y <= 0.5 + 1e-6, `y=${coin.rotation.y}`);
+  w.update(1 / 120);                    // half a step: no gameplay step, blend moves on
+  assert.equal(w.time.frame, 30);
+  coin.position.x = 9;                  // e.g. a live-link move between frames
+  w.update(1 / 60);
+  assert.equal(coin.position.x, 9);
+  w.time.scale = 0;
+  w.update(1); assert.equal(w.time.frame, 31);
 });
 
 test('load never mutates the authored scene data', async () => {

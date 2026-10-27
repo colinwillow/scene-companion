@@ -1,0 +1,63 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createTime, createRng, playSeed, STEP } from '../runtime/time.js';
+import { Stompable, PlayerController, Health } from '../behaviors/index.js';
+import { fakeEntity, fakeWorld, attach } from './fakes.js';
+
+test('fixed step: 120 Hz frames run a step every other frame; 30 Hz runs two; alpha tracks the remainder', () => {
+  const t = createTime();
+  const steps = Array.from({ length: 8 }, () => t.advance(1 / 120));
+  assert.equal(steps.reduce((a, b) => a + b, 0), 4);
+  assert.ok(steps.every(n => n <= 1));
+  const u = createTime();
+  assert.equal(u.advance(1 / 30), 2);
+  u.advance(STEP / 2); assert.ok(Math.abs(u.alpha - 0.5) < 1e-6);
+  for (let i = 0; i < 3; i++) u.tick();
+  assert.equal(u.frame, 3); assert.ok(Math.abs(u.t - 3 * STEP) < 1e-12);
+});
+
+test('backlog is capped (slow phone / background tab) instead of spiralling', () => {
+  const t = createTime({ maxSteps: 5 });
+  assert.equal(t.advance(2), 5);
+  assert.equal(t.advance(0), 0);
+});
+
+test('scale, pause and hit-stop', () => {
+  const t = createTime();
+  t.scale = 0.5;
+  assert.equal([t.advance(1 / 60), t.advance(1 / 60)].reduce((a, b) => a + b), 1);   // half speed
+  assert.equal(t.visualDt(0.1), 0.05);
+  t.scale = 1; t.paused = true;
+  assert.equal(t.advance(1), 0); assert.equal(t.visualDt(0.1), 0);
+  t.paused = false; t.hitStop(0.08); t.hitStop(0.02);                                  // the longer one wins
+  assert.equal(t.advance(0.05), 0); assert.equal(t.visualDt(0.1), 0);
+  assert.equal(t.advance(0.05), 0);                                                    // finishes the stop (real time)
+  assert.equal(t.advance(1 / 60), 1);
+});
+
+test('rng: same seed → same sequence; helpers stay in range', () => {
+  const a = createRng(42), b = createRng(42), c = createRng(43);
+  const sa = Array.from({ length: 5 }, a.next), sb = Array.from({ length: 5 }, b.next);
+  assert.deepEqual(sa, sb); assert.notDeepEqual(sa, Array.from({ length: 5 }, c.next));
+  for (let i = 0; i < 200; i++) {
+    const x = a.range(2, 3), n = a.int(1, 6);
+    assert.ok(x >= 2 && x < 3); assert.ok(Number.isInteger(n) && n >= 1 && n <= 6);
+  }
+  const d = createRng(42), e = createRng(42); assert.equal(d(), e.next());   // callable like Math.random
+  assert.equal(a.pick([]), undefined); assert.ok(['x', 'y'].includes(a.pick(['x', 'y'])));
+  assert.equal(playSeed({ seed: 7 }), 7); assert.equal(playSeed({}, () => 99), 99);
+});
+
+test('Stompable hitStop freezes game time on a stomp', () => {
+  const player = fakeEntity('player', [0, 0, 0]), w = fakeWorld([player]);
+  w.input = { move: [0, 0], jump: false };
+  const health = new Health(player, { max: 3 }, w); player.behaviors.push(health); health.start();
+  const pc = attach(PlayerController, player, {}, w);
+  const enemy = fakeEntity('enemy', [0.5, 0, 0]);
+  const st = attach(Stompable, enemy, { height: 1, hitStop: 0.07 }, w);
+  player.object3d.position.y = 0.8; pc.vy = -3;
+  st.update(0.016);
+  assert.equal(st.defeated, true);
+  assert.ok(Math.abs(w.time.stopFor - 0.07) < 1e-9);
+  assert.equal(w.time.advance(0.05), 0);
+});

@@ -15,7 +15,7 @@
       "exposure": 0.55,
       "sunColor": "#ffeedd",
       "sunIntensity": 3.2,
-      "envIntensity": 1.0
+      "envIntensity": 1
     },
     "fogColor": "#c9d6e3",
     "post": {
@@ -915,6 +915,14 @@
         -9,
         0,
         10
+      ],
+      "behaviors": [
+        {
+          "type": "Stompable",
+          "params": {
+            "hitStop": 0.07
+          }
+        }
       ]
     },
     {

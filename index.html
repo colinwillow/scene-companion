@@ -913,7 +913,7 @@ await rebuild();
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
-  world.animate(dt);
+  world.animate(dt, playing);
   world.followFocus(orbit.target);
   if (playing) world.update(dt);
   const selObj = !playing && world.getEntity(selectedId)?.object3d;   // highlight what's selected

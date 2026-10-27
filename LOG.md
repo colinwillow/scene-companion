@@ -58,3 +58,4 @@
 - 2026-10-27 — Pack install/uninstall + unlock greying — scene `packs`, Library › Packs Install/Uninstall, MCP list/install/uninstall_pack, alien-wilds demo; 123 tests; headless ✓ (build run)
 - 2026-10-27 — Packs follow-up — Library tabs, ＋Add and scatter follow installed packs (libraryFilter); 127 tests; headless ✓ (build run)
 - 2026-10-27 — Spawn + nest — runtime/tree.js, World children/prefab children/tags/spawn/destroy/find, Spawner behavior, editing/MCP/livepatch/validator on trees, kitchen-sink carousel + coin fountain; 127 tests; headless ✓ (live session)
+- 2026-10-27 — Time — fixed 1/60 step + interpolated render, world.time scale/pause/hitStop, world.rng seeded per Play, Stompable.hitStop; 133 tests; route ✓ Sky Steps; headless ✓ (build run)
