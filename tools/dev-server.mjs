@@ -25,12 +25,13 @@ const server = createServer(async (req, res) => {
 });
 
 const wss = new WebSocketServer({ server, path: '/live' });
-let lastScene = null;
+let lastScene = null, lastSelect = null;   // replayed to pages that connect later
 wss.on('connection', ws => {
   if (lastScene) ws.send(lastScene);
+  if (lastSelect) ws.send(lastSelect);
   ws.on('message', (msg, isBinary) => {
     const text = msg.toString();
-    try { if (JSON.parse(text).type === 'scene') lastScene = text; } catch { return; }
+    try { const t = JSON.parse(text).type; if (t === 'scene') lastScene = text; else if (t === 'select') lastSelect = text; } catch { return; }
     for (const c of wss.clients) if (c !== ws && c.readyState === 1) c.send(text, { binary: isBinary });
   });
 });

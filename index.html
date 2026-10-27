@@ -102,6 +102,7 @@ import { addEntity, duplicateEntity, deleteEntity, setAsset } from './runtime/ed
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
 import { createPost } from './runtime/post.js';
+import { describeState, sameScene } from './runtime/livestate.js';
 import './behaviors/index.js';
 
 const $ = id => document.getElementById(id);
@@ -182,6 +183,7 @@ function syncTransformToData() {
 
 function select(id) {
   selectedId = id;
+  sendSelect?.();
   if (id && sheet === 0) setSheet(1);              // peeking sheet opens to show the inspector
   const ent = world.getEntity(id);
   if (ent && !ent.data.light && !playing) gizmo.attach(ent.object3d); else gizmo.detach();
@@ -261,7 +263,7 @@ function renderPanel() {
   if (!ent) { panel.innerHTML = `<p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p>`; return; }
   const e = ent.data;
   const label = e.prefab ? `prefab: ${e.prefab} (edits here override only this one)` : e.asset ? 'asset: ' + (typeof e.asset === 'string' ? e.asset : 'inline') : 'light';
-  panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div>`;
+  panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div><div class="hint" id="liveIn"></div>`;
   if (!playing) {
     const acts = document.createElement('div'); acts.className = 'acts';
     acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>`;
@@ -386,13 +388,26 @@ $('push').onclick = async () => {
 };
 
 function flashLive() { const b = $('liveBadge'); b.classList.add('flash'); clearTimeout(flashLive.t); flashLive.t = setTimeout(() => b.classList.remove('flash'), 300); }
-// ---- live link: when served by `npm run dev`, every edit is sent to running games (play.html) to hot-patch.
+// ---- live link: when served by `npm run dev`, every edit is sent to running games (play.html) to hot-patch,
+// the selection is shown in the game, and games report back FPS, errors and the selected object's live position.
+var sendSelect;
 {
-  let ws, lastSent = '';
+  let ws, lastSent = '', gameErrors = 0, stale;
+  sendSelect = () => { if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'select', url: SCENE_URL, id: selectedId })); };
   const connect = () => {
     try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live`); } catch { return; }
-    ws.onopen = () => { lastSent = ''; $('play').title = 'Live link on'; $('liveBadge').hidden = false; };
+    ws.onopen = () => { lastSent = ''; $('play').title = 'Live link on'; $('liveBadge').hidden = false; $('liveBadge').textContent = describeState(null); sendSelect(); };
     ws.onclose = () => { $('liveBadge').hidden = true; setTimeout(connect, 3000); };
+    ws.onmessage = ev => {
+      let s; try { s = JSON.parse(ev.data); } catch { return; }
+      if (s.type !== 'state' || !sameScene(s.url, SCENE_URL)) return;
+      for (const m of s.errors || []) { gameErrors++; showErr('[game] ' + m); }
+      $('liveBadge').textContent = describeState(s, gameErrors);
+      clearTimeout(stale); stale = setTimeout(() => { $('liveBadge').textContent = describeState(null); }, 2000);   // game closed
+      const li = $('liveIn');
+      if (li) li.textContent = s.selected && s.selected.id === selectedId
+        ? `in game: ${s.selected.position.map(v => v.toFixed(2)).join(', ')}${s.selected.visible ? '' : ' · hidden'}` : '';
+    };
   };
   if (location.protocol.startsWith('http') && new URLSearchParams(location.search).get('live') !== '0') connect();
   setInterval(() => {

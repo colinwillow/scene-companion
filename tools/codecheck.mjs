@@ -27,9 +27,11 @@ export function findHardcoded(src) {
 }
 
 // Game code that creates meshes is probably placing objects that belong in the scene file.
+// A debug/UI overlay that isn't a scene object can opt out with a `// sc:overlay` comment on that line.
 export function findSpawnedMeshes(src) {
-  const out = [];
+  const out = [], raw = src.split('\n');
   stripComments(src).split('\n').forEach((text, i) => {
+    if (/sc:overlay/.test(raw[i] || '')) return;
     if (/new\s+(THREE\.)?(Mesh|SkinnedMesh|InstancedMesh|Sprite)\s*\(/.test(text)) out.push({ line: i + 1, text: text.trim() });
   });
   return out;

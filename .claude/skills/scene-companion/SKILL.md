@@ -24,7 +24,7 @@ description: Use whenever building or changing a Three.js game that uses Scene C
 - **Models:** `glb` variants take `height` (characters), or `scale` + optional `offset`/`castShadow:false` (props). Kenney models have their origin at the bottom, so `Solid` anchor stays `bottom`.
 - **Tests:** add a node test for every new behavior (`tests/`, fakes in `tests/fakes.js`); `npm run check` must pass.
 
-- **Live edits:** if a behavior caches anything from the position in `start()` (base height, home, spawn), also implement `onMoved()` to re-read it — the live link calls it when the editor moves the object mid-play.
+- **Live edits:** if a behavior caches anything from the position in `start()` (base height, home, spawn), also implement `onMoved()` to re-read it — the live link calls it when the editor moves the object mid-play. Game pages report state back with `runtime/livestate.js` (see `play.html`); debug overlays that aren't scene objects mark their `new Mesh` line with `// sc:overlay`.
 
 ## When asked for a feature
 Make a behavior and attach it in the scene. For "breakable buildings": create a `Breakable` behavior with `health`, `debrisCount` and `debrisModel` in its schema, then attach it to the building objects in the scene file.

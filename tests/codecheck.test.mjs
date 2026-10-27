@@ -33,4 +33,5 @@ test('stripComments keeps URLs in strings', () => {
 
 test('finds meshes created in code', () => {
   assert.equal(findSpawnedMeshes('const m = new THREE.Mesh(g, mat);\nconst v = new Vector3();').length, 1);
+  assert.equal(findSpawnedMeshes('const marker = new THREE.Mesh(g, mat);   // sc:overlay').length, 0, 'overlay opt-out');
 });
