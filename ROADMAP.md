@@ -26,10 +26,14 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Inventory: `tools/inventory.mjs` scans Colin's repos (weirdport, zap, city, rollergirl, plutopia, peggy, blender-addons, retarget-anims, culture_war, robits…) for GLBs and writes `INVENTORY.md` + `inventory.json`: path, rig (joints, Mixamo?), height, clips, size, draco/ktx, duplicates across repos, status (raw / imported / full asset / packed). Re-runnable; validate warns when an imported asset is missing from it.
 - [ ] `character.json` + clip roles: format, loader support, validator; Animator/PlayerController/enemy behaviors read ROLES (`idle`, `walk`, `run`, `jump`, `fall`, `land`, `hit`, `death`…) with per-entity overrides; convert Zap, skeleton and mutant to it
 - [ ] Pack format: `packs/<id>/pack.json` (characters, behaviors, prefabs, scenes, thumbnails, version, tier free|unlock); the editor Libraries panel lists installed packs; validator checks packs; first pack `colin-starter` from what's already imported
+- [ ] Thumbnail studio: `tools/thumbs.mjs` renders standard lit thumbnails (+ optional turntable) for every prefab/character/pack item headless; Libraries panel and inventory use them
 - [ ] (engine core, moved ahead of the goblin) Entities that spawn and nest: `world.spawn(prefab, {position, parent})` / `world.destroy(id)` from behaviors (runtime-only, never saved), `children` in scene files (editor hierarchy shows nesting, gizmo moves the subtree), tags + `world.find()`
 - [ ] (engine core, moved ahead of the goblin) Time: fixed-timestep gameplay update with interpolated render, `world.time.scale` (pause, hit-stop, slow-mo), `world.rng` seeded per Play
 - [ ] (engine core, moved ahead of the goblin) Collision queries: `world.raycast` / `world.sweep` for behaviors, collision layers, rotated boxes + spheres/capsules, colliders from a collision GLB
 - [ ] (engine core, moved ahead of the goblin) Animation layers + masks (upper/lower body) and frame events (`step`, `hit`) declared per clip in character.json
+- [ ] Animation timeline v0: tap a character → clips → Open in timeline: scrub/play/loop/speed, orbitable preview (front/side/top), clip length + frame readout
+- [ ] Timeline edits: trim, loop points, rate, bone mask toggles, frame events — saved as non-destructive clip variants in character.json (undoable, MCP tools too)
+- [ ] Forge round trip: "Open in Forge" / "Send back" between the editor and `retarget-anims` (forge-mcp), and the Motions tab retargets a library clip onto the selected character
 - [ ] Goblin samurai, step 1: find him in `zap` (the stadium sandbox): the goblin/samurai GLBs, his clips, the hair + cape dynamics, katana mount. Write `docs/goblin-extraction.md` mapping every system to a future behavior (wall run, high bar flips, katana, ninja moves) with source line refs. No code moved yet.
 - [ ] Goblin samurai, step 2: the character as a full asset (GLB + character.json + roles), playable in a `stadium` scene with Colin's twin-stick controls
 - [ ] Goblin samurai, step 3+: one behavior per item from the extraction doc (each with a test and a demo in the stadium scene), then the dynamic hair/cape as a `Dynamics` behavior
@@ -39,11 +43,19 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Performance basics: frustum culling back on (correct skinned bounds), InstancedMesh for repeated prefabs, `renderer.info` stats in the LIVE badge, per-tier budgets that warn in validate/route checks
 - [ ] AudioSource behavior: sound files, 3D positional, loop/volume/pitch in schema, music track + buses with sliders
 - [ ] Particles/VFX: pooled particle system + `Emitter` behavior (burst/continuous, editable in inspector); hit sparks, dust, smoke presets
+- [ ] VFX editor workspace: build emitters live (sprites, curves, bursts) and save them as library presets — Colin's "creator night" flow; same pattern later for weapon/prop/building batches
 - [ ] Game UI/HUD authored in the scene (score, health bar, prompt, win/lose screens)
 - [ ] Game flow: game states, scene switching, spawn points/checkpoints, save/load progress
 - [ ] Camera entities (follow/orbit/fixed/rail + shake) replacing page-owned camera code
 - [ ] AI: grid/navmesh pathfinding + an editable state machine
 - [ ] Asset IDs: `.meta.json` with a stable id per asset so renames/moves don't break scenes
+
+## Stage 8 — Community library (SPEC §7e; needs accounts from tier 1)
+- [ ] Share to community toggle: upload an asset to the shared library with licence (CC0/CC-BY/paid), auto-categorized (characters, NPCs, props, weapons, buildings, VFX, animations, levels)
+- [ ] Quality gate: validator + budgets + thumbnails must pass before an asset goes public; report what to fix
+- [ ] Browse: sections ranked by stars, search, creator profiles, comments, collections; install into a project in one tap
+- [ ] Bounties: post a request with a reward, creators deliver privately or publicly, payouts via a payments provider
+- [ ] Marketplace: paid asset packs + level packs next to the free library
 
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
 Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.

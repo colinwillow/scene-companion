@@ -93,6 +93,29 @@ Claude can see what you see. The tools include: list scene objects, get the sele
 - Privacy policy and accounts.
 - Apple's review rules for apps that run user-made HTML5 games (check them before committing to an iPhone app).
 
+## 7e. Animation workspace, creator nights, and the community library (Colin, 2026-10-27)
+**Animation workspace (in the editor):**
+- Tap a character → its clips → **Open in timeline**: a scrubbable timeline with play/loop/speed, the character orbitable in 3D (front/side/top views).
+- **Non-destructive edits** saved as clip variants in `character.json`: trim start/end, loop points, playback rate, bone masks (toggle bones on/off → upper/lower body layers), additive layers, frame events (step, hit, spawn VFX).
+- **Round trip with the Forge** (`retarget-anims`; `zap/forge.html` plus `forge-mcp`): "Open in Forge" sends the character and clip; Forge edits retargeting and tuning; "Send back" updates the character's clips in place, just like the Blender bridge. The Forge stays its own app and is also built in here.
+- New motions from the clip library get retargeted onto the selected character from the Motions tab.
+
+**Creator nights (make-a-batch workflow):** dedicated workspaces for making one kind of asset in bulk:
+- a **VFX/particle editor** (emitters, sprites, colour/size curves, presets: sparks, smoke, slashes, magic);
+- weapon / prop / building batches through the Blender bridge and image→3D.
+
+Everything made lands in the library, auto-validated and thumbnailed.
+
+**Thumbnail studio:** every asset gets standard, well-lit thumbnails and a turntable automatically (fixed lights, camera framing from its bounds), so the library looks consistent.
+
+**Community library:** "open contributor" rather than fully open source.
+- **Share to community** is a toggle on any asset. It is auto-sorted into a category (characters, NPCs, props, weapons, buildings, VFX, animations, levels) from its contents and a quick vision check, with licence per item (CC0 / CC-BY / paid).
+- **Quality gate:** the validator rules (budgets, Draco/KTX2, rig + clip roles, scale, doubleSided/BLEND, thumbnails) must pass before it's public. That's how "a certain quality, made for web games" is enforced automatically.
+- **Discovery:** stars/likes ranking per section, comments, creator profiles, collections.
+- **Bounties:** someone posts "$10 for this character rigged well", a creator delivers privately or to the public library. Payouts via a payments provider (e.g. Stripe Connect), platform fee optional.
+- **Marketplace:** asset packs and level packs for sale alongside the free library (SPEC §7b).
+- Rigs made with tools like Auto-Rig Pro are fine to share and sell. It's the add-on that can't be redistributed, not its output.
+
 ## 7d. Engine scope
 Scene Companion is growing into a full engine on Three.js. `docs/ENGINE.md` is the subsystem checklist (from TheCherno's brief and standard engine architecture) with status and order; ROADMAP Stage 7 builds it.
 
