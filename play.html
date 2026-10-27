@@ -129,12 +129,27 @@ function readInput() {
   world.input.move = [rx * ix - fx * iy, rz * ix - fz * iy];
   if (input.jump) { world.input.jump = true; input.jump = false; }
   world.input.charge = !!input.charge;
+  trigger();
   if (input.trick) { world.input.trick = input.trick; input.trick = null; }   // screen direction: [x right, y down]
   if (input.attack) {                        // screen flick → world direction, same mapping as the move stick; [0,0] = facing
     const [ax, ay] = input.attack, l = Math.hypot(ax, ay) || 1;
     world.input.attack = l > 1e-3 && (ax || ay) ? [(rx * ax - fx * ay) / l, (rz * ax - fz * ay) / l] : [0, 0];
     input.attack = null;
   }
+}
+// The TRIGGER (zap's padUp / WEAP): the right pad pushed UP past `at`, held `armT`, inside `arc` of straight up, is `fire`
+// (a Blaster charges while it is held and fires on release); it stands down below `keep` (hysteresis, so a thumb rolling in
+// as it lifts does not cancel the shot). A sideways drag is still the camera. Key G holds it on a keyboard.
+const TRIG = { at: 0.78, keep: 0.48, armT: 90, arc: 1.05 };
+let trigT = 0, trigOn = false;
+function trigger() {
+  const up = -stickR.y, mag = Math.hypot(stickR.x, stickR.y), off = Math.atan2(Math.abs(stickR.x), up);
+  if (!stickR.down) { trigOn = false; trigT = 0; }
+  else if (trigOn) { if (up < TRIG.keep) trigOn = false; }
+  else if (mag >= TRIG.at && off <= TRIG.arc) { trigT ||= performance.now(); if (performance.now() - trigT >= TRIG.armT) trigOn = true; }
+  else trigT = 0;
+  world.input.fire = trigOn || keys.has('KeyG');
+  world.input.aim = [-Math.sin(yaw), -Math.cos(yaw)];   // where the camera looks, on the ground
 }
 function turnCamera(dt) {
   const rx = stickR.x + ((keys.has('KeyE') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0));
@@ -163,8 +178,8 @@ function hud() {
   const h = player.behaviors.find(b => b.constructor.name === 'Health');
   $('hearts').textContent = h ? hearts(h.current, h.params.max) : '';
   const got = coinsTotal - [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup' && !b.collected)).length;
-  $('coins').textContent = `● ${got} / ${coinsTotal}`;
-  if (!over && got === coinsTotal) { sfx.play('win'); end('You got every coin! 🎉'); }
+  $('coins').textContent = `● ${got} / ${coinsTotal}`; $('coins').style.display = coinsTotal ? '' : 'none';   // no coins in this scene: no counter (and no instant win)
+  if (!over && coinsTotal > 0 && got === coinsTotal) { sfx.play('win'); end('You got every coin! 🎉'); }
 }
 function end(text) { over = true; $('msgText').textContent = text; $('msg').style.display = 'flex'; }
 

@@ -1008,6 +1008,94 @@ export class KitParts extends Behavior {
   }
 }
 
+// Zap's blaster (WEAP / fireBolt, docs/zap-blaster-extraction.md): while `world.input.fire` is held (the right pad pushed UP —
+// play.html's four-gate trigger) the shot CHARGES over `chargeT`; letting go fires a bolt (the `projectile` prefab, spawned
+// at the gun) along the camera's bearing (`world.input.aim`) — under `minChg` it is a fumble and nothing fires. The charge
+// sets the ball's size, its blast radius and its damage. `gun` is the held weapon's entity (the muzzle is its far end along
+// the aim, measured); '' = `height` up from his feet.
+export class Blaster extends Behavior {
+  static schema = {
+    projectile: { type: 'string', default: 'bolt' },        // prefab id with a Projectile behavior
+    gun:        { type: 'string', default: '' },            // the weapon entity (a Mount child)
+    height:     { type: 'number', default: 1.1, min: 0, max: 3, step: 0.05 },
+    chargeT:    { type: 'number', default: 1.15, min: 0.05, max: 5, step: 0.05 },
+    minChg:     { type: 'number', default: 0.1, min: 0, max: 1, step: 0.01 },
+    speed:      { type: 'number', default: 44, min: 1, max: 200, step: 1 },        // m/s: slow enough to SEE
+    size0:      { type: 'number', default: 0.45, min: 0.05, max: 5, step: 0.05 },  // m across, a fumble…
+    size1:      { type: 'number', default: 1.9, min: 0.05, max: 5, step: 0.05 },   // …to a full charge (zap's ball0/ball1)
+    blast0:     { type: 'number', default: 0.5, min: 0, max: 10, step: 0.1 },
+    blast1:     { type: 'number', default: 2.2, min: 0, max: 10, step: 0.1 },
+    damage0:    { type: 'number', default: 1, min: 0, max: 100, step: 0.5 },
+    damage1:    { type: 'number', default: 3, min: 0, max: 100, step: 0.5 },
+  };
+  start() { this.chg = 0; this.charging = false; }
+  muzzle() {
+    const o = this.entity.object3d, g = this.params.gun && this.world.getEntity?.(this.params.gun)?.object3d;
+    if (g?.getWorldPosition) { const v = g.getWorldPosition(new o.position.constructor()); return [v.x, Math.max(v.y, o.position.y + this.params.height), v.z]; }   // no aim pose yet: never below chest height
+    return [o.position.x, o.position.y + this.params.height, o.position.z];
+  }
+  update(dt) {
+    const input = this.world.input || {}, P = this.params;
+    if (input.fire) { this.charging = true; this.chg = Math.min(1, this.chg + dt / P.chargeT); return; }
+    if (!this.charging) return;
+    const c = this.chg; this.charging = false; this.chg = 0;
+    if (c < P.minChg) { this.world.emit('fumble', this.entity.id); return; }
+    this.fire(c);
+  }
+  fire(c) {
+    const P = this.params, o = this.entity.object3d, a = this.world.input?.aim, yaw = yawOf(o);
+    let d = a && (a[0] || a[a.length - 1]) ? (a.length === 3 ? a : [a[0], 0, a[1]]) : [Math.sin(yaw), 0, Math.cos(yaw)];
+    const l = Math.hypot(...d) || 1; d = d.map(v => v / l);
+    const at = this.muzzle(), lerp = (x, y) => x + (y - x) * c;
+    const shot = { vel: d.map(v => v * P.speed), size: lerp(P.size0, P.size1), blast: lerp(P.blast0, P.blast1), damage: lerp(P.damage0, P.damage1), owner: this.entity.id };
+    this.world.emit('shoot', this.entity.id, c);
+    return this.world.spawn?.(P.projectile, { position: at }).then(e => {
+      const pr = e.behaviors.find(b => b instanceof Projectile); if (!pr) return e;
+      pr.launch(shot); e.object3d.scale.setScalar(shot.size); return e;
+    });
+  }
+}
+
+// A bolt in flight (zap's stepBolts / boltHit): straight along `vel` until it meets a Solid, the ground or a body, then a
+// `blast(x, y, z, r, dmg)` there (walls break, glass shatters) and 'struck' on every body inside it; gone after `life`.
+export class Projectile extends Behavior {
+  static schema = {
+    life:    { type: 'number', default: 2.4, min: 0.1, max: 20, step: 0.1 },
+    gravity: { type: 'number', default: 0, min: 0, max: 40, step: 0.5 },
+    groundY: { type: 'number', default: 0, min: -50, max: 50, step: 0.1 },
+  };
+  start() { this.t = 0; this.shot = this.shot || null; }
+  launch(shot) { this.shot = shot; this.t = 0; }
+  update(dt) {
+    const S = this.shot; if (!S || this.gone) return;
+    const p = this.entity.object3d.position, P = this.params; this.t += dt;
+    S.vel[1] -= P.gravity * dt;
+    const step = Math.hypot(...S.vel) * dt, d = S.vel.map(v => v / (Math.hypot(...S.vel) || 1)), from = [p.x, p.y, p.z];
+    const hit = this.world.raycast?.(from, d, { maxDist: step });
+    let at = hit ? hit.point : [p.x + S.vel[0] * dt, p.y + S.vel[1] * dt, p.z + S.vel[2] * dt];
+    if (!hit && at[1] <= P.groundY) at = [at[0], P.groundY, at[2]];
+    // a body in the way: anything hittable within the ball's radius of where it now is
+    let body = null;
+    for (const e of this.world.entities?.values?.() || []) {
+      if (e.id === S.owner || e.defeated || !e.behaviors?.some(b => b instanceof Stompable || b.constructor.hittable)) continue;
+      const q = e.object3d.position; if (Math.hypot(q.x - at[0], q.z - at[2]) < S.size / 2 + 0.4 && at[1] > q.y - 0.2 && at[1] < q.y + 2.2) { body = e; break; }
+    }
+    p.x = at[0]; p.y = at[1]; p.z = at[2];
+    if (hit || body || at[1] <= P.groundY || this.t >= P.life) this.burst(at, this.t < P.life || !!hit);
+  }
+  burst(at, loud) {
+    const S = this.shot; this.gone = true;
+    if (loud) {
+      this.world.emit('blast', at[0], at[1], at[2], S.blast, S.damage);
+      for (const e of this.world.entities?.values?.() || []) {
+        if (e.id === S.owner || e.defeated || !e.behaviors?.some(b => b instanceof Stompable || b.constructor.hittable)) continue;
+        const q = e.object3d.position; if (Math.hypot(q.x - at[0], q.y + 1 - at[1], q.z - at[2]) <= S.blast + 0.5) this.world.emit('struck', S.owner, e.id, S.damage);
+      }
+    }
+    this.world.destroy?.(this.entity.id);
+  }
+}
+
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
 // catches the lip — he hangs (`hangClip`). Tap: climb up over it (`climbClip`) and stand on top. Stick pulled away: let go.
 // Every distance is a share of his height (the PlayerController's `height`), so it fits any body.
@@ -2116,6 +2204,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, Blaster, Projectile, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

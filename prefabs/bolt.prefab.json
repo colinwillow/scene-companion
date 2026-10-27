@@ -1,0 +1,10 @@
+{
+  "asset": {
+    "variants": {
+      "web": { "primitive": "sphere", "size": [1, 1, 1], "color": "#bff8ff", "emissive": "#38d6ff", "roughness": 0.3, "castShadow": false }
+    }
+  },
+  "behaviors": [
+    { "type": "Projectile" }
+  ]
+}
