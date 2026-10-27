@@ -125,7 +125,8 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
+import { clipRoles, characterEntries } from './runtime/character.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -371,7 +372,7 @@ function renderPanel() {
   panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div><div class="hint" id="liveIn"></div>`;
   if (!playing) {
     const acts = document.createElement('div'); acts.className = 'acts';
-    const glb = modelPath(assetOf(ent));
+    const glb = modelPath(assetOf(ent), world.characters);
     acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
       (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object">${blenderLabel()}</button>` : '') +
       (glb && liveOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)">→ Blender: all ${e.prefab}</button>` : '');
@@ -643,7 +644,7 @@ var sendSelect, liveOn = () => false;
         const ent = world.getEntity(s.id);
         if (!ent || playing) { showErr(`Blender sent back ${s.id} but ${playing ? 'the scene is playing — stop and send again' : 'it is not in this scene'}`); return; }
         record();
-        if (replaceModel(data, s.id, s.glb, assetOf(ent))) rebuild().then(() => { select(s.id); fillAdd(); });
+        if (replaceModel(data, s.id, s.glb, assetOf(ent), world.characters)) rebuild().then(() => { select(s.id); fillAdd(); });
         return;
       }
       if (s.type === 'pick' && sameScene(s.url, SCENE_URL)) {                     // tapped in a running game
@@ -743,6 +744,8 @@ addEventListener('keydown', e => {
 // is looking (on the floor). Picking a prefab the scene doesn't list adds it to the scene's prefabs.
 let prefabLibrary = [];
 fetch('./prefabs/index.json').then(r => (r.ok ? r.json() : [])).then(names => { prefabLibrary = Array.isArray(names) ? names : []; fillAdd(); }).catch(() => {});
+let characterLibrary = [];   // Library › Characters: bare characters from their character.json files
+fetch('./assets/models/colin/characters/index.json').then(r => (r.ok ? r.json() : [])).then(paths => { characterLibrary = characterEntries(paths); }).catch(() => {});
 function fillAdd() {
   const pf = Object.keys(data.prefabs || {}), more = prefabLibrary.filter(n => !pf.includes(n)), as = Object.keys(data.assets || {});
   $('add').innerHTML = `<option value="">＋ Add</option>` +
@@ -761,6 +764,13 @@ async function addFrom(kind, name) {
   record();
   if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
   const e = kind === 'light' ? addLight(data, name, viewDropPoint()) : addEntity(data, { [kind]: name }, viewDropPoint());
+  await rebuild(); select(e.id); fillAdd();
+}
+
+async function addCharacterFrom(i) {
+  if (playing) return;
+  record();
+  const e = addCharacter(data, i.name, i.path, viewDropPoint());
   await rebuild(); select(e.id); fillAdd();
 }
 
@@ -784,15 +794,17 @@ async function renderLib() {
   if (libTab === 'motions') {
     const ent = world.getEntity(selectedId);
     if (!ent?.anim) { $('libCount').textContent = 'Select an animated object to see its motions'; return; }
-    items = filterNames(ent.anim.clips, q).map(c => ({ name: c, sub: c === (ent.data.animation || ent.anim.current) ? 'playing' : '', pick: () => {
+    const roleOf = clipRoles(ent.roles);   // character.json roles this clip plays, e.g. "jump · fall"
+    items = filterNames(ent.anim.clips, q).map(c => ({ name: c, sub: [(roleOf[c] || []).join(' · '), c === (ent.data.animation || ent.anim.current) ? 'playing' : ''].filter(Boolean).join(' — '), pick: () => {
       if (playing) return;
       record(); ent.data.animation = c; ent.anim.play(c); renderPanel(); renderLib();
     } }));
     $('libCount').textContent = `${selectedId}: ${items.length} motion${items.length === 1 ? '' : 's'}`;
   } else {
-    items = filterNames(libraryGroups(libPrefabs, data)[libTab], q).map(i => ({ name: i.name,
-      sub: i.kind === 'prefab' ? (data.prefabs?.[i.name] ? 'prefab' : 'prefab · not in scene yet') : 'model',
-      pick: () => { addFrom(i.kind, i.name); if (!wide) closeLib(); } }));
+    const group = libraryGroups(libPrefabs, data)[libTab].concat(libTab === 'characters' ? characterLibrary : []);
+    items = filterNames(group, q).map(i => ({ name: i.name,
+      sub: i.kind === 'prefab' ? (data.prefabs?.[i.name] ? 'prefab' : 'prefab · not in scene yet') : i.kind === 'character' ? 'character · plays its roles' : 'model',
+      pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom(i.kind, i.name); if (!wide) closeLib(); } }));
     $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to add at the view centre`;
   }
   for (const it of items) {

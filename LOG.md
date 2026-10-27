@@ -52,3 +52,4 @@
 - 2026-10-27 — Scatter brush polish — erase mode, gap + jitter sliders, two-finger orbit while brushing; 110 tests; headless touch ✓ (build run)
 - 2026-10-27 — Blocked: accounts/cloud save, Publish, hosted connector, Connect GitHub (need Colin's accounts, docs/cloud-setup.md); Motion library + Inventory (no add_repo in build runs) (build run)
 - 2026-10-27 — character.json + clip roles — runtime/character.js, World loader, Animator/Stompable read roles, validator; Zap/skeleton/mutant converted; 115 tests; headless ✓; route ✓ Sky Steps (build run)
+- 2026-10-27 — Characters follow-ups — Blender/Replace via character variants, Library › Characters from character index, Motions role labels; 116 tests; headless ✓ (build run)

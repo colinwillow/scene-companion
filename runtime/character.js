@@ -45,3 +45,15 @@ export function checkCharacter(ch, clips) {
   if (!ch.roles.idle) warn('no "idle" role');
   return out;
 }
+
+// Motions list labels: clip name → the roles it plays, e.g. { in_air: ['jump', 'fall'] }.
+export function clipRoles(roles = {}) {
+  const out = {};
+  for (const r of ROLES) if (roles[r]) (out[roles[r]] ||= []).push(r);
+  return out;
+}
+
+// Library › Characters entries from the character index (["./…/zap.character.json", …]) → [{ kind, name, path }]
+export const characterEntries = paths => (Array.isArray(paths) ? paths : [])
+  .filter(p => typeof p === 'string' && p.endsWith('.character.json'))
+  .map(path => ({ kind: 'character', name: path.split('/').pop().replace(/\.character\.json$/, ''), path }));

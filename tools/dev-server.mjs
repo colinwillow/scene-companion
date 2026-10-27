@@ -54,7 +54,8 @@ async function bridgeRoute(req, res, url) {
     if (prefab) {
       if (!ID.test(prefab) || !existsSync(pfFile)) return json(res, 400, { error: `no prefabs/${prefab}.prefab.json` });
       pf = JSON.parse(await readFile(pfFile, 'utf8'));
-      if (!(pf.asset?.variants?.web || pf.asset)?.glb) return json(res, 400, { error: `prefab ${prefab} has no glb model` });
+      const w = pf.asset?.variants?.web || pf.asset;
+      if (!w?.glb && !w?.character) return json(res, 400, { error: `prefab ${prefab} has no glb model` });   // a character variant keeps its roles; the new glb overrides the file's
     }
     const base = prefab || id, dir = join(ROOT, 'assets/models/bridge'); await mkdir(dir, { recursive: true });
     const taken = new Set(await readdir(dir));

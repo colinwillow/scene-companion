@@ -57,3 +57,26 @@ test('Animator + Stompable play role clips; a param overrides one entity', () =>
   assert.deepEqual(shown, [['Shoulder_Hit_And_Fall', true]]);
   assert.equal(enemy.object3d.visible, true, 'shows the death clip before hiding');
 });
+
+test('editor: character variants resolve to their GLB; Library adds bare characters; Motions labels roles', async () => {
+  const { modelPath, replaceModel, addCharacter } = await import('../runtime/editing.js');
+  const { clipRoles, characterEntries } = await import('../runtime/character.js');
+  const path = './assets/models/colin/characters/zap.character.json';
+  const chars = { [path]: { glb: './z.glb', roles: { idle: 'i', jump: 'air', fall: 'air' } } };
+  const asset = { variants: { web: { character: path } } };
+  assert.equal(modelPath(asset), null, 'unknown until the file is loaded');
+  assert.equal(modelPath(asset, chars), './z.glb');
+  const d = { entities: [{ id: 'player', asset: 'p' }], assets: { p: asset } };
+  assert.ok(replaceModel(d, 'player', './edited.glb', asset, chars));
+  assert.deepEqual(d.entities[0].asset, { variants: { web: { character: path, glb: './edited.glb' } } }, 'keeps the roles, swaps the model');
+  const d2 = { entities: [], assets: { zap: { variants: { web: { glb: './other.glb' } } } } };
+  const a = addCharacter(d2, 'zap', path, [1, 0, 2]), b = addCharacter(d2, 'zap', path, [3, 0, 2]);
+  assert.deepEqual([a.id, b.id, a.asset, b.asset, a.behaviors[0].type], ['zap_01', 'zap_02', 'zap_2', 'zap_2', 'Animator']);
+  const d3 = { entities: [{ id: 'player', asset: 'player' }], assets: { player: asset } };
+  assert.deepEqual([addCharacter(d3, 'zap', path, [0, 0, 0]).id, d3.entities[1].asset], ['zap_01', 'player'], 'reuses the asset, still named zap');
+  assert.deepEqual(clipRoles({ idle: 'i', jump: 'air', fall: 'air' }), { i: ['idle'], air: ['jump', 'fall'] });
+  const idx = JSON.parse(readFileSync('assets/models/colin/characters/index.json', 'utf8'));
+  const entries = characterEntries(idx);
+  assert.deepEqual(entries.map(e => e.name), ['zap', 'skeleton', 'mutant']);
+  for (const e of entries) assert.ok(readFileSync(e.path.slice(2)), e.path);
+});

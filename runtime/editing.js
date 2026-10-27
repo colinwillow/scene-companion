@@ -55,17 +55,21 @@ export function setAsset(data, id, assetKey) {
 
 // Which GLB an entity shows (web variant), for "Send to Blender". assetDef: its asset, resolved (prefab merged,
 // scene asset key looked up). → path or null
-export function modelPath(assetDef) {
+// characters: { "./…/x.character.json": loadedJson } (World.characters) so a `character` variant resolves to its GLB.
+export function modelPath(assetDef, characters = {}) {
   const v = assetDef?.variants ? assetDef.variants.web : assetDef;
-  return typeof v?.glb === 'string' ? v.glb : null;
+  if (typeof v?.glb === 'string') return v.glb;
+  const ch = v?.character && characters[v.character];
+  return typeof ch?.glb === 'string' ? ch.glb : null;
 }
 
 // Blender bridge "Send Back": point one entity at the edited GLB. Keeps its id, transform, behaviors and the web
 // variant's size settings (height/scale/offset/frontSide); other tiers' variants are dropped since they'd still
 // show the old model. Becomes an inline asset on this entity only (an override on prefab instances).
-export function replaceModel(data, id, glb, assetDef) {
+// A `character` variant keeps its character file (roles still apply); the new glb overrides the file's model.
+export function replaceModel(data, id, glb, assetDef, characters = {}) {
   const e = data.entities.find(x => x.id === id);
-  if (!e || !modelPath(assetDef)) return false;
+  if (!e || !modelPath(assetDef, characters)) return false;
   const web = structuredClone(assetDef.variants ? assetDef.variants.web : assetDef);
   e.asset = { variants: { web: { ...web, glb } } };
   return true;
@@ -172,3 +176,16 @@ export function scatterEraseIds(data, prefab, samples, radius) {
 
 // Brush size for erasing: a little wider than the paint spacing so one pass clears a painted strip.
 export const eraseRadius = spacing => r3(Math.max(0.6, spacing * 0.6));
+
+// Library › Characters: add a bare character (character.json) at a point — a scene asset pointing at the file
+// (reused if one already does) + an entity with an Animator that plays its roles. → the new entity
+export function addCharacter(data, name, path, point) {
+  data.assets ||= {};
+  const same = Object.entries(data.assets).find(([, a]) => (a?.variants?.web || a)?.character === path);
+  let key = same?.[0];
+  if (!key) { key = name; let n = 2; while (data.assets[key]) key = `${name}_${n++}`; data.assets[key] = { variants: { web: { character: path } } }; }
+  const e = addEntity(data, { asset: key }, point);
+  e.id = nextId(ids(data).filter(i => i !== e.id), name);   // named after the character, even when reusing e.g. a `player` asset
+  e.behaviors = [{ type: 'Animator', params: {} }];
+  return e;
+}

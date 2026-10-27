@@ -30,6 +30,7 @@ export class World {
     }
     this.gltfCache = new Map();   // path → Promise<gltf>, so many entities share one download
     this.characterCache = new Map();   // character.json path → Promise<json>
+    this.characters = {};              // character.json path → json (loaded), for the editor
     this.mixers = [];
     this.t = 0;
     this.input = { move: [0, 0], jump: false };   // filled by the game page; read by behaviors
@@ -162,7 +163,7 @@ export class World {
       let variant = e.light ? null : this.resolveVariant(assetDef), character = null;
       if (variant?.character) {                     // character.json: model + clip roles (runtime/character.js)
         if (!this.characterCache.has(variant.character)) this.characterCache.set(variant.character, fetch(variant.character).then(r => r.json()));
-        character = await this.characterCache.get(variant.character);
+        character = this.characters[variant.character] = await this.characterCache.get(variant.character);
         variant = characterVariant(character, variant);
       }
       const obj = e.light ? this.buildLight(e.light) : await this.buildObject(variant);
