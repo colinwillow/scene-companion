@@ -67,3 +67,9 @@ test('setYaw normalises a quaternion-flipped Euler instead of facing the mirror 
   const tilted = { rotation: { x: 0.1, y: 0, z: 0 } }; setYaw(tilted, 1);
   assert.equal(tilted.rotation.x, 0.1, 'a small authored tilt is kept');
 });
+
+test('yawOf reads the heading from either Euler form', async () => {
+  const { yawOf } = await import('../behaviors/index.js');
+  assert.ok(Math.abs(yawOf({ rotation: { x: Math.PI, y: Math.PI - 2.5, z: Math.PI } }) - 2.5) < 1e-12);
+  assert.equal(yawOf({ rotation: { x: 0, y: 1.2, z: 0 } }), 1.2);
+});

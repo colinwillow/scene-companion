@@ -1,3 +1,4 @@
+import { yawOf } from './yaw.js';
 // Collision queries for behaviors (docs/ENGINE.md #4). Pure JS — no three, no DOM — so behaviors stay portable.
 // Shapes come from Solid behaviors: their `box()` (axis-aligned, optionally a ramp), `shape` (box | sphere | capsule),
 // `rotated` (a box turned by the entity's yaw) and `layer`. Vectors are plain [x, y, z] arrays.
@@ -81,7 +82,7 @@ export function shapeOf(solid) {
   if (kind === 'sphere') return { kind, c: [cx, cy, cz], r: Math.min(b.maxX - b.minX, b.maxY - b.minY, b.maxZ - b.minZ) / 2 };
   if (kind === 'capsule') { const r = Math.min(b.maxX - b.minX, b.maxZ - b.minZ) / 2;
     return { kind, a: [cx, b.minY + r, cz], b: [cx, Math.max(b.minY + r, b.maxY - r), cz], r }; }
-  const yaw = P.rotated ? (solid.entity?.object3d?.rotation?.y || 0) : 0;
+  const yaw = P.rotated ? yawOf(solid.entity?.object3d) : 0;
   if (yaw && !b.slope) {   // turned box: un-turned extents, centred, and the yaw
     const [sx, sy, sz] = P.size || [1, 1, 1];
     return { kind: 'obb', c: [cx, cy, cz], half: [sx / 2, sy / 2, sz / 2], yaw };

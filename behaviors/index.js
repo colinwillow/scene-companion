@@ -6,6 +6,8 @@ import { roleClip } from '../runtime/character.js';
 import { topAt, walkShape } from '../runtime/collide.js';
 import { placeCollider } from '../runtime/colliders.js';
 import { ik2 } from '../runtime/ik.js';
+import { yawOf } from '../runtime/yaw.js';
+export { yawOf };
 export { topAt };
 
 // Face a heading. Writing rotation.y alone is wrong once the rotation has been through a quaternion (interpolation,
@@ -22,7 +24,7 @@ export class Spin extends Behavior {
   static schema = {
     speed: { type: 'number', default: 1, min: -10, max: 10, step: 0.1 },  // radians/sec around Y
   };
-  update(dt) { this.entity.object3d.rotation.y += this.params.speed * dt; }
+  update(dt) { const o = this.entity.object3d; setYaw(o, yawOf(o) + this.params.speed * dt); }
 }
 
 export class Bob extends Behavior {
@@ -136,6 +138,7 @@ export class Animator extends Behavior {
     const speed = Math.hypot(p.x - this.last[0], p.z - this.last[1]) / dt;
     this.last = [p.x, p.z];
     const pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    if (this.entity.animHold > 0) { this.entity.animHold -= dt; if (pc && !pc.grounded) { this.airborne = true; this.fallV = Math.max(0, -pc.vy); } return; }
     if (this.entity.mover) {                                // a wall run (…) owns the body: its clip, then the air clips when it lets go
       const mc = this.entity.mover.clip && roleClip('', this.entity.mover.clip, R) || this.entity.mover.clip;
       if (mc) anim.play(mc, { fade: 0.1 });
@@ -196,7 +199,7 @@ export class Solid extends Behavior {
     const p = this.entity.object3d.position;
     let [sx, sy, sz] = this.params.size, slope;
     if (this.params.slope) {        // ramps follow the entity's turn, snapped to 90°: +x, -z, -x, +z
-      const q = ((Math.round((this.entity.object3d.rotation?.y || 0) / (Math.PI / 2)) % 4) + 4) % 4;
+      const q = ((Math.round(yawOf(this.entity.object3d) / (Math.PI / 2)) % 4) + 4) % 4;
       slope = ['+x', '-z', '-x', '+z'][q];
       if (q % 2) [sx, sz] = [sz, sx];
     }
@@ -219,7 +222,7 @@ export class CollisionMesh extends Behavior {
     for (const s of this.solids) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); }
     const o = this.entity.object3d, pos = [o.position.x, o.position.y, o.position.z], k = o.scale?.x ?? 1;
     this.solids = this.params.colliders.map((col, i) => {
-      const { c, size, yaw } = placeCollider(col, pos, o.rotation?.y || 0, k);
+      const { c, size, yaw } = placeCollider(col, pos, yawOf(o), k);
       const s = Object.create(Solid.prototype);    // a Solid with no entity of its own: queries see it, walking stands on it
       s.world = W; s.params = { size, anchor: 'center', slope: !!col.slope, shape: 'box', rotated: !col.slope, layer: this.params.layer };
       s.entity = { id: `${this.entity.id}#${col.name || i}`, owner: this.entity.id, object3d: { position: { x: c[0], y: c[1], z: c[2] }, rotation: { x: 0, y: yaw, z: 0 } } };
@@ -536,7 +539,7 @@ export class WallRun extends Behavior {
     if (this.run || !this.pc || this.entity.defeated) return false;
     const o = this.entity.object3d, mag = Math.hypot(move[0], move[1]);
     const W = this.find(this.coolT > 0 ? this.coolWall : null); if (!W) return false;
-    const mx = mag > 0.3 ? move[0] / mag : Math.sin(o.rotation.y), mz = mag > 0.3 ? move[1] / mag : Math.cos(o.rotation.y);
+    const mx = mag > 0.3 ? move[0] / mag : Math.sin(yawOf(o)), mz = mag > 0.3 ? move[1] / mag : Math.cos(yawOf(o));
     const dot = mx * W.nx + mz * W.nz;                              // < 0: heading into the wall
     if (dot < -0.7 && mag > 0.3) return this.go(W, 'up');
     if (Math.abs(dot) < 0.72 && mag > 0.3) return this.go(W, 'side', mx, mz);
@@ -555,7 +558,7 @@ export class WallRun extends Behavior {
     const R = this.run; if (!R) return;
     this.run = null; this.coolT = this.params.cool; this.coolWall = R.W.solid;
     if (this.entity.mover === this) this.entity.mover = null;
-    setYaw(this.entity.object3d, this.entity.object3d.rotation.y, 0);
+    setYaw(this.entity.object3d, yawOf(this.entity.object3d), 0);
     const pc = this.pc; if (!pc) return;
     pc.vy = vy ?? R.vy; pc.grounded = false; pc.sinceGround = 1; pc.airTime = 0.2;
     if (push) pc.carry = [R.nx * push, R.nz * push];
@@ -808,22 +811,61 @@ export class Melee extends Behavior {
     damage:   { type: 'number', default: 1, min: 0, max: 100, step: 1 },
     turn:     { type: 'boolean', default: true },     // face the strike direction
     speed:    { type: 'number', default: 1.75, min: 0.25, max: 4, step: 0.05 },  // clip playback rate (weirdport plays Zap's strikes at 1.75)
+    // combos (zap's katana): a chain of clips — a press during a swing is kept and throws the next one; a pause resets it
+    combo:    { type: 'string', default: '' },        // 'katana_slash_2, katana_slash_4, katana_slash_3' ('' = just `clip`)
+    comboWindow: { type: 'number', default: 0.5, min: 0, max: 2, step: 0.05 },   // s after a swing's cooldown the next press still chains
+    // lock-on: the nearest foe within `lockRange` inside a `lockOn`° cone round the flick (or his facing) is turned to and lunged at
+    lockOn:   { type: 'number', default: 0, min: 0, max: 360, step: 5 },          // degrees (0 = off; zap's katana: 60)
+    lockRange:{ type: 'number', default: 3.5, min: 0.5, max: 15, step: 0.1 },
+    lunge:    { type: 'number', default: 4, min: 0, max: 15, step: 0.5 },        // m/s toward a locked foe (handed to the PlayerController)
+    // in the air (with a PlayerController): a different clip on the whole body, and a slam straight down
+    airClip:  { type: 'string', default: '' },        // e.g. katana_jump_attack ('' = the ground swing in the air)
+    slam:     { type: 'number', default: 0, min: 0, max: 40, step: 1 },           // m/s down when it starts (0 = none)
   };
-  start() { this.cool = 0; this.pending = null; }
+  start() { this.cool = 0; this.pending = null; this.queued = null; this.step = 0; this.since = 1e9; }
   update(dt) {
     if (this.entity.defeated) return;
-    this.cool -= dt;
+    this.cool -= dt; this.since += dt;
     const input = this.world.input, a = input?.attack;
-    if (a) { input.attack = null; if (this.cool <= 0) this.swing(a); }
+    if (a) { input.attack = null; if (this.cool <= 0) this.swing(a); else if (this.chain().length > 1) this.queued = a; }
+    else if (this.queued && this.cool <= 0) { const q = this.queued; this.queued = null; this.swing(q); }
     if (this.pending && (this.pending.t -= dt) <= 0) { this.hit(this.pending.dir); this.pending = null; }
+  }
+  chain() { return this.params.combo ? this.params.combo.split(',').map(c => c.trim()).filter(Boolean) : []; }
+  // the foe to lock on to: nearest Stompable inside the cone and range, or null
+  target(dir) {
+    const P = this.params; if (!(P.lockOn > 0)) return null;
+    const p = this.entity.object3d.position, cosHalf = Math.cos((Math.min(P.lockOn, 359.9) / 2) * Math.PI / 180);
+    let best = null;
+    for (const e of this.world.entities?.values?.() || []) {
+      if (e === this.entity || e.defeated || e.object3d?.visible === false || !e.behaviors?.some(b => b instanceof Stompable)) continue;
+      const q = e.object3d.position, dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+      if (d > P.lockRange || d < 1e-3 || Math.abs(q.y - p.y) > 2.5 || (dx * dir[0] + dz * dir[1]) / d < cosHalf) continue;
+      if (!best || d < best.d) best = { e, d, dir: [dx / d, dz / d] };
+    }
+    return best;
   }
   swing([x, z]) {
     const P = this.params, o = this.entity.object3d;
-    let dir = Math.hypot(x, z) > 1e-3 ? [x, z] : [Math.sin(o.rotation.y), Math.cos(o.rotation.y)];
+    let dir = Math.hypot(x, z) > 1e-3 ? [x, z] : [Math.sin(yawOf(o)), Math.cos(yawOf(o))];
     const l = Math.hypot(...dir); dir = [dir[0] / l, dir[1] / l];
+    const lock = this.target(dir), pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    if (lock) {
+      dir = lock.dir;
+      if (pc && P.lunge > 0 && lock.d > P.reach * 0.6) pc.carry = [dir[0] * P.lunge, dir[1] * P.lunge];
+      this.world.emit('lockon', this.entity.id, lock.e.id);
+    }
     if (P.turn) setYaw(o, Math.atan2(dir[0], dir[1]));
-    const clip = roleClip(P.clip, 'attack', this.entity.roles);
-    if (clip && this.entity.anim?.clips.includes(clip)) this.entity.anim.play(clip, { layer: P.layer, once: true, fade: 0.08, restart: true, speed: P.speed });
+    const chain = this.chain();
+    if (chain.length) { this.step = this.since <= P.comboWindow + P.cooldown ? (this.step + 1) % chain.length : 0; }
+    this.since = 0;
+    const air = pc && !pc.grounded && P.airClip;
+    const clip = air ? P.airClip : chain.length ? chain[this.step] : roleClip(P.clip, 'attack', this.entity.roles);
+    if (clip && this.entity.anim?.clips.includes(clip)) {
+      this.entity.anim.play(clip, { layer: air ? 'base' : P.layer, once: true, fade: 0.08, restart: true, speed: P.speed });
+      if (air) this.entity.animHold = 0.6;     // a whole-body swing: the Animator keeps its hands off it for a moment
+    }
+    if (pc && !pc.grounded && P.slam > 0) { pc.vy = -P.slam; this.world.emit('slam', this.entity.id); }
     this.world.emit('swing', this.entity.id);
     this.cool = P.cooldown;
     if (P.hitDelay > 0) this.pending = { t: P.hitDelay, dir }; else this.hit(dir);

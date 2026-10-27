@@ -392,7 +392,16 @@
           "type": "Footsteps"
         },
         {
-          "type": "Melee"
+          "type": "Melee",
+          "params": {
+            "combo": "katana_slash_2, katana_slash_4, katana_slash_3",
+            "lockOn": 60,
+            "lockRange": 3.5,
+            "reach": 2.2,
+            "hitDelay": 0.25,
+            "airClip": "katana_jump_attack",
+            "slam": 14
+          }
         },
         {
           "type": "HandGrip"
