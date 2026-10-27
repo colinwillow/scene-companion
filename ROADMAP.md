@@ -175,7 +175,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 
 ## Later
 - [ ] 2D/2.5D (SPEC §7f): sprite + sprite-sheet import with slicing and named clip roles, orthographic side/top-down cameras and plane-locked collision, tilemap painting, parallax layers, and a 3D-character → sprite-sheet renderer
-  - [ ] [IN PROGRESS] 2D part 1: `settings.camera2d` (orthographic side or top view, follows the player) + plane-locked movement/collision (z pinned for side view) — a tiny side-scroller scene proves it
+  - [x] 2D part 1: `settings.camera2d` (orthographic side or top view, follows the player) + plane-locked movement/collision (z pinned for side view) — a tiny side-scroller scene proves it
   - [ ] 2D part 2: sprite + sprite-sheet import with slicing and named clip roles (idle/run/jump)
   - [ ] 2D part 3: tilemap painting in the editor, parallax layers
   - [ ] 2D part 4: render a 3D character into a sprite sheet

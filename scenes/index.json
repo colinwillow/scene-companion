@@ -48,5 +48,10 @@
   "file": "./scenes/kit-row.scene.json",
   "title": "Breakable kit row (weirdport)",
   "note": "your generated buildings, all breakable (\u25a6 for stats)"
+ },
+ {
+  "file": "./scenes/side-hop.scene.json",
+  "title": "Side Hop (2D)",
+  "note": "side-scroller camera; run right, jump, double jump"
  }
 ]

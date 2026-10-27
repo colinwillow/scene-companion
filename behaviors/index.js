@@ -2131,6 +2131,7 @@ export class PlayerController extends Behavior {
     invulnerable: { type: 'number', default: 1.2, min: 0, max: 5, step: 0.1 }, // s after a hit
     airJumps:  { type: 'number', default: 0, min: 0, max: 3, step: 1 },       // extra jumps in the air (1 = double jump); any landing or bounce gives them back
     airJumpSpeed: { type: 'number', default: 0, min: 0, max: 20, step: 0.5 }, // m/s up for an air jump, SET not added (0 = jumpSpeed)
+    plane:     { type: 'string', default: 'free' },   // free | side: a side-scroller pins z where he starts (only x moves; he faces ±x)
   };
   start() {
     const p = this.entity.object3d.position;
@@ -2165,7 +2166,8 @@ export class PlayerController extends Behavior {
     if (this.dead || dt <= 0) return;
     if (this.entity.mover) { this.hurtTimer = Math.max(0, this.hurtTimer - dt); this.ride = null; return; }   // another behavior owns the body (WallRun…)
     const P = this.params, p = this.entity.object3d.position, o = this.entity.object3d;
-    const input = this.world.input || {}, move = input.move || [0, 0];
+    const input = this.world.input || {}, side = P.plane === 'side';
+    const move = side ? [(input.move || [0, 0])[0], 0] : input.move || [0, 0];   // 2D side view: only x is a direction
     const all = this.world.solids || [], solids = all.map(walkShape);   // boxes, ramps, turned boxes, spheres, capsules
     // Ride moving platforms: move with whatever we stood on last frame by however much it moved since.
     if (this.ride && this.grounded) {
@@ -2195,9 +2197,13 @@ export class PlayerController extends Behavior {
       if (p.y >= (inside ? b.top(p.x, p.z) : b.top(cx, cz)) - (b.sloped ? STEP_UP : 0.05)) continue;
       const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
       if (!inside && d >= P.radius) continue;
+      if (side && b.box && !b.sloped) {                                     // 2D: a wall only ever pushes along x (z is the plane)
+        const l = b.box.minX - P.radius - p.x, r = b.box.maxX + P.radius - p.x; p.x += Math.abs(l) < Math.abs(r) ? l : r; continue;
+      }
       if (!inside && d > 1e-6) { p.x = cx + (dx / d) * P.radius; p.z = cz + (dz / d) * P.radius; }
       else { const [ox, oz] = b.out(p.x, p.z, P.radius); p.x += ox; p.z += oz; }   // centre inside: shortest way out
     }
+    if (side) { p.z = this.spawn[2]; if (this.carry) this.carry[1] = 0; }   // pinned to the plane he started on (push-outs too)
 
     // Jump (buffered a little so an early tap still counts), with coyote time.
     // a tap may be taken by another behavior first (a wall run starts on a tap beside a wall): entity.jumpTaps

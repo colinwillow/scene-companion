@@ -245,3 +245,14 @@ test('a capsule (a pillar) blocks with a round side', () => {
   assert.ok(closest > 0.85 - 1e-3 && closest < 0.9, `kept at its radius + mine, closest ${closest.toFixed(3)}`);
   assert.ok(p.z < -0.1 && p.x > 3, `slid round it, ended at ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
 });
+
+test('plane: side pins z, ignores the stick\'s up/down, and a wall only pushes along x', () => {
+  // a wall thin in z (0.4 m) right in his path: free movement would slip out sideways in z; on the plane he stops in x
+  const { w, pc, p } = setup({ solids: [['wall', [2, 0, 0.1], [1, 3, 0.4]]], params: { plane: 'side' } });
+  w.input.move = [0.7, 0.7];
+  run(pc, 120);
+  assert.equal(p.z, 0);
+  assert.ok(Math.abs(p.x - (1.5 - 0.35)) < 1e-6, `x=${p.x}`);   // wall face (2 - 0.5) minus his radius
+  const free = setup({ params: {} }); free.w.input.move = [0, 1]; run(free.pc, 30);
+  assert.ok(free.p.z > 1, 'free plane still moves in z');
+});
