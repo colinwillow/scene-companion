@@ -966,6 +966,7 @@ export class KitParts extends Behavior {
     rate:     { type: 'number', default: 5.5, min: 0.5, max: 30, step: 0.5 },    // how fast it swings (1/s)
     dmgScale: { type: 'number', default: 12, min: 0, max: 100, step: 0.5 },
     hatchSign:{ type: 'number', default: 1, min: -1, max: 1, step: 2 },          // flip if the lid lifts the wrong way
+    batchGlass: { type: 'boolean', default: true },   // all the panes as one mesh per material; a broken pane collapses its range
   };
   start() {
     this.parts = []; const o = this.entity.object3d; o.updateMatrixWorld?.(true);
@@ -978,6 +979,16 @@ export class KitParts extends Behavior {
                   min: e.open_min_deg ?? -100, max: e.open_max_deg ?? (kind === 'hatch' ? 110 : 100), home: { ry: n.rotation.y, rx: n.rotation.x, sy: n.scale.y }, solid: null };
       this.parts.push(P); this.place(P, true);
     });
+    if (this.params.batchGlass) {
+      const panes = this.parts.filter(P => P.kind === 'glass'), meshes = [];
+      for (const P of panes) { P.meshes = []; P.node.traverse(m => { if (m.isMesh && !m.isSkinnedMesh && m !== P.col && !m.userData?.collider) { P.meshes.push(m); meshes.push(m); } }); }
+      if (meshes.length > 1) {
+        this.glass = mergeMeshes(o, meshes);
+        for (const b of this.glass) o.add(b.mesh);
+        for (const m of meshes) m.visible = false;
+        for (const P of panes) P.ranges = this.glass.flatMap(b => P.meshes.map(m => b.ranges.get(m) && { b, ...b.ranges.get(m) }).filter(Boolean));
+      }
+    }
     this.world.on?.('blast', (x, y, z, r, dmg) => this.blast(x, y, z, r, dmg));
   }
   // the part's collider as a turned box from its col_ child, in world.solids only while the part is shut
@@ -1000,9 +1011,17 @@ export class KitParts extends Behavior {
     for (const P of this.parts) {
       if (P.dead || !P.c || Math.hypot(P.c[0] - x, P.c[1] - y, P.c[2] - z) > r + P.r) continue;
       P.hp -= dmg * this.params.dmgScale; hit++;
-      if (P.hp <= 0) { P.dead = true; P.node.visible = false; this.place(P, false); this.world.emit(P.kind === 'glass' ? 'shatter' : 'broken', this.entity.id, P.node.name, ...P.c); }
+      if (P.hp <= 0) { P.dead = true; P.node.visible = false; this.collapse(P); this.place(P, false); this.world.emit(P.kind === 'glass' ? 'shatter' : 'broken', this.entity.id, P.node.name, ...P.c); }
     }
     return hit;
+  }
+  // a batched pane: its vertices all onto its first one (zero-area triangles, nothing drawn)
+  collapse(P) {
+    for (const R of P.ranges || []) {
+      const pos = R.b.mesh.geometry.attributes.position, x = pos.getX(R.start), y = pos.getY(R.start), z = pos.getZ(R.start);
+      for (let i = R.start; i < R.start + R.count; i++) pos.setXYZ(i, x, y, z);
+      pos.needsUpdate = true;
+    }
   }
   update(dt) {
     const who = this.world.getEntity?.(this.params.who)?.object3d?.position; if (!who) return;
@@ -1032,6 +1051,9 @@ export class KitParts extends Behavior {
     }
   }
   destroy() {
+    for (const b of this.glass || []) { b.mesh.removeFromParent(); b.mesh.geometry.dispose?.(); }
+    for (const P of this.parts || []) for (const m of P.meshes || []) m.visible = true;
+    this.glass = [];
     for (const P of this.parts || []) {
       this.place(P, false); P.node.visible = true; P.node.rotation.y = P.home.ry; P.node.rotation.x = P.home.rx; P.node.scale.y = P.home.sy;
       if (P.col && P.col.userData.wasVisible !== undefined) P.col.visible = P.col.userData.wasVisible;
@@ -1230,7 +1252,7 @@ export class Batch extends Behavior {
   static schema = {};
   start() {
     const o = this.entity.object3d, list = [];
-    const skip = n => n !== o && (n.userData?.entityId || n.userData?.chunks || n.userData?.door || n.userData?.breakable || n.userData?.collider || n.userData?.noBatch || /^col_/.test(n.name || '') || n.visible === false);
+    const skip = n => n !== o && (n.userData?.entityId || n.userData?.chunks || n.userData?.door || (n.userData?.breakable && n.userData.breakable !== 'ac_unit') || n.userData?.collider || n.userData?.noBatch || /^col_/.test(n.name || '') || n.visible === false);
     const walk = n => { if (skip(n)) return; if (n.isMesh && !n.isSkinnedMesh && !n.userData?.batch) list.push(n); for (const c of n.children || []) walk(c); };
     walk(o);
     this.sources = list.length > 1 ? list : [];

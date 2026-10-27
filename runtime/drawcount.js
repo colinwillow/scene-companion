@@ -27,7 +27,7 @@ export function glbDrawFacts(json) {
   nodes.forEach((n, i) => {
     if (n.mesh === undefined || /^col_/.test(n.name || '') || n.extras?.collider) return;
     const ps = meshes[n.mesh]?.primitives || []; prims += ps.length;
-    if (under(i, x => x.extras?.door || (x.extras?.breakable && x.extras.breakable !== 'wall' && !x.extras.chunks))) parts += ps.length;   // a chunked wall is batched by Breakables
+    if (under(i, x => x.extras?.door)) parts += ps.length;   // doors, shutters, lids move: one draw each (walls, glass and AC units are batched)
     else ps.forEach(p => mats.add(p.material ?? -1));
   });
   return { prims, mats: mats.size, parts };

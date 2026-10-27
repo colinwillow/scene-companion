@@ -41,3 +41,23 @@ test('KitParts: glass breaks on a blast; the hatch opens for someone under it an
   me.position.set(-3.5, 0.5, 0); run(k, 1); assert.ok(hatch.rotation.x < -1.5, 'opened from below');
   me.position.set(-3.5, 3.1, 0); run(k, 4); assert.ok(Math.abs(hatch.rotation.x) < 0.05, 'a lid from above');
 });
+
+test('KitParts batches the panes; a broken pane collapses inside its range and the others stay', () => {
+  const root = new THREE.Group(), mat = new THREE.MeshStandardMaterial(), panes = [];
+  for (const x of [0, 2]) {
+    const n = new THREE.Group(); n.userData.breakable = 'glass'; n.position.set(x, 1, 0);
+    n.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.02), mat));
+    const col = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.02)); col.userData.collider = true; n.add(col);
+    root.add(n); panes.push(n);
+  }
+  const handlers = {}, world = { solids: [], on: (n, f) => { handlers[n] = f; }, emit: (n, ...a) => handlers[n]?.(...a), getEntity: () => null };
+  const k = new KitParts({ id: 'h', object3d: root }, {}, world); k.start();
+  assert.equal(k.glass.length, 1); assert.equal(panes[0].children[0].visible, false);
+  const pos = k.glass[0].mesh.geometry.attributes.position, before = pos.array.slice();
+  world.emit('blast', 2, 1, 0, 0.2, 1);
+  const n = pos.count / 2; let same = true, flat = true;
+  for (let i = 0; i < n; i++) if (pos.getX(i) !== before[i * 3]) same = false;
+  for (let i = n + 1; i < pos.count; i++) if (pos.getX(i) !== pos.getX(n) || pos.getY(i) !== pos.getY(n)) flat = false;
+  assert.ok(same, 'the first pane untouched'); assert.ok(flat, 'the broken pane is a point');
+  k.destroy(); assert.equal(panes[0].children[0].visible, true);
+});
