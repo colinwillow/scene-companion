@@ -1,0 +1,312 @@
+{
+  "settings": {
+    "look": "pbr",
+    "background": "#dfe6ee",
+    "fog": [
+      40,
+      140
+    ],
+    "sky": {
+      "elevation": 22,
+      "azimuth": 135,
+      "turbidity": 5,
+      "rayleigh": 1.4,
+      "exposure": 0.55,
+      "sunColor": "#ffeedd",
+      "sunIntensity": 3.2,
+      "envIntensity": 1.0
+    },
+    "fogColor": "#e6ecf2",
+    "post": {
+      "ao": true,
+      "bloom": {
+        "strength": 0.35,
+        "radius": 0.5,
+        "threshold": 0.85
+      },
+      "vignette": 0.25
+    },
+    "variables": {
+      "score": 0,
+      "combo": 0
+    }
+  },
+  "assets": {
+    "floor": {
+      "variants": {
+        "web": {
+          "primitive": "plane",
+          "size": [
+            90,
+            1,
+            90
+          ],
+          "color": "#e9edf1",
+          "roughness": 0.9
+        }
+      }
+    },
+    "skater": {
+      "variants": {
+        "web": {
+          "character": "./assets/models/colin/characters/skater.character.json"
+        }
+      }
+    }
+  },
+  "entities": [
+    {
+      "id": "sun",
+      "light": {
+        "type": "directional",
+        "intensity": 2.4
+      },
+      "position": [
+        8,
+        14,
+        6
+      ]
+    },
+    {
+      "id": "sky_fill",
+      "light": {
+        "type": "hemisphere",
+        "color": "#dfeaff",
+        "groundColor": "#8a8f99",
+        "intensity": 1.1
+      }
+    },
+    {
+      "id": "floor",
+      "asset": "floor",
+      "position": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "player",
+      "asset": "skater",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Health",
+          "params": {
+            "max": 3
+          }
+        },
+        {
+          "type": "Skater"
+        },
+        {
+          "type": "FootIK"
+        },
+        {
+          "type": "TailWave"
+        },
+        {
+          "type": "TrickScore"
+        }
+      ]
+    },
+    {
+      "id": "hp_west",
+      "prefab": "sk8_qp_l",
+      "position": [
+        -5.54,
+        0,
+        -14
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "id": "hp_east",
+      "prefab": "sk8_qp_l",
+      "position": [
+        5.54,
+        0,
+        -14
+      ]
+    },
+    {
+      "id": "qp_xl",
+      "prefab": "sk8_qp_xl",
+      "position": [
+        0,
+        0,
+        21.15
+      ],
+      "rotation": [
+        0,
+        -90,
+        0
+      ]
+    },
+    {
+      "id": "ledge_01",
+      "prefab": "sk8_ledge",
+      "position": [
+        -7,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "handrail_01",
+      "prefab": "sk8_rail",
+      "position": [
+        0,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "funbox_01",
+      "prefab": "sk8_funbox",
+      "position": [
+        9,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "kicker_01",
+      "prefab": "sk8_kicker",
+      "position": [
+        -12,
+        0,
+        9
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "id": "bank_a",
+      "prefab": "sk8_bank",
+      "position": [
+        14,
+        0,
+        12
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "id": "bank_b",
+      "prefab": "sk8_bank",
+      "position": [
+        -16,
+        0,
+        -3
+      ]
+    },
+    {
+      "id": "qp_m_corner",
+      "prefab": "sk8_qp_m",
+      "position": [
+        -18,
+        0,
+        10
+      ],
+      "rotation": [
+        0,
+        -45,
+        0
+      ]
+    },
+    {
+      "id": "coin_01",
+      "prefab": "coin",
+      "position": [
+        0,
+        0.6,
+        -14
+      ]
+    },
+    {
+      "id": "coin_02",
+      "prefab": "coin",
+      "position": [
+        -5,
+        3.8,
+        -14
+      ]
+    },
+    {
+      "id": "coin_03",
+      "prefab": "coin",
+      "position": [
+        5,
+        3.8,
+        -14
+      ]
+    },
+    {
+      "id": "coin_04",
+      "prefab": "coin",
+      "position": [
+        0,
+        5.6,
+        22
+      ]
+    },
+    {
+      "id": "coin_05",
+      "prefab": "coin",
+      "position": [
+        0,
+        1.6,
+        6
+      ]
+    },
+    {
+      "id": "coin_06",
+      "prefab": "coin",
+      "position": [
+        9,
+        1.6,
+        3
+      ]
+    },
+    {
+      "id": "coin_07",
+      "prefab": "coin",
+      "position": [
+        -7,
+        1.1,
+        3
+      ]
+    }
+  ],
+  "prefabs": {
+    "coin": "./prefabs/coin.prefab.json",
+    "sk8_qp_l": "./prefabs/sk8_qp_l.prefab.json",
+    "sk8_qp_xl": "./prefabs/sk8_qp_xl.prefab.json",
+    "sk8_ledge": "./prefabs/sk8_ledge.prefab.json",
+    "sk8_rail": "./prefabs/sk8_rail.prefab.json",
+    "sk8_funbox": "./prefabs/sk8_funbox.prefab.json",
+    "sk8_kicker": "./prefabs/sk8_kicker.prefab.json",
+    "sk8_bank": "./prefabs/sk8_bank.prefab.json",
+    "sk8_qp_m": "./prefabs/sk8_qp_m.prefab.json"
+  }
+}

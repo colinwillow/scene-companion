@@ -1,0 +1,55 @@
+{
+  "tags": [
+    "skate"
+  ],
+  "asset": {
+    "variants": {
+      "web": {
+        "primitive": "quarterpipe",
+        "pivot": "bottom",
+        "size": [
+          6.3,
+          4.8,
+          6
+        ],
+        "sweep": 88,
+        "texture": "sand",
+        "repeat": 2,
+        "color": "#fbe6dc",
+        "roughness": 0.8
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Surface",
+      "params": {
+        "maxSlope": 89,
+        "cell": 1
+      }
+    }
+  ],
+  "children": [
+    {
+      "id": "coping",
+      "position": [
+        1.65,
+        4.662,
+        0
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Rail",
+          "params": {
+            "length": 6
+          }
+        }
+      ]
+    }
+  ]
+}

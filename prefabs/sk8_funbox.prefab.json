@@ -1,0 +1,121 @@
+{
+  "tags": [
+    "skate"
+  ],
+  "asset": {
+    "variants": {
+      "web": {
+        "primitive": "box",
+        "pivot": "bottom",
+        "size": [
+          4,
+          0.6,
+          3
+        ],
+        "texture": "sand",
+        "repeat": 1,
+        "color": "#c7d0db",
+        "roughness": 0.8
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Solid",
+      "params": {
+        "size": [
+          4,
+          0.6,
+          3
+        ]
+      }
+    }
+  ],
+  "children": [
+    {
+      "id": "bank_e",
+      "asset": {
+        "variants": {
+          "web": {
+            "primitive": "ramp",
+            "pivot": "bottom",
+            "size": [
+              2,
+              0.6,
+              3
+            ],
+            "color": "#f2c6a8",
+            "roughness": 0.8
+          }
+        }
+      },
+      "position": [
+        3,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Surface",
+          "params": {
+            "maxSlope": 89,
+            "cell": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "bank_w",
+      "asset": {
+        "variants": {
+          "web": {
+            "primitive": "ramp",
+            "pivot": "bottom",
+            "size": [
+              2,
+              0.6,
+              3
+            ],
+            "color": "#f2c6a8",
+            "roughness": 0.8
+          }
+        }
+      },
+      "position": [
+        -3,
+        0,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Surface",
+          "params": {
+            "maxSlope": 89,
+            "cell": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "top_rail",
+      "position": [
+        0,
+        0.95,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Rail",
+          "params": {
+            "length": 3.6
+          }
+        }
+      ]
+    }
+  ]
+}

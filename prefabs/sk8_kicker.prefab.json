@@ -1,0 +1,32 @@
+{
+  "tags": [
+    "skate"
+  ],
+  "asset": {
+    "variants": {
+      "web": {
+        "primitive": "quarterpipe",
+        "pivot": "bottom",
+        "size": [
+          0.76,
+          0.8,
+          2.4
+        ],
+        "sweep": 35,
+        "texture": "sand",
+        "repeat": 1,
+        "color": "#ffd59a",
+        "roughness": 0.8
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Surface",
+      "params": {
+        "maxSlope": 89,
+        "cell": 1
+      }
+    }
+  ]
+}
