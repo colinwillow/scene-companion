@@ -40,7 +40,7 @@ export function checkCharacter(ch, clips) {
   for (const [role, clip] of Object.entries(ch.roles)) {
     if (!ROLES.includes(role)) warn(`unknown role "${role}" (known: ${ROLES.join(', ')})`);
     if (typeof clip !== 'string' || !clip) err(`role "${role}" needs a clip name`);
-    else if (clips && !clips.includes(clip)) err(`role "${role}": clip "${clip}" isn't in ${ch.glb}`);
+    else if (clips && !clips.includes(clip) && !(ch.motions || []).includes(clip)) err(`role "${role}": clip "${clip}" isn't in ${ch.glb} or its motions`);
   }
   if (!ch.roles.idle) warn('no "idle" role');
   return out;

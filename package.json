@@ -12,7 +12,8 @@
     "mcp": "node tools/mcp-server.mjs",
     "route": "node tools/route-check.mjs",
     "thumbs": "node tools/thumbs.mjs",
-    "inventory": "node tools/inventory.mjs"
+    "inventory": "node tools/inventory.mjs",
+    "bake-motions": "node tools/bake-motions.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",

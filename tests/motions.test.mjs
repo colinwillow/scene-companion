@@ -37,3 +37,16 @@ test('addMotion + checkMotions', () => {
   assert.equal(checkMotions('x').length, 1);
   assert.equal(checkMotions(['a/b']).length, 1);
 });
+
+test('search_motions / add_motion commands', async () => {
+  const { runCommand } = await import('../runtime/commands.js');
+  const data = { entities: [{ id: 'hero', position: [0, 0, 0] }] };
+  assert.throws(() => runCommand(data, 'search_motions', { query: 'jump' }, {}), /not connected/);
+  const ctx = { motions: index };
+  assert.equal(runCommand(data, 'search_motions', { query: 'jump' }, ctx).result[0].stem, 'Box_Jump');
+  const r = runCommand(data, 'add_motion', { id: 'hero', stem: 'Box_Jump' }, ctx);
+  assert.equal(r.changed, true);
+  assert.deepEqual(data.entities[0].motions, ['Box_Jump']);
+  assert.equal(data.entities[0].animation, 'Box_Jump');
+  assert.throws(() => runCommand(data, 'add_motion', { id: 'hero', stem: 'Nope' }, ctx), /not in the motion library/);
+});

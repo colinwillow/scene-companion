@@ -701,7 +701,8 @@ var sendSelect, liveOn = () => false;
 async function editorCommand(op, args) {
   if (COMMANDS[op]) {
     const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs, library: {},
-      packs: /pack/.test(op) || op === 'batch' ? await loadPacks() : libPacks || [], unlocks: packUnlocks() };
+      packs: /pack/.test(op) || op === 'batch' ? await loadPacks() : libPacks || [], unlocks: packUnlocks(),
+      motions: /motion/.test(op) || op === 'batch' ? await loadMotionIndex() : null };
     // spawning a prefab the scene doesn't list yet: fetch it from prefabs/ (commands.js adds it to the scene)
     const placing = t => t === 'spawn' || t === 'add_light';
     const spawns = placing(op) ? [args] : op === 'batch' ? (args.calls || []).filter(c => placing(c?.tool)).map(c => c.args || {}) : [];

@@ -7,6 +7,7 @@ import { addEntity, deleteEntity, addLight, setLightValue, LIGHT_FIELDS } from '
 import { mergeEntity, setOverride } from './prefabs.js';
 import { libraryPacks, setInstalled } from './packs.js';
 import { allEntities, findEntity, walkEntities, reparent } from './tree.js';
+import { searchMotions, addMotion, MOTION_STEM } from './motions.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
 const isVec3 = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n));
@@ -185,6 +186,24 @@ export const COMMANDS = {
       else if (typeof clip !== 'string') throw new Error('clip must be a clip name (see get_entity / the model) or null');
       else e.animation = clip;
       return { id, animation: e.animation ?? null };
+    },
+  },
+  search_motions: {
+    mutates: false,
+    run(_data, { query = '', limit = 20 } = {}, ctx) {
+      if (!ctx.motions) throw new Error('The motion library is not connected: run `npm run dev` next to a retarget-anims checkout (or set SC_MOTIONS).');
+      return searchMotions(ctx.motions, String(query), Math.min(Math.max(1, +limit || 20), 100));
+    },
+  },
+  add_motion: {
+    mutates: true,
+    run(data, { id, stem, play = true }, ctx) {
+      const e = need(data, id);
+      if (typeof stem !== 'string' || !MOTION_STEM.test(stem)) throw new Error('stem must be a motion-library stem (see search_motions)');
+      if (ctx.motions && !ctx.motions.motions?.some(m => m.stem === stem)) throw new Error(`"${stem}" is not in the motion library (see search_motions)`);
+      addMotion(e, stem);
+      if (play) e.animation = stem;
+      return { id, motions: e.motions, animation: e.animation ?? null, note: 'retargeted onto the model at load; bake with tools/bake-motions.mjs to ship it' };
     },
   },
   set_parent: {

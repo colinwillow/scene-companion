@@ -238,7 +238,8 @@ export class World {
     if (spawned) ent.spawned = true;
     if (prefix) ent.inherited = true;   // a prefab file's child: not in the scene file, edit the prefab instead
     if (character?.roles) ent.roles = { ...character.roles };
-    const stems = entityMotions(character, e);
+    const baked = new Set((obj.userData.clips || []).map(c => c.name));   // tools/bake-motions.mjs puts them in the GLB
+    const stems = entityMotions(character, e).filter(m => !baked.has(m));
     if (stems.length && obj.userData.clips && variant?.glb) obj.userData.clips = [...obj.userData.clips, ...await this.loadMotions(obj.children[0], variant, stems)];
     if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle);
     this.entities.set(id, ent);
