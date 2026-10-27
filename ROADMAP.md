@@ -70,6 +70,7 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Browse: sections ranked by stars, search, creator profiles, comments, collections; install into a project in one tap
 - [ ] Bounties: post a request with a reward, creators deliver privately or publicly, payouts via a payments provider
 - [ ] Marketplace: paid asset packs + level packs next to the free library
+- [ ] Extensions: behaviors/tools/skills as installable, versioned packages (manifest + engine range + permissions), run sandboxed (worker exposing only the entity/world API), quality-gated like assets; core changes as reviewed PRs + versioned releases projects can pin
 
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
 Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.

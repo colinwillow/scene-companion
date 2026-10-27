@@ -116,6 +116,11 @@ Everything made lands in the library, auto-validated and thumbnailed.
 - **Marketplace:** asset packs and level packs for sale alongside the free library (SPEC §7b).
 - Rigs made with tools like Auto-Rig Pro are fine to share and sell. It's the add-on that can't be redistributed, not its output.
 
+**Everyone's improvements reach everyone (Colin, 2026-10-27).** Picture thousands of people, each with an agent, adding things. Two layers:
+- **Core:** open source. Changes arrive as pull requests (often written by agents), gated by the test suite, kitchen-sink scene, route bots and an AI + maintainer review, then shipped as versioned releases. Projects pin a version and get an "update available" prompt, so nothing breaks mid-build.
+- **Extensions:** behaviors, Reactions actions, editor tools, skills, look profiles, exporters. Each is a package in the community library with a manifest (version, engine range, what it needs), installed per project with one tap like a pack, and rated and starred like assets.
+- **Safety:** behaviors are already pure JS with no DOM, network or file access (SPEC §5). That makes sandboxing extensions practical: run them in a locked-down worker/realm and expose only the entity/world API. The quality gate is extended to code: tests must pass, plus a static scan and declared permissions. Anything needing more (network, files) is flagged and reviewed.
+
 ## 7f. 2D and 2.5D games (later; Colin, 2026-10-27)
 Lots of people make 2D games, so the engine should support them too. It's the same scene files, behaviors, editor, MCP and library, with a 2D flavour:
 - **Sprites + sprite sheets:** import a sheet (or a folder of frames), slice it into a grid or auto-detect frames, name animations (`idle`, `run`, `jump`…). These are the same clip roles as 3D characters, so Animator/PlayerController work unchanged.
