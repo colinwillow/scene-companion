@@ -133,4 +133,4 @@
 - 2026-10-27 — HUD part 1 — HudLabel + HudBar; 276 tests; checked headless (live session)
 - 2026-10-27 — Editor: 🎬 scene picker (scenes/index.json) — Colin couldn't reach any scene but the kitchen sink (live session)
 - 2026-10-27 — play.html scene list (🎬, shown first without ?scene) + validate checks the list (live session)
-- 2026-10-27 — HUD part 2 — settings.hud, HudPrompt, authored end screen with next scene; 278 tests (live session)
+- 2026-10-27 — HUD part 2 — settings.hud, HudPrompt, authored end screen with next scene; 277 tests (live session)
