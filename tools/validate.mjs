@@ -4,6 +4,7 @@
 import { LIGHT_FIELDS } from '../runtime/editing.js';
 import { characterVariant, checkCharacter } from '../runtime/character.js';
 import { checkPack, checkScenePacks } from '../runtime/packs.js';
+import { checkMotions, entityMotions } from '../runtime/motions.js';
 import { allEntities, walkEntities } from '../runtime/tree.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -123,14 +124,17 @@ for (const f of files) {
       if (!fields) err(f, `${e.id}: light type "${e.light.type}" (use ${Object.keys(LIGHT_FIELDS).join(', ')})`);
       else for (const k of Object.keys(e.light)) if (k !== 'type' && k !== 'shadowRadius' && !fields[k]) warn(f, `${e.id}: ${e.light.type} lights have no "${k}"`);
     }
+    for (const m of checkMotions(e.motions)) err(f, `${e.id}: ${m}`);
     for (let v of Object.values(asset?.variants || {})) {
+      let ch = null;
       if (v.character) {
-        const ch = characterOf(f, v.character);
+        ch = characterOf(f, v.character);
         if (!ch) continue;
         v = characterVariant(ch, v);
       }
       if (!v.glb) continue;
-      const clips = clipsOf(v.glb.replace(/^\.\//, ''));
+      const baked = clipsOf(v.glb.replace(/^\.\//, ''));
+      const clips = baked && [...baked, ...entityMotions(ch, e)];   // motion-library clips are retargeted on at load
       if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
       else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
       else for (const b of e.behaviors || []) for (const [k, val] of Object.entries(b.params || {}))

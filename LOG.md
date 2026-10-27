@@ -62,3 +62,4 @@
 - 2026-10-27 — Time follow-ups — play.html pause menu (+ auto-pause in background), Footsteps pitch jitter via world.rng, world.time.slowMo + Stompable.slowMo; 140 tests; headless ✓ (build run)
 - 2026-10-27 — Editor nesting tools v1 — inspector Parent picker, reparent() keeps world transform, MCP set_parent + spawn parent; 145 tests; headless data ✓, rebuilt view unverified (slow headless rebuild logged as a roadmap item) (build run)
 - 2026-10-27 — Inventory — tools/inventory.mjs + INVENTORY.md/inventory.json over 15 repos (3,211 unique GLBs), status tracking, validate warning; 2 tests; first item from the in-chat loop with the asset repos (live session)
+- 2026-10-27 — Motion library — Motions tab searches retarget-anims (2,288 clips), in-browser retarget via vendored Forge layer 1, entity.motions, dev-server /motions/ from a local checkout (never committed); 4 tests; checked headless: Zap gets Box_Jump + Breathing_Idle, no errors (live session)

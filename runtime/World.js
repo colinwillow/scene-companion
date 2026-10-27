@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { retargetClip } from './retarget.js';
+import { entityMotions, motionsBase, motionUrl } from './motions.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook, applyLookTo } from './look.js';
@@ -13,6 +15,14 @@ import { proceduralTexture } from './textures.js';
 import { characterVariant } from './character.js';
 import { childIdFor, mergeTags, matchesQuery, spawnId } from './tree.js';
 import { createTime, createRng, playSeed } from './time.js';
+
+// A copy of a node tree where every mixamorig_* node is a real THREE.Bone (same name and rest transform).
+function asBones(node) {
+  const out = /^mixamorig/.test(node.name) ? new THREE.Bone() : new THREE.Object3D();
+  out.name = node.name; out.position.copy(node.position); out.quaternion.copy(node.quaternion); out.scale.copy(node.scale);
+  for (const c of node.children) out.add(asBones(c));
+  return out;
+}
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -210,6 +220,8 @@ export class World {
     if (spawned) ent.spawned = true;
     if (prefix) ent.inherited = true;   // a prefab file's child: not in the scene file, edit the prefab instead
     if (character?.roles) ent.roles = { ...character.roles };
+    const stems = entityMotions(character, e);
+    if (stems.length && obj.userData.clips && variant?.glb) obj.userData.clips = [...obj.userData.clips, ...await this.loadMotions(obj.children[0], variant, stems)];
     if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle);
     this.entities.set(id, ent);
     parentEnt?.children.push(id);
@@ -272,6 +284,29 @@ export class World {
       if (matchesQuery({ id: ent.id, tags: ent.tags, prefab: ent.prefab, position: [p.x, p.y, p.z] }, q)) out.push(ent);
     }
     return out;
+  }
+
+  // Motion library (runtime/motions.js): fetch each Mixamo clip and retarget it onto this model with the Forge's
+  // layer-1 transfer. One retarget per (model, height, stem), shared by every instance. A missing library (Pages, no
+  // dev server) or a missing clip is a warning, never a broken scene.
+  async loadMotions(model, variant, stems) {
+    const base = motionsBase(this.data?.settings);
+    this.motionCache ||= new Map();
+    const out = await Promise.all(stems.map(stem => {
+      const key = `${variant.glb}|${variant.height ?? ''}|${stem}`;
+      if (!this.motionCache.has(key)) this.motionCache.set(key, (async () => {
+        const url = motionUrl(base, stem);
+        if (!this.gltfCache.has(url)) this.gltfCache.set(url, this.loader.loadAsync(url));
+        const src = await this.gltfCache.get(url);
+        if (!src.animations?.length) throw new Error('no animation in ' + url);
+        // Library clips carry no skin, so the loader makes plain nodes; retargetClip clones its input and looks for real
+        // Bones (the Forge sets isBone on a copy instead, which a clone would lose). Rebuild the rig as THREE.Bones once.
+        src.boneRig ||= asBones(src.scene);
+        return retargetClip(src.boneRig, src.animations[0], model, { name: stem });
+      })().catch(err => { (this.motionErrors ||= []).push(`${stem}: ${err.message || err}`); console.warn('[motions]', stem, err.message || err); return null; }));
+      return this.motionCache.get(key);
+    }));
+    return out.filter(Boolean);
   }
 
   // Animation API handed to behaviors as entity.anim — keeps behaviors free of three.

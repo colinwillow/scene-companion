@@ -137,6 +137,7 @@ import { clipRoles, characterEntries } from './runtime/character.js';
 import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runtime/packs.js';
 import { findEntity, allEntities, descendantIds, reparent } from './runtime/tree.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
+import { searchMotions, addMotion, motionsBase } from './runtime/motions.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
 import { createPost } from './runtime/post.js';
@@ -833,6 +834,10 @@ async function togglePack(id, on) {
 // What Characters / Props / Level kit, ＋Add and the scatter brush offer: scene items, loose files, installed pack items.
 function shown() { return libPacks ? libraryFilter(libPacks, data, packUnlocks()) : () => true; }
 loadPacks().then(() => fillAdd());
+var motionIndexLoad = null;   // the motion library's index.json, fetched once (null = not connected)
+function loadMotionIndex() {
+  return (motionIndexLoad ||= fetch(motionsBase(data.settings) + 'index.json').then(r => r.ok ? r.json() : null).catch(() => null));
+}
 async function renderLib() {
   if (!$('lib').classList.contains('open') || !world) return;
   const seq = ++libSeq;                           // a newer render (tab switch, search) wins over this one
@@ -874,7 +879,21 @@ async function renderLib() {
       if (playing) return;
       record(); ent.data.animation = c; ent.anim.play(c); renderPanel(); renderLib();
     } }));
-    $('libCount').textContent = `${selectedId}: ${items.length} motion${items.length === 1 ? '' : 's'}`;
+    // Below its own clips: the motion library (the Forge's clips, served by the dev server). Tap = retarget onto this
+    // character, keep it (entity.motions in the scene file) and play it.
+    const lib = await loadMotionIndex(); if (seq !== libSeq) return;
+    if (lib) {
+      const hits = searchMotions(lib, q, q ? 40 : 15).filter(m => !ent.anim.clips.includes(m.stem));
+      items.push({ name: `🎞 Motion library — ${lib.count || lib.motions.length} clips${q ? '' : ' (search: jump, idle, sword…)'}`, header: true });
+      for (const m of hits) items.push({ name: m.name, sub: m.sub, pick: async () => {
+        if (playing || ent.inherited) return;
+        $('libCount').textContent = `Retargeting ${m.name} onto ${selectedId}…`;
+        record(); addMotion(ent.data, m.stem); ent.data.animation = m.stem;
+        await rebuild(); select(selectedId); renderLib();
+        const errs = world.motionErrors || []; if (errs.length) showErr('Motion library: ' + errs.join('; '));
+      } }));
+    } else items.push({ name: '🎞 Motion library not connected', sub: 'run `npm run dev` next to a retarget-anims checkout (or set SC_MOTIONS)', header: true });
+    $('libCount').textContent = `${selectedId}: ${ent.anim.clips.length} motion${ent.anim.clips.length === 1 ? '' : 's'}`;
   } else {
     await loadPacks(); if (seq !== libSeq) return;
     const show = shown(), group = libraryGroups(libPrefabs, data)[libTab].concat(libTab === 'characters' ? characterLibrary : []).filter(show);

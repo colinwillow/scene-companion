@@ -12,6 +12,7 @@ import { WebSocketServer } from 'ws';
 
 const PORT = +(process.env.PORT || 8080);
 const ROOT = process.cwd();
+const MOTIONS = [process.env.SC_MOTIONS, join(ROOT, '../retarget-anims/library')].find(d => d && existsSync(join(d, 'index.json'))) || null;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
   '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.css': 'text/css', '.md': 'text/markdown' };
 
@@ -77,6 +78,14 @@ async function bridgeRoute(req, res, url) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname.startsWith('/bridge/')) return bridgeRoute(req, res, url).catch(e => json(res, 500, { error: e.message }));
+  // Motion library: served from a LOCAL retarget-anims checkout, never from this repo (Mixamo clips can't be redistributed).
+  if (url.pathname.startsWith('/motions/')) {
+    const rel = normalize(decodeURIComponent(url.pathname.slice('/motions/'.length)));
+    if (!MOTIONS || rel.includes('..')) { res.writeHead(404).end('no motion library (set SC_MOTIONS or clone retarget-anims next to scene-companion)'); return; }
+    try { const f = join(MOTIONS, rel); res.writeHead(200, { 'Content-Type': TYPES[extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(await readFile(f)); }
+    catch { res.writeHead(404).end('not found'); }
+    return;
+  }
   let path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^([/\\])+/, '');
   if (path.includes('..') || path.startsWith('node_modules')) { res.writeHead(403).end(); return; }
   let file = join(ROOT, path || 'index.html');
@@ -101,6 +110,7 @@ wss.on('connection', ws => {
 server.listen(PORT, () => {
   const ips = Object.values(networkInterfaces()).flat().filter(i => i?.family === 'IPv4' && !i.internal).map(i => i.address);
   console.log(`Scene Companion dev server on :${PORT}`);
+  console.log(MOTIONS ? `  motion library  ${MOTIONS} → /motions/` : '  motion library  none (clone retarget-anims next to this repo or set SC_MOTIONS)');
   for (const ip of ['localhost', ...ips]) console.log(`  editor  http://${ip}:${PORT}/index.html\n  game    http://${ip}:${PORT}/play.html`);
 });
 export { server, wss };
