@@ -7,6 +7,16 @@ import { topAt, walkShape } from '../runtime/collide.js';
 import { placeCollider } from '../runtime/colliders.js';
 export { topAt };
 
+// Face a heading. Writing rotation.y alone is wrong once the rotation has been through a quaternion (interpolation,
+// slerp): a yaw past 90° reads back as (π, π − yaw, π), and setting only .y under that x/z turns him to π − yaw (mirrored).
+// So a flipped Euler is normalised first; a small authored tilt is kept.
+export function setYaw(o, yaw, roll) {
+  const r = o.rotation;
+  if (Math.abs(r.x) > Math.PI / 2 || Math.abs(r.z) > Math.PI / 2) { r.x = 0; r.z = 0; }
+  r.y = yaw;
+  if (roll !== undefined) r.z = roll;
+}
+
 export class Spin extends Behavior {
   static schema = {
     speed: { type: 'number', default: 1, min: -10, max: 10, step: 0.1 },  // radians/sec around Y
@@ -44,7 +54,7 @@ export class Patrol extends Behavior {
     if (dist <= step) { this.toB = !this.toB; return; }
     p.x += (dx / dist) * step;
     p.z += (dz / dist) * step;
-    if (this.params.faceDirection) this.entity.object3d.rotation.y = Math.atan2(dx, dz);
+    if (this.params.faceDirection) setYaw(this.entity.object3d, Math.atan2(dx, dz));
   }
 }
 
@@ -87,7 +97,7 @@ export class MoveTo extends Behavior {
     const dist = Math.hypot(dx, dz), step = this.params.speed * dt;
     if (dist <= step) { p.x = this.target[0]; p.z = this.target[2]; this.target = null; return; }
     p.x += (dx / dist) * step; p.z += (dz / dist) * step;
-    this.entity.object3d.rotation.y = Math.atan2(dx, dz);
+    setYaw(this.entity.object3d, Math.atan2(dx, dz));
   }
 }
 
@@ -125,6 +135,12 @@ export class Animator extends Behavior {
     const speed = Math.hypot(p.x - this.last[0], p.z - this.last[1]) / dt;
     this.last = [p.x, p.z];
     const pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    if (this.entity.mover) {                                // a wall run (…) owns the body: its clip, then the air clips when it lets go
+      const mc = this.entity.mover.clip && roleClip('', this.entity.mover.clip, R) || this.entity.mover.clip;
+      if (mc) anim.play(mc, { fade: 0.1 });
+      this.airborne = true; this.air = P.airDelay; this.landing = 0; this.sinceJump = 1e9; this.double = false;
+      return;
+    }
     if (pc && !pc.grounded) {
       const rising = pc.vy > 0;
       this.air += dt; this.landing = 0; this.entity.moveScale = 1; this.sinceJump = rising && !(this.prevVy > 0) ? 0 : (this.sinceJump ?? 1e9) + dt;   // take-off or a stomp bounce
@@ -214,7 +230,113 @@ export class CollisionMesh extends Behavior {
   destroy() { const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); } this.solids = []; }
 }
 
-const STEP_UP = 0.35;   // m: walk up ramps and small steps without jumping; stick to ramps on the way down
+const STEP_UP = 0.35;
+
+// Wall run (zap's WRUN, docs/goblin-extraction.md): TAP beside a tall wall while moving along it → run along the face on a
+// low arc (feet on it, body rolled off it); heading INTO it → run up the face. Tap again on the wall → kick off it (a wall
+// jump, carrying some speed — onto the opposite wall with another tap). It ends at the wall's end, its top, the time
+// limit or the floor, and hands the body back to the PlayerController falling. Plays the run clip ('run' role).
+export class WallRun extends Behavior {
+  static schema = {
+    minHeight: { type: 'number', default: 1.6, min: 0.5, max: 10, step: 0.1 },   // the face rises at least this far above his feet
+    minLength: { type: 'number', default: 1.2, min: 0.2, max: 10, step: 0.1 },   // a post is not a wall
+    reach:     { type: 'number', default: 0.6, min: 0, max: 3, step: 0.05 },     // m from his side to the face that still counts
+    speed:     { type: 'number', default: 7, min: 1, max: 20, step: 0.5 },       // m/s along the face (or his speed if faster)
+    time:      { type: 'number', default: 1.1, min: 0.2, max: 5, step: 0.05 },    // s a side run lasts
+    rise:      { type: 'number', default: 4, min: 0, max: 15, step: 0.5 },       // m/s up as a side run starts (a low arc)
+    gravity:   { type: 'number', default: 9, min: 0, max: 40, step: 0.5 },       // m/s² he feels on the wall
+    upSpeed:   { type: 'number', default: 7, min: 0, max: 20, step: 0.5 },       // m/s up a run straight up the face
+    upTime:    { type: 'number', default: 0.7, min: 0.1, max: 3, step: 0.05 },
+    kick:      { type: 'number', default: 6, min: 0, max: 20, step: 0.5 },       // wall jump: m/s off the face…
+    jumpUp:    { type: 'number', default: 8, min: 0, max: 20, step: 0.5 },       // …and up
+    keep:      { type: 'number', default: 0.8, min: 0, max: 1, step: 0.05 },     // share of the run's speed kept through a wall jump
+    lean:      { type: 'number', default: 0.5, min: 0, max: 1.2, step: 0.05 },   // rad the body rolls off the wall
+    cool:      { type: 'number', default: 0.35, min: 0, max: 2, step: 0.05 },    // s before the same wall can be run again
+  };
+  start() {
+    this.pc = this.entity.behaviors.find(b => b instanceof PlayerController);
+    this.run = null; this.coolT = 0; this.coolWall = null; this.clip = 'run';
+    this.onTap = move => this.tap(move);
+    (this.entity.jumpTaps ||= []).push(this.onTap);
+  }
+  destroy() { if (this.entity.mover === this) this.entity.mover = null; const l = this.entity.jumpTaps, i = l ? l.indexOf(this.onTap) : -1; if (i >= 0) l.splice(i, 1); }
+  radius() { return this.pc?.params.radius ?? 0.35; }
+  // the nearest tall face within reach: { solid, shape, d, nx, nz }
+  find(not) {
+    const p = this.entity.object3d.position, P = this.params, R = this.radius() + P.reach;
+    let best = null;
+    for (const solid of this.world.solids || []) {
+      if (solid === not || (solid.params?.shape && solid.params.shape !== 'box') || solid.params?.slope) continue;
+      const sh = walkShape(solid);
+      if (sh.maxY - p.y < P.minHeight || sh.minY > p.y + 1) continue;
+      const sz = solid.params?.size || [0, 0, 0]; if (Math.max(sz[0], sz[2]) < P.minLength) continue;
+      const { cx, cz, inside } = sh.near(p.x, p.z); if (inside) continue;
+      const d = Math.hypot(p.x - cx, p.z - cz); if (d > R || d < 1e-6 || (best && d >= best.d)) continue;
+      best = { solid, shape: sh, d, nx: (p.x - cx) / d, nz: (p.z - cz) / d };
+    }
+    return best;
+  }
+  tap(move) {
+    if (this.run || !this.pc || this.entity.defeated) return false;
+    const o = this.entity.object3d, mag = Math.hypot(move[0], move[1]);
+    const W = this.find(this.coolT > 0 ? this.coolWall : null); if (!W) return false;
+    const mx = mag > 0.3 ? move[0] / mag : Math.sin(o.rotation.y), mz = mag > 0.3 ? move[1] / mag : Math.cos(o.rotation.y);
+    const dot = mx * W.nx + mz * W.nz;                              // < 0: heading into the wall
+    if (dot < -0.7 && mag > 0.3) return this.go(W, 'up');
+    if (Math.abs(dot) < 0.72 && mag > 0.3) return this.go(W, 'side', mx, mz);
+    return false;
+  }
+  go(W, kind, mx = 0, mz = 0) {
+    const p = this.entity.object3d.position, tx = -W.nz, tz = W.nx, s = mx * tx + mz * tz >= 0 ? 1 : -1;
+    const k = this.radius() + 0.06 - W.d; p.x += W.nx * k; p.z += W.nz * k;   // onto the face
+    this.run = { kind, W, nx: W.nx, nz: W.nz, dx: tx * s, dz: tz * s, t: 0, vy: kind === 'side' ? this.params.rise : this.params.upSpeed, v: this.params.speed };
+    this.clip = 'run';
+    this.entity.mover = this;
+    this.world.emit('wallrun', this.entity.id, kind);
+    return true;
+  }
+  end(push = 0, vy) {
+    const R = this.run; if (!R) return;
+    this.run = null; this.coolT = this.params.cool; this.coolWall = R.W.solid;
+    if (this.entity.mover === this) this.entity.mover = null;
+    setYaw(this.entity.object3d, this.entity.object3d.rotation.y, 0);
+    const pc = this.pc; if (!pc) return;
+    pc.vy = vy ?? R.vy; pc.grounded = false; pc.sinceGround = 1; pc.airTime = 0.2;
+    if (push) pc.carry = [R.nx * push, R.nz * push];
+  }
+  jump() {
+    const R = this.run, P = this.params;
+    if (R.kind === 'side') {
+      const k = P.keep * R.v; this.end(0, P.jumpUp);
+      this.pc.carry = [R.nx * P.kick + R.dx * k, R.nz * P.kick + R.dz * k];
+    } else { this.end(0, P.jumpUp * 0.9); this.pc.carry = [R.nx * P.kick * 0.8, R.nz * P.kick * 0.8]; }
+    this.pc.airJumpCount = 0; this.pc.jumpCount++;
+    setYaw(this.entity.object3d, Math.atan2(this.pc.carry[0], this.pc.carry[1]), 0);
+    this.world.emit('jump'); this.world.emit('walljump', this.entity.id);
+  }
+  update(dt) {
+    this.coolT = Math.max(0, this.coolT - dt);
+    const R = this.run; if (!R || dt <= 0) return;
+    const P = this.params, o = this.entity.object3d, p = o.position, input = this.world.input || {};
+    if (input.jump) { input.jump = false; this.jump(); return; }
+    R.t += dt;
+    if (R.kind === 'side') { p.x += R.dx * R.v * dt; p.z += R.dz * R.v * dt; R.vy -= P.gravity * dt; setYaw(o, Math.atan2(R.dx, R.dz)); }
+    else { R.vy -= P.gravity * 1.3 * dt; setYaw(o, Math.atan2(-R.nx, -R.nz), 0); }
+    p.y += R.vy * dt;
+    // still on the face? (its end, or his feet past its top, let him go)
+    const { cx, cz, inside } = R.W.shape.near(p.x, p.z), d = Math.hypot(p.x - cx, p.z - cz);
+    const on = !inside && d > 1e-6 && d < this.radius() + 0.4 && ((p.x - cx) * R.nx + (p.z - cz) * R.nz) / d > 0.9 && R.W.shape.maxY - p.y > 0.9;
+    if (on) { const k = this.radius() + 0.06 - d; p.x += R.nx * k; p.z += R.nz * k; }
+    // the roll: head off the wall, feet on it (his right is (-fz, fx); +rotation.z leans the head to his right)
+    if (R.kind === 'side') { const fx = R.dx, fz = R.dz, right = R.nx * -fz + R.nz * fx; o.rotation.z = Math.sign(right) * P.lean * Math.min(1, R.t / 0.12); }
+    // the floor: a solid's top or the PlayerController's ground
+    let floor = this.pc?.params.groundY ?? 0;
+    for (const s of this.world.solids || []) { if (s === R.W.solid) continue; const t = walkShape(s).topNear(p.x, p.z, this.radius() * 0.9); if (t <= p.y + 0.05 && t > floor) floor = t; }
+    if (R.vy < 0 && p.y <= floor) { p.y = floor; this.end(0, 0); this.pc.grounded = true; this.pc.sinceGround = 0; return; }
+    if (!on) { this.end(1); return; }
+    if (R.kind === 'side' ? R.t > P.time : (R.t > P.upTime || R.vy < -1)) this.end(R.kind === 'side' ? 1.5 : 1);
+  }
+}   // m: walk up ramps and small steps without jumping; stick to ramps on the way down
 
 // Third-person platformer movement. Reads world.input = { move: [x, z] (world space, length ≤ 1), jump: bool }.
 // The game page fills world.input (joystick, keys); this behavior never touches the DOM.
@@ -263,6 +385,7 @@ export class PlayerController extends Behavior {
   }
   update(dt) {
     if (this.dead || dt <= 0) return;
+    if (this.entity.mover) { this.hurtTimer = Math.max(0, this.hurtTimer - dt); this.ride = null; return; }   // another behavior owns the body (WallRun…)
     const P = this.params, p = this.entity.object3d.position, o = this.entity.object3d;
     const input = this.world.input || {}, move = input.move || [0, 0];
     const all = this.world.solids || [], solids = all.map(walkShape);   // boxes, ramps, turned boxes, spheres, capsules
@@ -279,7 +402,13 @@ export class PlayerController extends Behavior {
     const ms = this.entity.moveScale ?? 1;                                  // e.g. Animator slows us during a hard landing
     p.x += move[0] * P.speed * ms * dt;
     p.z += move[1] * P.speed * ms * dt;
-    if (Math.hypot(move[0], move[1]) > 0.05) o.rotation.y = Math.atan2(move[0], move[1]);
+    if (this.carry) {                                                       // momentum handed over (a wall jump's kick): fades out
+      p.x += this.carry[0] * dt; p.z += this.carry[1] * dt;
+      const k = Math.exp(-(this.grounded ? 8 : 1.2) * dt); this.carry = [this.carry[0] * k, this.carry[1] * k];
+      if (Math.hypot(move[0], move[1]) <= 0.05 && Math.hypot(...this.carry) > 0.5) setYaw(o, Math.atan2(this.carry[0], this.carry[1]));
+      if (Math.hypot(...this.carry) < 0.05) this.carry = null;
+    }
+    if (Math.hypot(move[0], move[1]) > 0.05) setYaw(o, Math.atan2(move[0], move[1]));
     for (const b of solids) {
       if (p.y + P.height <= b.minY) continue;                               // below it
       const { cx, cz, inside } = b.near(p.x, p.z);
@@ -292,7 +421,8 @@ export class PlayerController extends Behavior {
     }
 
     // Jump (buffered a little so an early tap still counts), with coyote time.
-    if (input.jump) { this.jumpBuffer = 0.12; input.jump = false; }
+    // a tap may be taken by another behavior first (a wall run starts on a tap beside a wall): entity.jumpTaps
+    if (input.jump) { input.jump = false; if (!(this.entity.jumpTaps || []).some(f => f(move))) this.jumpBuffer = 0.12; else if (this.entity.mover) return; }
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.sinceGround = this.grounded ? 0 : this.sinceGround + dt;
     if (this.jumpBuffer > 0 && this.sinceGround <= P.coyote && this.vy <= 0) {
@@ -355,7 +485,7 @@ export class Chase extends Behavior {
     if (d < 0.05) return;
     const k = Math.min(step, d) / d;
     p.x += dx * k; p.z += dz * k;
-    this.entity.object3d.rotation.y = Math.atan2(dx, dz);
+    setYaw(this.entity.object3d, Math.atan2(dx, dz));
   }
 }
 
@@ -435,7 +565,7 @@ export class Melee extends Behavior {
     const P = this.params, o = this.entity.object3d;
     let dir = Math.hypot(x, z) > 1e-3 ? [x, z] : [Math.sin(o.rotation.y), Math.cos(o.rotation.y)];
     const l = Math.hypot(...dir); dir = [dir[0] / l, dir[1] / l];
-    if (P.turn) o.rotation.y = Math.atan2(dir[0], dir[1]);
+    if (P.turn) setYaw(o, Math.atan2(dir[0], dir[1]));
     const clip = roleClip(P.clip, 'attack', this.entity.roles);
     if (clip && this.entity.anim?.clips.includes(clip)) this.entity.anim.play(clip, { layer: P.layer, once: true, fade: 0.08, restart: true, speed: P.speed });
     this.world.emit('swing', this.entity.id);
@@ -652,7 +782,7 @@ export class Reactions extends Behavior {
         if (me.anim?.clips.includes(clip)) me.anim.play(clip, { layer: base ? 'base' : 'upper', once: !base, fade: 0.2, restart: !base });
         break;
       }
-      case 'look': { const t = this.target(a.target); if (t && t !== me) { const p = me.object3d.position, q = t.object3d.position; me.object3d.rotation.y = Math.atan2(q.x - p.x, q.z - p.z); } break; }
+      case 'look': { const t = this.target(a.target); if (t && t !== me) { const p = me.object3d.position, q = t.object3d.position; setYaw(me.object3d, Math.atan2(q.x - p.x, q.z - p.z)); } break; }
       case 'say': W.emit('say', me.id, String(a.text ?? '')); break;
       case 'sound': W.emit('sound', String(a.name ?? ''), me.id); break;
       case 'emit': if (a.name) W.emit(a.name, me.id); break;
@@ -681,6 +811,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

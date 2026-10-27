@@ -266,6 +266,23 @@
           "roughness": 0.85
         }
       }
+    },
+    "wallrun_wall": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            0.4,
+            3.6,
+            12
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#9fb0c4",
+          "roughness": 0.85
+        }
+      }
     }
   },
   "entities": [
@@ -333,6 +350,9 @@
             "airJumps": 1,
             "airJumpSpeed": 7.5
           }
+        },
+        {
+          "type": "WallRun"
         },
         {
           "type": "Animator",
@@ -768,6 +788,75 @@
         12,
         0.6,
         8
+      ]
+    },
+    {
+      "id": "wallrun_a",
+      "asset": "wallrun_wall",
+      "position": [
+        -13.8,
+        0,
+        10
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              0.4,
+              3.6,
+              12
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "wallrun_b",
+      "asset": "wallrun_wall",
+      "position": [
+        -9.0,
+        0,
+        10
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              0.4,
+              3.6,
+              12
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "coin_wr_1",
+      "prefab": "coin",
+      "position": [
+        -12.4,
+        2.2,
+        7
+      ]
+    },
+    {
+      "id": "coin_wr_2",
+      "prefab": "coin",
+      "position": [
+        -10.4,
+        2.2,
+        10
+      ]
+    },
+    {
+      "id": "coin_wr_3",
+      "prefab": "coin",
+      "position": [
+        -12.4,
+        2.2,
+        13
       ]
     }
   ],
