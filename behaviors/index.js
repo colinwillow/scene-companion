@@ -994,6 +994,53 @@ export class HandGrip extends Behavior {
   }
 }
 
+// A tail that waves (Roller Girl's TAIL 'wave' mode, his visualizer's method): from the bone named `root` outward along the
+// single child matching `match`, every bone's WORLD orientation eases toward where its parent — as drawn — would carry it rigidly,
+// quickly at the root (`rootRate`) and slower toward the tip (`tipRate`, geometric by position), so her turns and hip twist run
+// down the tail as a wave that dies out. No physics: an ease cannot overshoot. `maxLag` caps how far one joint may trail.
+// Sub-stepped (`hz`) so it is the same wave at 20 or 120 fps.
+export class TailWave extends Behavior {
+  static schema = {
+    root:     { type: 'string', default: 'tail' },
+    match:    { type: 'string', default: '^tail' },
+    rootRate: { type: 'number', default: 30, min: 1, max: 200, step: 1 },    // 1/s
+    tipRate:  { type: 'number', default: 7, min: 0.5, max: 100, step: 0.5 },
+    maxLag:   { type: 'number', default: 14, min: 1, max: 90, step: 1 },     // degrees per joint
+    hz:       { type: 'number', default: 240, min: 30, max: 480, step: 10 },
+  };
+  start() { this.chain = null; this.prevRoot = null; }
+  lateUpdate(dt) {
+    const o = this.entity.object3d; if (!(dt > 0)) return;
+    if (!this.chain) {
+      const first = o.getObjectByName?.(this.params.root), re = new RegExp(this.params.match), chain = [];
+      for (let b = first; b; b = b.children.find(c => c.isBone && re.test(c.name))) chain.push(b);
+      this.chain = chain.map(b => ({ b, rest: b.quaternion.clone(), w: null }));
+      const n = Math.max(1, chain.length - 1);
+      this.chain.forEach((c, i) => { c.rate = this.params.rootRate * Math.pow(this.params.tipRate / this.params.rootRate, i / n); });
+    }
+    const C = this.chain; if (C.length < 2) return;
+    const Q = C[0].b.quaternion.constructor, lag = this.params.maxLag * Math.PI / 180, inv = new Q(), t = new Q();
+    o.updateMatrixWorld(true);
+    const rootNow = C[0].b.getWorldQuaternion(new Q());
+    if (!this.prevRoot) { this.prevRoot = rootNow.clone(); for (let i = 1; i < C.length; i++) C[i].w = (i === 1 ? rootNow : C[i - 1].w).clone().multiply(C[i].rest); }
+    // the cascade runs INSIDE each substep, with the root's motion slid across them — eased once a frame, the fast joints near
+    // the root would jump most of the way in one step at 20 fps and the wave would come out smaller (her r19 measurement)
+    const steps = Math.max(1, Math.min(32, Math.ceil(dt * this.params.hz))), h = dt / steps, rootW = new Q();
+    for (let s = 1; s <= steps; s++) {
+      rootW.copy(this.prevRoot).slerp(rootNow, s / steps);
+      for (let i = 1; i < C.length; i++) {
+        t.copy(i === 1 ? rootW : C[i - 1].w).multiply(C[i].rest);
+        C[i].w.slerp(t, 1 - Math.exp(-C[i].rate * h));
+        if (C[i].w.angleTo(t) > lag) C[i].w.copy(t).rotateTowards(C[i].w, lag);
+      }
+    }
+    this.prevRoot.copy(rootNow);
+    for (let i = 1; i < C.length; i++) {   // back to local rotations under the parent as now drawn
+      const b = C[i].b; b.parent.getWorldQuaternion(inv).invert(); b.quaternion.copy(inv.multiply(C[i].w)); b.updateMatrixWorld(true);
+    }
+  }
+}
+
 // Spring chains (zap's SPRINGS, the creature repo's springs()): every `hair_<k>_<j>` / `cape_<k>_<j>` bone chain on the model
 // (blender-addons' chains.mjs makes them) swings on verlet springs AFTER the pose: each segment's tip keeps its momentum (`drag`
 // bleeds it), is pulled back toward where the pose puts it (`stiff`), down by gravity (`grav`), held to its length, kept out of
@@ -1682,6 +1729,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
