@@ -392,6 +392,90 @@ export class Vault extends Behavior {
   }
 }
 
+// A sword duelist (zap's AI samurai, DUEL.md — the readable core of it): walks up to a stand-off from `target`, and in reach
+// WINDS UP (the swing clip slowed right down — the tell), then strikes (the clip at speed; a hit if you are still in reach and in
+// front). Strike him DURING the wind-up and it is cancelled: he staggers and takes the hit. Otherwise your swing has a
+// `guardChance` of meeting his guard (no damage, 'blocked'). `hp` hits put him down. Emits windup / hurt / blocked / interrupt.
+export class Duelist extends Behavior {
+  static hittable = true;   // Melee strikes and locks on to it
+  static schema = {
+    target:  { type: 'string', default: 'player' },
+    hp:      { type: 'number', default: 5, min: 1, max: 50, step: 1 },
+    speed:   { type: 'number', default: 3.5, min: 0, max: 15, step: 0.1 },
+    sight:   { type: 'number', default: 14, min: 1, max: 60, step: 0.5 },     // m: further than this he waits
+    standOff:{ type: 'number', default: 1.6, min: 0.5, max: 5, step: 0.1 },    // m he closes to
+    reach:   { type: 'number', default: 2.1, min: 0.5, max: 6, step: 0.1 },
+    arc:     { type: 'number', default: 120, min: 10, max: 360, step: 5 },
+    windup:  { type: 'number', default: 0.5, min: 0, max: 3, step: 0.05 },    // s of the tell
+    windRate:{ type: 'number', default: 0.25, min: 0.05, max: 1, step: 0.05 }, // the swing clip's speed during the tell
+    hitAt:   { type: 'number', default: 0.25, min: 0, max: 2, step: 0.05 },   // s from the strike to the contact
+    rest:    { type: 'vec3', default: [1.1, 2.2, 0] },                         // s between attacks: random in [x, y]
+    damage:  { type: 'number', default: 1, min: 0, max: 10, step: 1 },
+    guardChance: { type: 'number', default: 0.35, min: 0, max: 1, step: 0.05 },
+    combo:   { type: 'string', default: 'katana_slash_2, katana_slash_4' },
+    guardClip: { type: 'string', default: 'katana_block' },
+    hitClip:   { type: 'string', default: '' },    // '' = the hit role
+  };
+  start() {
+    this.st = 'idle'; this.t = 0; this.hpLeft = this.params.hp; this.n = 0; this.restT = this.roll();
+    this.world.on('struck', (_by, id, dmg) => { if (id === this.entity.id) this.struck(dmg ?? 1); });
+    this.world.on('swing', id => {               // your swing: maybe he guards it
+      if (id !== this.params.target || this.entity.defeated || !['idle', 'rest'].includes(this.st)) return;
+      if (this.dist() < this.params.reach + 1 && this.rng() < this.params.guardChance) this.set('guard', 0.6, this.params.guardClip, 1);
+    });
+  }
+  rng() { return this.world.rng ? this.world.rng() : Math.random(); }
+  roll() { const [a, b] = this.params.rest; return a + (b - a) * this.rng(); }
+  tgt() { return this.world.getEntity?.(this.params.target); }
+  dist() { const t = this.tgt(); if (!t) return Infinity; const p = this.entity.object3d.position, q = t.object3d.position; return Math.hypot(q.x - p.x, q.z - p.z); }
+  play(clip, speed = 1, hold = 0) {
+    const a = this.entity.anim; if (!clip || !a?.clips.includes(clip)) return;
+    a.play(clip, { once: true, fade: 0.08, restart: true, speed }); this.entity.animHold = hold;
+  }
+  set(st, t, clip, speed = 1) { this.st = st; this.t = t; if (clip) this.play(clip, speed, t + 0.05); }
+  struck(dmg) {
+    const e = this.entity; if (e.defeated) return;
+    if (this.st === 'guard') { this.world.emit('blocked', e.id); return; }
+    const interrupted = this.st === 'windup';
+    this.hpLeft -= dmg; this.world.emit('duelhit', e.id, this.hpLeft);
+    if (interrupted) this.world.emit('interrupt', e.id);
+    if (this.hpLeft <= 0) {
+      e.defeated = true; this.st = 'down';
+      const death = roleClip('', 'death', e.roles); this.play(death, 1, 99);
+      this.world.emit('stomp', e.id); this.world.emit('score', 5); return;
+    }
+    this.set('stagger', interrupted ? 0.8 : 0.45, roleClip(this.params.hitClip, 'hit', e.roles), 1.2);
+  }
+  update(dt) {
+    const e = this.entity, P = this.params, t = this.tgt(); if (e.defeated || !t || dt <= 0) return;
+    const o = e.object3d, p = o.position, q = t.object3d.position, dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+    if (d > 1e-3 && this.st !== 'strike') setYaw(o, Math.atan2(dx, dz));            // always facing you (but committed while striking)
+    this.t -= dt;
+    switch (this.st) {
+      case 'idle': case 'rest': {
+        if (this.st === 'rest' && (this.restT -= dt) <= 0) this.st = 'idle';
+        if (d > P.sight) break;
+        if (d > P.standOff) { const k = Math.min(P.speed * dt, d - P.standOff); p.x += dx / d * k; p.z += dz / d * k; }
+        if (this.st === 'idle' && d <= P.reach) {
+          const chain = P.combo.split(',').map(c => c.trim()).filter(Boolean);
+          this.clip = chain.length ? chain[this.n++ % chain.length] : roleClip('', 'attack', e.roles);
+          this.set('windup', P.windup, this.clip, P.windRate); this.world.emit('windup', e.id);
+        }
+        break;
+      }
+      case 'windup': if (this.t <= 0) { this.set('strike', P.hitAt + 0.35); this.entity.animHold = P.hitAt + 0.45; this.entity.anim?.action?.()?.setEffectiveTimeScale?.(1.5); this.hitDue = P.hitAt; } break;
+      case 'strike':
+        if (this.hitDue > 0 && (this.hitDue -= dt) <= 0) {
+          const cos = Math.cos((P.arc / 2) * Math.PI / 180), y = yawOf(o), f = (dx * Math.sin(y) + dz * Math.cos(y)) / (d || 1);
+          if (d <= P.reach && f >= cos && Math.abs(q.y - p.y) < 1.5) this.world.emit('hurt', P.damage);
+        }
+        if (this.t <= 0) { this.st = 'rest'; this.restT = this.roll(); }
+        break;
+      case 'guard': case 'stagger': if (this.t <= 0) { this.st = 'rest'; this.restT = this.roll() * 0.6; } break;
+    }
+  }
+}
+
 // The zoom (zap's ZOOM, PARKOUR.md): HOLD the left pad in place (world.input.charge) on the ground to wind up — he slows and the
 // charge builds over `time` s; let go and he dashes along his facing (or the stick) at `slow`..`fast` m/s by the charge, in the
 // `clip` run, for `dash` s, then hands his speed back (it bleeds off). Under `min` of a charge it is nothing. Emits 'zoom'
@@ -964,7 +1048,7 @@ export class Melee extends Behavior {
     const p = this.entity.object3d.position, cosHalf = Math.cos((Math.min(P.lockOn, 359.9) / 2) * Math.PI / 180);
     let best = null;
     for (const e of this.world.entities?.values?.() || []) {
-      if (e === this.entity || e.defeated || e.object3d?.visible === false || !e.behaviors?.some(b => b instanceof Stompable)) continue;
+      if (e === this.entity || e.defeated || e.object3d?.visible === false || !e.behaviors?.some(b => b instanceof Stompable || b.constructor.hittable)) continue;
       const q = e.object3d.position, dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
       if (d > P.lockRange || d < 1e-3 || Math.abs(q.y - p.y) > 2.5 || (dx * dir[0] + dz * dir[1]) / d < cosHalf) continue;
       if (!best || d < best.d) best = { e, d, dir: [dx / d, dz / d] };
@@ -1000,7 +1084,7 @@ export class Melee extends Behavior {
     const P = this.params, p = this.entity.object3d.position, cosHalf = Math.cos((P.arc / 2) * Math.PI / 180);
     for (const e of this.world.entities?.values?.() || []) {
       if (e === this.entity || e.defeated || e.object3d?.visible === false) continue;
-      if (!e.behaviors?.some(b => b instanceof Stompable)) continue;
+      if (!e.behaviors?.some(b => b instanceof Stompable || b.constructor.hittable)) continue;
       const q = e.object3d.position, dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
       if (d > P.reach || Math.abs(q.y - p.y) > 2) continue;
       if (d > 1e-3 && (dx * dir[0] + dz * dir[1]) / d < cosHalf) continue;
@@ -1235,6 +1319,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

@@ -946,25 +946,15 @@
       "id": "korajin",
       "asset": "agoblin",
       "position": [
-        -6,
         0,
-        2
+        0,
+        -6
       ],
       "behaviors": [
         {
-          "type": "Patrol",
+          "type": "Duelist",
           "params": {
-            "pointA": [
-              -6,
-              0,
-              2
-            ],
-            "pointB": [
-              6,
-              0,
-              2
-            ],
-            "speed": 4.5
+            "hp": 6
           }
         },
         {

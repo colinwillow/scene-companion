@@ -54,3 +54,25 @@ Companion already serves at `/forge/`. Step 2 copies the forged GLB into `assets
 
 Wall run → ledge → vault → katana (Mount + Melee lock/combo) → Dynamics (hair, cape) → high bar (needs IK) → zoom →
 duel AI. Each one: a behavior, a test in `tests/`, and a demo spot in the stadium scene.
+
+## Status (Oct 27 2026, build loop)
+
+All of it is now a behavior, each with tests and a spot in `scenes/stadium.scene.json` (play.html?scene=./scenes/stadium.scene.json):
+
+| zap system | Scene Companion | in the stadium |
+|---|---|---|
+| goblin / alien goblin rigs | `goblin.character.json`, `agoblin.character.json` | the player; Korajin |
+| katana (code-built) | `assets/models/colin/props/katana.glb` (`tools/make-katana.mjs`) + `Mount` | both hold one |
+| katLeftGrip | `HandGrip` (+ `runtime/ik.js` ik2) | both, in the stance clips |
+| KATANA combat | `Melee` combo / lockOn / airClip+slam | the player's flick |
+| SPRINGS / CHAIN | `Dynamics` (+ the `lateUpdate` hook) | Korajin's hair and cape |
+| WRUN | `WallRun` | the wall-run lane (SW) |
+| LEDGE | `Ledge` | the 2 m block (NW corner) |
+| VAULT | `Vault` (tuck pose) | the 1 m block |
+| HBAR | `Bar` + `HighBar` | the bar at (3, 2.55, 11) |
+| ZOOM | `Zoom` + the sticks' hold gesture | left pad held / key C |
+| AI samurai (DUEL.md) | `Duelist` — the readable core: stand-off, slowed wind-up, interrupt, guard, KO | Korajin |
+
+Not ported: the duel's shield / shot / armour triangle, the bar hook (air flick onto the bar), climbing (`CLIMB`), cover, the
+zoom's rings and dust. Engine gaps closed on the way: lateUpdate, bone mounts, two-bone IK, collision GLBs, turned-box walking,
+the Euler read/write fixes (`setYaw` / `yawOf`).

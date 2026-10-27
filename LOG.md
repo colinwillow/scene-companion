@@ -90,3 +90,4 @@
 - 2026-10-27 — Goblin step 3g — Melee combo / lock-on / air slam; yawOf read fix; 214 tests; checked headless (live session)
 - 2026-10-27 — Goblin step 3h — Bar + HighBar (catch, pump, giant swings, release flip); stadium bar; 217 tests; checked headless (live session)
 - 2026-10-27 — Goblin step 3i — stick HOLD gesture + Zoom (charge, dash, FOV kick); 219 tests (live session)
+- 2026-10-27 — Goblin step 3j — Duelist (Korajin duels you in the stadium); extraction doc status table; 223 tests; checked headless (live session)
