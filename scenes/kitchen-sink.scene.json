@@ -1401,6 +1401,9 @@
       "behaviors": [
         {
           "type": "Breakables"
+        },
+        {
+          "type": "KitParts"
         }
       ]
     }

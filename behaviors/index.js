@@ -920,6 +920,94 @@ export class Breakables extends Behavior {
   }
 }
 
+// weirdport's moving parts (KPARTS / kitPartStep, docs/weirdport-walls-extraction.md) on a building from his kit: every node
+// with `door` / `breakable` extras. NO BUTTON OPENS A DOOR — a hinged door swings AWAY from whoever walks into it (his
+// open_min/max ±100°) and shuts again a moment after they have gone; the wide `rollup` rolls up; the roof `hatch` opens for
+// someone underneath it; `glass` (and a door, shutter or lid with its hp gone) breaks on a `blast`. Each part's `col_*` child is
+// its collider (hidden), a turned box in `world.solids` while the part is shut. `who` is the entity that opens things.
+export class KitParts extends Behavior {
+  static schema = {
+    who:      { type: 'string', default: 'player' },
+    doorNear: { type: 'number', default: 1.35, min: 0.2, max: 5, step: 0.05 },   // m from the door's middle that opens it
+    shutNear: { type: 'number', default: 2.4, min: 0.2, max: 8, step: 0.1 },     // the roll-up's reach
+    hatchNear:{ type: 'number', default: 1.2, min: 0.2, max: 5, step: 0.05 },    // m in plan under the lid
+    shutAfter:{ type: 'number', default: 1.4, min: 0, max: 10, step: 0.1 },      // s after they have gone before it closes
+    rate:     { type: 'number', default: 5.5, min: 0.5, max: 30, step: 0.5 },    // how fast it swings (1/s)
+    dmgScale: { type: 'number', default: 12, min: 0, max: 100, step: 0.5 },
+    hatchSign:{ type: 'number', default: 1, min: -1, max: 1, step: 2 },          // flip if the lid lifts the wrong way
+  };
+  start() {
+    this.parts = []; const o = this.entity.object3d; o.updateMatrixWorld?.(true);
+    o.traverse?.(n => {
+      const e = n.userData || {}, kind = e.door === 'hinged' ? 'door' : e.door === 'rollup' ? 'rollup' : e.door === 'hatch' ? 'hatch' : e.breakable === 'glass' ? 'glass' : '';
+      if (!kind) return;
+      const col = n.children.find(c => c.userData?.collider && c.geometry);
+      if (col) { col.userData.wasVisible ??= col.visible; col.visible = false; }
+      const P = { node: n, kind, col, hp: (e.hp || (kind === 'glass' ? 5 : 40)), dead: false, a: 0, dir: 0, away: 9,
+                  min: e.open_min_deg ?? -100, max: e.open_max_deg ?? (kind === 'hatch' ? 110 : 100), home: { ry: n.rotation.y, rx: n.rotation.x, sy: n.scale.y }, solid: null };
+      this.parts.push(P); this.place(P, true);
+    });
+    this.world.on?.('blast', (x, y, z, r, dmg) => this.blast(x, y, z, r, dmg));
+  }
+  // the part's collider as a turned box from its col_ child, in world.solids only while the part is shut
+  place(P, shut) {
+    const all = (this.world.solids ||= []);
+    if (P.solid) { const i = all.indexOf(P.solid); if (i >= 0) all.splice(i, 1); P.solid = null; }
+    if (!P.col || !shut || P.dead) return;
+    const g = P.col.geometry; g.boundingBox || g.computeBoundingBox();
+    const V = P.col.position.constructor, Q = P.col.quaternion.constructor, b = g.boundingBox;
+    P.node.updateMatrixWorld?.(true);
+    const c = P.col.localToWorld(new V((b.min.x + b.max.x) / 2, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2)), ws = P.col.getWorldScale(new V()), wq = P.col.getWorldQuaternion(new Q());
+    const sol = Object.create(Solid.prototype);
+    sol.world = this.world; sol.params = { size: [(b.max.x - b.min.x) * ws.x, (b.max.y - b.min.y) * ws.y, (b.max.z - b.min.z) * ws.z], anchor: 'center', slope: false, shape: 'box', rotated: true, layer: 'default' };
+    sol.entity = { id: `${this.entity.id}#${P.node.name}`, owner: this.entity.id, part: P, object3d: { position: { x: c.x, y: c.y, z: c.z }, rotation: { x: 0, y: 2 * Math.atan2(wq.y, wq.w), z: 0 } } };
+    P.solid = sol; all.push(sol);
+    P.c = [c.x, c.y, c.z]; P.r = Math.hypot(...sol.params.size) / 2;
+  }
+  blast(x, y, z, r = 0.5, dmg = 1) {
+    let hit = 0;
+    for (const P of this.parts) {
+      if (P.dead || !P.c || Math.hypot(P.c[0] - x, P.c[1] - y, P.c[2] - z) > r + P.r) continue;
+      P.hp -= dmg * this.params.dmgScale; hit++;
+      if (P.hp <= 0) { P.dead = true; P.node.visible = false; this.place(P, false); this.world.emit(P.kind === 'glass' ? 'shatter' : 'broken', this.entity.id, P.node.name, ...P.c); }
+    }
+    return hit;
+  }
+  update(dt) {
+    const who = this.world.getEntity?.(this.params.who)?.object3d?.position; if (!who) return;
+    const S = this.params, k = Math.min(1, S.rate * dt);
+    for (const P of this.parts) {
+      if (P.dead || P.kind === 'glass' || !P.c) continue;
+      const dh = Math.hypot(who.x - P.c[0], who.z - P.c[2]), dy = who.y + 0.9 - P.c[1];
+      let near, target;
+      if (P.kind === 'door') {
+        near = dh < S.doorNear && Math.abs(dy) < 1.6;
+        if (near && !P.dir) {                             // swing AWAY: which side of the wall (its parent's +Z) is he on?
+          const e = P.node.parent.matrixWorld.elements, m = P.node.matrixWorld.elements;
+          P.dir = ((who.x - m[12]) * e[8] + (who.z - m[14]) * e[10]) >= 0 ? 1 : -1;   // weirdport's kitSide: + side → open_max
+        }
+        target = near || P.away < S.shutAfter ? (P.dir > 0 ? P.max : P.min) : 0;
+      } else if (P.kind === 'rollup') { near = dh < S.shutNear && Math.abs(dy) < 2; target = near || P.away < S.shutAfter ? 1 : 0; }
+      else { near = dh < S.hatchNear && who.y < P.c[1] && P.c[1] - who.y < 3.4; target = near || P.away < S.shutAfter ? P.max : 0; }
+      P.away = near ? 0 : P.away + dt;
+      if (!near && P.away >= S.shutAfter && P.kind === 'door' && Math.abs(P.a) < 2) P.dir = 0;
+      const a0 = P.a; P.a += (target - P.a) * k;
+      if (Math.abs(P.a - a0) < 1e-4) continue;
+      if (P.kind === 'door') P.node.rotation.y = P.home.ry + P.a * Math.PI / 180;
+      else if (P.kind === 'rollup') P.node.scale.y = P.home.sy * Math.max(0.03, 1 - P.a);
+      else P.node.rotation.x = P.home.rx - S.hatchSign * P.a * Math.PI / 180;
+      const open = P.kind === 'rollup' ? P.a > 0.1 : Math.abs(P.a) > 10;
+      if (open !== !!P.open) { P.open = open; this.place(P, !open); }   // the doorway is clear while it stands open
+    }
+  }
+  destroy() {
+    for (const P of this.parts || []) {
+      this.place(P, false); P.node.visible = true; P.node.rotation.y = P.home.ry; P.node.rotation.x = P.home.rx; P.node.scale.y = P.home.sy;
+      if (P.col && P.col.userData.wasVisible !== undefined) P.col.visible = P.col.userData.wasVisible;
+    }
+  }
+}
+
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
 // catches the lip — he hangs (`hangClip`). Tap: climb up over it (`climbClip`) and stand on top. Stick pulled away: let go.
 // Every distance is a share of his height (the PlayerController's `height`), so it fits any body.
@@ -2028,6 +2116,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
