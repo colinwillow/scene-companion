@@ -1,0 +1,18 @@
+{
+  "name": "Zap",
+  "glb": "./assets/models/colin/characters/zap.glb",
+  "height": 1.6,
+  "roles": {
+    "idle": "idle_01",
+    "walk": "walk_fwd",
+    "run": "run_fwd",
+    "jump": "in_air",
+    "doubleJump": "front_flip",
+    "fall": "in_air",
+    "land": "landing_soft",
+    "hardLand": "landing_hard",
+    "hit": "take_damage_body",
+    "death": "take_damage_and_fall_down",
+    "attack": "melee_01"
+  }
+}

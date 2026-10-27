@@ -2,13 +2,10 @@
   "asset": {
     "variants": {
       "web": {
-        "glb": "./assets/models/colin/characters/xray_skeleton.glb",
-        "height": 1.7,
-        "frontSide": true
+        "character": "./assets/models/colin/characters/skeleton.character.json"
       }
     }
   },
-  "animation": "standing_idle",
   "behaviors": [
     {
       "type": "Chase",
@@ -22,18 +19,13 @@
       "params": {
         "height": 1.6,
         "radius": 0.8,
-        "defeatClip": "Shoulder_Hit_And_Fall",
         "hideAfter": 1.6
       }
     },
     {
       "type": "Animator",
       "params": {
-        "idleClip": "standing_idle",
-        "walkClip": "standing_walk_forward",
-        "runClip": "standing_run_forward",
-        "runSpeed": 2,
-        "jumpClip": ""
+        "runSpeed": 2
       }
     }
   ]

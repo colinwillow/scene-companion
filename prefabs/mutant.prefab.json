@@ -2,13 +2,10 @@
   "asset": {
     "variants": {
       "web": {
-        "glb": "./assets/models/colin/characters/clancy.glb",
-        "height": 1.9,
-        "frontSide": true
+        "character": "./assets/models/colin/characters/mutant.character.json"
       }
     }
   },
-  "animation": "mutant_breathing_idle",
   "behaviors": [
     {
       "type": "Chase",
@@ -23,18 +20,13 @@
         "height": 1.8,
         "radius": 1.0,
         "points": 3,
-        "defeatClip": "mutant_dying",
         "hideAfter": 2.5
       }
     },
     {
       "type": "Animator",
       "params": {
-        "idleClip": "mutant_breathing_idle",
-        "walkClip": "mutant_walking",
-        "runClip": "mutant_run",
-        "runSpeed": 2.5,
-        "jumpClip": ""
+        "runSpeed": 2.5
       }
     }
   ]

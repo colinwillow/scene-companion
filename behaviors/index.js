@@ -1,6 +1,7 @@
 // Every behavior is registered here. Keep behaviors free of `three` imports.
 import { registerBehavior } from '../runtime/registry.js';
 import { Behavior } from '../runtime/Behavior.js';
+import { roleClip } from '../runtime/character.js';
 
 export class Spin extends Behavior {
   static schema = {
@@ -90,21 +91,22 @@ export class MoveTo extends Behavior {
 // With a PlayerController on the same entity it also plays jump / fall clips while airborne.
 export class Animator extends Behavior {
   static schema = {
-    idleClip: { type: 'string', default: 'Idle' },
-    walkClip: { type: 'string', default: 'Walking' },
-    runClip:  { type: 'string', default: 'Running' },
+    // Clip params: '' = the character's role clip (character.json), a name = override for this entity, 'none' = no clip
+    idleClip: { type: 'string', default: '' },
+    walkClip: { type: 'string', default: '' },
+    runClip:  { type: 'string', default: '' },
     runSpeed: { type: 'number', default: 4, min: 0.5, max: 15, step: 0.5 },  // m/s where walk becomes run
-    jumpClip: { type: 'string', default: 'Jump' },   // played once on take-off ('' = none)
+    jumpClip: { type: 'string', default: '' },       // played once on take-off
     jumpRate: { type: 'number', default: 1, min: 0.25, max: 3, step: 0.05 },  // playback speed of jumpClip (fit a flip to the air time)
     jumpHold: { type: 'number', default: 0, min: 0, max: 2, step: 0.05 },     // s the jump clip plays before fallClip may cut in (0 = at the apex)
-    doubleJumpClip: { type: 'string', default: '' }, // played once on an air jump (PlayerController airJumps; '' = replay jumpClip)
+    doubleJumpClip: { type: 'string', default: '' }, // played once on an air jump (PlayerController airJumps; none set = replay the jump clip)
     doubleJumpRate: { type: 'number', default: 1, min: 0.25, max: 3, step: 0.05 },
     doubleJumpHold: { type: 'number', default: 0, min: 0, max: 2, step: 0.05 }, // like jumpHold, for the air jump
-    fallClip: { type: 'string', default: '' },       // looped when falling a while ('' = hold the jump pose)
+    fallClip: { type: 'string', default: '' },       // looped when falling a while (none set = hold the jump pose)
     airDelay: { type: 'number', default: 0.12, min: 0, max: 1, step: 0.02 },  // s off the ground before air clips (skips tiny drops)
-    landClip: { type: 'string', default: '' },       // played once on touch-down ('' = straight back to idle/walk/run)
+    landClip: { type: 'string', default: '' },       // played once on touch-down (none set = straight back to idle/walk/run)
     landTime: { type: 'number', default: 0.3, min: 0, max: 2, step: 0.05 },   // s the land clip holds before locomotion resumes
-    hardLandClip:  { type: 'string', default: '' },  // for big falls ('' = use landClip)
+    hardLandClip:  { type: 'string', default: '' },  // for big falls (none set = the land clip)
     hardLandSpeed: { type: 'number', default: 12, min: 1, max: 40, step: 0.5 }, // m/s downward at impact that counts as hard
     hardLandTime:  { type: 'number', default: 0.7, min: 0, max: 3, step: 0.05 },
     hardLandMove:  { type: 'number', default: 0.2, min: 0, max: 1, step: 0.05 },  // move speed × this during a hard landing (jump still cancels it)
@@ -112,7 +114,10 @@ export class Animator extends Behavior {
   start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.air = 0; this.fallV = 0; this.landing = 0; }
   update(dt) {
     const anim = this.entity.anim; if (!anim || dt <= 0 || this.entity.defeated) return;
-    const P = this.params, p = this.entity.object3d.position;
+    const p = this.entity.object3d.position, R = this.entity.roles, A = this.params;
+    const P = { ...A, idleClip: roleClip(A.idleClip, 'idle', R), walkClip: roleClip(A.walkClip, 'walk', R), runClip: roleClip(A.runClip, 'run', R),
+      jumpClip: roleClip(A.jumpClip, 'jump', R), doubleJumpClip: roleClip(A.doubleJumpClip, 'doubleJump', R), fallClip: roleClip(A.fallClip, 'fall', R),
+      landClip: roleClip(A.landClip, 'land', R), hardLandClip: roleClip(A.hardLandClip, 'hardLand', R) };
     const speed = Math.hypot(p.x - this.last[0], p.z - this.last[1]) / dt;
     this.last = [p.x, p.z];
     const pc = this.entity.behaviors.find(b => b instanceof PlayerController);
@@ -332,7 +337,7 @@ export class Stompable extends Behavior {
     height:   { type: 'number', default: 1.2, min: 0.1, max: 5, step: 0.05 },  // body height from origin
     points:   { type: 'number', default: 1, min: 0, max: 100, step: 1 },
     damage:   { type: 'number', default: 1, min: 0, max: 10, step: 1 },
-    defeatClip: { type: 'string', default: '' },   // played once when stomped ('' = vanish at once)
+    defeatClip: { type: 'string', default: '' },   // played once when stomped ('' = the character's death role; none = vanish at once)
     hideAfter:  { type: 'number', default: 1.5, min: 0, max: 10, step: 0.1 },  // s the defeat clip shows before it vanishes
   };
   update(dt) {
@@ -350,7 +355,8 @@ export class Stompable extends Behavior {
     if (falling && feet > p.y + P.height * 0.5) {
       this.defeated = this.entity.defeated = true;   // entity.defeated stands Chase + Animator down
       const anim = this.entity.anim;
-      if (P.defeatClip && anim?.clips.includes(P.defeatClip)) { anim.play(P.defeatClip, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
+      const defeat = roleClip(P.defeatClip, 'death', this.entity.roles);
+      if (defeat && anim?.clips.includes(defeat)) { anim.play(defeat, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
       else this.entity.object3d.visible = false;
       this.world.emit('stomp', this.entity.id);
       this.world.emit('score', P.points);

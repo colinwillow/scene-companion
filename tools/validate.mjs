@@ -2,6 +2,7 @@
 // Checks scene files against the rules in SKILL.md.
 // Usage: node tools/validate.mjs [scenes/*.scene.json ...]   (defaults to every scene in scenes/)
 import { LIGHT_FIELDS } from '../runtime/editing.js';
+import { characterVariant, checkCharacter } from '../runtime/character.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -19,6 +20,24 @@ function clipsOf(path) {
   }
   glbClips.set(path, names);
   return names;
+}
+
+// character.json files (runtime/character.js): loaded + checked once each; problems reported against the scene using it.
+const characters = new Map();
+function characterOf(f, path) {
+  if (!characters.has(path)) {
+    let ch = null, problems = [];
+    const rel = path.replace(/^\.\//, '');
+    if (!existsSync(rel)) problems = [{ level: 'error', msg: 'file not found' }];
+    else {
+      try { ch = JSON.parse(readFileSync(rel, 'utf8')); } catch (x) { problems = [{ level: 'error', msg: `bad JSON: ${x.message}` }]; }
+      if (ch) problems = checkCharacter(ch, typeof ch.glb === 'string' ? clipsOf(ch.glb.replace(/^\.\//, '')) : null);
+    }
+    characters.set(path, { ch: problems.some(p => p.level === 'error') ? null : ch, problems, reported: new Set() });
+  }
+  const c = characters.get(path);
+  if (!c.reported.has(f)) { c.reported.add(f); for (const p of c.problems) (p.level === 'error' ? err : warn)(f, `${path}: ${p.msg}`); }
+  return c.ch;
 }
 import { getBehavior } from '../runtime/registry.js';
 import { mergeEntity } from '../runtime/prefabs.js';
@@ -90,13 +109,18 @@ for (const f of files) {
       if (!fields) err(f, `${e.id}: light type "${e.light.type}" (use ${Object.keys(LIGHT_FIELDS).join(', ')})`);
       else for (const k of Object.keys(e.light)) if (k !== 'type' && k !== 'shadowRadius' && !fields[k]) warn(f, `${e.id}: ${e.light.type} lights have no "${k}"`);
     }
-    for (const v of Object.values(asset?.variants || {})) {
+    for (let v of Object.values(asset?.variants || {})) {
+      if (v.character) {
+        const ch = characterOf(f, v.character);
+        if (!ch) continue;
+        v = characterVariant(ch, v);
+      }
       if (!v.glb) continue;
       const clips = clipsOf(v.glb.replace(/^\.\//, ''));
       if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
       else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
       else for (const b of e.behaviors || []) for (const [k, val] of Object.entries(b.params || {}))
-        if (/Clip$/.test(k) && val && typeof val === 'string' && !clips.includes(val)) err(f, `${e.id}: ${b.type}.${k} "${val}" isn't in ${v.glb}`);
+        if (/Clip$/.test(k) && val && val !== 'none' && typeof val === 'string' && !clips.includes(val)) err(f, `${e.id}: ${b.type}.${k} "${val}" isn't in ${v.glb}`);
     }
     checkBehaviors(f, e.id, e.behaviors);
   }

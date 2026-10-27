@@ -10,6 +10,7 @@ import { applyLook } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
 import { proceduralTexture } from './textures.js';
+import { characterVariant } from './character.js';
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -28,6 +29,7 @@ export class World {
       this.loader.setDRACOLoader(draco);
     }
     this.gltfCache = new Map();   // path → Promise<gltf>, so many entities share one download
+    this.characterCache = new Map();   // character.json path → Promise<json>
     this.mixers = [];
     this.t = 0;
     this.input = { move: [0, 0], jump: false };   // filled by the game page; read by behaviors
@@ -157,7 +159,13 @@ export class World {
       const e = authored.prefab ? mergeEntity(this.prefabs[authored.prefab], authored) : authored;
       // An asset can be a key into scene assets, or defined inline (prefabs do this).
       const assetDef = typeof e.asset === 'object' ? e.asset : sceneData.assets?.[e.asset];
-      const obj = e.light ? this.buildLight(e.light) : await this.buildObject(this.resolveVariant(assetDef));
+      let variant = e.light ? null : this.resolveVariant(assetDef), character = null;
+      if (variant?.character) {                     // character.json: model + clip roles (runtime/character.js)
+        if (!this.characterCache.has(variant.character)) this.characterCache.set(variant.character, fetch(variant.character).then(r => r.json()));
+        character = await this.characterCache.get(variant.character);
+        variant = characterVariant(character, variant);
+      }
+      const obj = e.light ? this.buildLight(e.light) : await this.buildObject(variant);
       obj.name = e.id;
       obj.userData.entityId = e.id;
       if (e.position) obj.position.fromArray(e.position);
@@ -165,7 +173,8 @@ export class World {
       if (e.scale) obj.scale.fromArray(e.scale);
       this.scene.add(obj);
       const ent = { id: e.id, object3d: obj, data: authored, resolved: e, behaviors: [] };
-      if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation);
+      if (character?.roles) ent.roles = { ...character.roles };
+      if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle);
       this.entities.set(e.id, ent);
     }
 

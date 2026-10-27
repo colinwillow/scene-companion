@@ -11,3 +11,5 @@
 
 All Tripo/generated exports are `doubleSided`; the prefabs set `frontSide: true`.
 The draco decoder is vendored in `vendor/draco/`.
+
+Characters with a `*.character.json` (model + height + clip roles, see SKILL.md): `zap`, `skeleton` (xray_skeleton.glb), `mutant` (clancy.glb).

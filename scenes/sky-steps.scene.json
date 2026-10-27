@@ -68,8 +68,7 @@
     "player": {
       "variants": {
         "web": {
-          "glb": "./assets/models/colin/characters/zap.glb",
-          "height": 1.6
+          "character": "./assets/models/colin/characters/zap.character.json"
         }
       }
     },
@@ -188,18 +187,10 @@
         {
           "type": "Animator",
           "params": {
-            "idleClip": "idle_01",
-            "walkClip": "walk_fwd",
-            "runClip": "run_fwd",
             "runSpeed": 4.5,
-            "jumpClip": "in_air",
             "jumpRate": 1,
             "jumpHold": 0,
-            "fallClip": "in_air",
-            "landClip": "landing_soft",
-            "hardLandClip": "landing_hard",
             "hardLandSpeed": 11,
-            "doubleJumpClip": "front_flip",
             "doubleJumpRate": 1.3,
             "doubleJumpHold": 0.65
           }

@@ -1,0 +1,13 @@
+{
+  "name": "X-ray skeleton",
+  "glb": "./assets/models/colin/characters/xray_skeleton.glb",
+  "height": 1.7,
+  "frontSide": true,
+  "roles": {
+    "idle": "standing_idle",
+    "walk": "standing_walk_forward",
+    "run": "standing_run_forward",
+    "hit": "Hit_To_Body",
+    "death": "Shoulder_Hit_And_Fall"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Mutant (Clancy)",
+  "glb": "./assets/models/colin/characters/clancy.glb",
+  "height": 1.9,
+  "frontSide": true,
+  "roles": {
+    "idle": "mutant_breathing_idle",
+    "walk": "mutant_walking",
+    "run": "mutant_run",
+    "jump": "mutant_jumping",
+    "fall": "falling_idle",
+    "hardLand": "hard_landing",
+    "death": "mutant_dying",
+    "attack": "mutant_swiping"
+  }
+}
