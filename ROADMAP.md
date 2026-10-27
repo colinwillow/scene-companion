@@ -43,6 +43,8 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Editor nesting: drag a row onto another in ☰ List to re-parent (List shows nesting already)
 - [ ] (engine core, moved ahead of the goblin) Collision queries: `world.raycast` / `world.sweep` for behaviors, collision layers, rotated boxes + spheres/capsules, colliders from a collision GLB
 - [ ] (engine core, moved ahead of the goblin) Animation layers + masks (upper/lower body) and frame events (`step`, `hit`) declared per clip in character.json
+- [ ] Reactions v0 (SPEC §7g): a pure `Reactions` behavior — rules of When (zone/near, bumped, event, timer, play start) → optional If (once, cooldown, chance, variable compare) → Do (play clip/role, look at, emit event, set/add variable, spawn, hide/show/destroy, sound); scene `settings.variables`; inspector rule editor with dropdowns (no code); validator + MCP `add_reaction`; kitchen-sink demo (an NPC who turns and waves when the player comes near; a jewel that makes him say 'ooh')
+- [ ] Reactions v1: more When/Do (clip frame events, variable changed, hit by, HUD message, camera shake, load scene), a Variables panel, and a read-only node-graph view of an object's rules
 - [ ] Animation timeline v0: tap a character → clips → Open in timeline: scrub/play/loop/speed, orbitable preview (front/side/top), clip length + frame readout
 - [ ] Timeline edits: trim, loop points, rate, bone mask toggles, frame events — saved as non-destructive clip variants in character.json (undoable, MCP tools too)
 - [ ] Forge round trip: "Open in Forge" / "Send back" between the editor and `retarget-anims` (forge-mcp), and the Motions tab retargets a library clip onto the selected character

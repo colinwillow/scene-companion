@@ -124,6 +124,35 @@ Lots of people make 2D games, so the engine should support them too. It's the sa
 - **Bridges:** render a 3D (Mixamo-rigged) character to a sprite sheet from any clip (fixed camera angles, pixel/toon look), so Colin's characters work in 2D games too; image-gen for sprite art.
 - Library sections for sprites, tilesets and backgrounds.
 
+## 7g. Reactions: visual "when this happens, do that" (Colin, 2026-10-27)
+Roles cover the standard moments (idle, run, jump, hit…). Everything game-specific gets authored as **Reactions**, without code: a list on any object, edited in the inspector like behaviors, stored in the scene file.
+
+- **When** (trigger), picked from a list, each with its own settings:
+  - player/tag enters a zone or comes within N m ("notices" a jewel);
+  - something bumps into me / I get hit;
+  - an event fires (`pickup`, `stomp`, any custom name);
+  - a timer;
+  - a variable changes or crosses a value;
+  - play starts;
+  - a frame event in a clip (`hit`, `step`).
+- **If** (optional conditions): a variable compares (`coins >= 10`), a random chance, once only, cooldown.
+- **Do** (one or more actions):
+  - play a clip / a role;
+  - look at / turn to;
+  - move to;
+  - emit an event;
+  - set / add to a variable;
+  - spawn a prefab;
+  - destroy / hide / show;
+  - enable or disable a behavior;
+  - play a sound / VFX;
+  - camera shake;
+  - show a HUD message;
+  - load a scene.
+- **Variables:** named numbers, flags and strings at scene level (`settings.variables`, shown in their own panel) and per object, readable by Reactions, behaviors and the HUD.
+- It runs as one pure behavior (`Reactions`) over a small, schema-checked vocabulary, so the validator checks it, MCP can author it ("when the player gets near, he waves"), and an agent can turn a Reaction into a real behavior when it outgrows the list.
+- Later: a node-graph view of the same data, for people who think in graphs.
+
 ## 7d. Engine scope
 Scene Companion is growing into a full engine on Three.js. `docs/ENGINE.md` is the subsystem checklist (from TheCherno's brief and standard engine architecture) with status and order; ROADMAP Stage 7 builds it.
 
