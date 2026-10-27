@@ -102,7 +102,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><select id="scSpacing" title="Spacing"><option value="0.75">0.75 m</option><option value="1.5" selected>1.5 m</option><option value="3">3 m</option><option value="6">6 m</option></select><small>drag on the ground to paint</small></div>
 <div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
@@ -748,7 +748,7 @@ async function renderLib() {
     items = filterNames(libraryGroups(libPrefabs, data)[libTab], q).map(i => ({ name: i.name,
       sub: i.kind === 'prefab' ? (data.prefabs?.[i.name] ? 'prefab' : 'prefab · not in scene yet') : 'model',
       pick: () => { addFrom(i.kind, i.name); if (!wide) closeLib(); } }));
-    $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab} — tap to add at the view centre`;
+    $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to add at the view centre`;
   }
   for (const it of items) {
     const li = document.createElement('li');
