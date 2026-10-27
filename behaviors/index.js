@@ -94,10 +94,17 @@ export class Animator extends Behavior {
     runClip:  { type: 'string', default: 'Running' },
     runSpeed: { type: 'number', default: 4, min: 0.5, max: 15, step: 0.5 },  // m/s where walk becomes run
     jumpClip: { type: 'string', default: 'Jump' },   // played once on take-off ('' = none)
+    jumpRate: { type: 'number', default: 1, min: 0.25, max: 3, step: 0.05 },  // playback speed of jumpClip (fit a flip to the air time)
+    jumpHold: { type: 'number', default: 0, min: 0, max: 2, step: 0.05 },     // s the jump clip plays before fallClip may cut in (0 = at the apex)
     fallClip: { type: 'string', default: '' },       // looped when falling a while ('' = hold the jump pose)
     airDelay: { type: 'number', default: 0.12, min: 0, max: 1, step: 0.02 },  // s off the ground before air clips (skips tiny drops)
+    landClip: { type: 'string', default: '' },       // played once on touch-down ('' = straight back to idle/walk/run)
+    landTime: { type: 'number', default: 0.3, min: 0, max: 2, step: 0.05 },   // s the land clip holds before locomotion resumes
+    hardLandClip:  { type: 'string', default: '' },  // for big falls ('' = use landClip)
+    hardLandSpeed: { type: 'number', default: 12, min: 1, max: 40, step: 0.5 }, // m/s downward at impact that counts as hard
+    hardLandTime:  { type: 'number', default: 0.7, min: 0, max: 3, step: 0.05 },
   };
-  start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.air = 0; }
+  start() { const p = this.entity.object3d.position; this.last = [p.x, p.z]; this.air = 0; this.fallV = 0; this.landing = 0; }
   update(dt) {
     const anim = this.entity.anim; if (!anim || dt <= 0 || this.entity.defeated) return;
     const P = this.params, p = this.entity.object3d.position;
@@ -105,14 +112,28 @@ export class Animator extends Behavior {
     this.last = [p.x, p.z];
     const pc = this.entity.behaviors.find(b => b instanceof PlayerController);
     if (pc && !pc.grounded) {
-      this.air += dt;
       const rising = pc.vy > 0;
-      if (rising || this.air >= P.airDelay) {
-        if (!rising && P.fallClip) anim.play(P.fallClip, { fade: 0.25 });
-        else if (P.jumpClip) anim.play(P.jumpClip, { once: true, fade: 0.1 });
+      this.air += dt; this.landing = 0; this.sinceJump = rising && !(this.prevVy > 0) ? 0 : (this.sinceJump ?? 1e9) + dt;   // take-off or a stomp bounce
+      this.prevVy = pc.vy;
+      if (rising || this.airborne || this.air >= P.airDelay) {
+        this.airborne = true; this.fallV = Math.max(0, -pc.vy);
+        if (!rising && P.fallClip && this.sinceJump >= P.jumpHold) anim.play(P.fallClip, { fade: 0.25 });
+        else if (P.jumpClip) anim.play(P.jumpClip, { once: true, fade: 0.1, speed: P.jumpRate });
         return;
       }
-    } else this.air = 0;
+    } else {
+      if (this.airborne) {                                   // just touched down after a real jump/fall
+        const hard = this.fallV >= P.hardLandSpeed;
+        const clip = (hard && P.hardLandClip) || P.landClip;
+        if (clip) { anim.play(clip, { once: true, fade: 0.08 }); this.landing = hard ? P.hardLandTime : P.landTime; this.hardLanding = hard; }
+      }
+      this.air = 0; this.airborne = false; this.prevVy = 0;
+    }
+    if (this.landing > 0) {
+      this.landing -= dt;
+      if (!this.hardLanding && speed > 0.5) this.landing = Math.min(this.landing, 0.05);  // moving cuts a soft land short
+      if (this.landing > 0) return;
+    }
     anim.play(speed < 0.1 ? P.idleClip : speed < P.runSpeed ? P.walkClip : P.runClip);
   }
 }

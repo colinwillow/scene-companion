@@ -152,6 +152,62 @@ test('Animator plays jump while airborne on a PlayerController, then fall clip i
   assert.deepEqual(played, ['Idle', 'Jump', 'Fall', 'Idle', 'Idle']);
 });
 
+test('Animator plays a land clip on touch-down, a hard one for big falls, then resumes', async () => {
+  const { PlayerController } = await import('../behaviors/index.js');
+  const e = fakeEntity();
+  const played = [];
+  e.anim = { play: (n, o) => played.push(o?.speed && o.speed !== 1 ? `${n}@${o.speed}` : n) };
+  const pc = Object.assign(Object.create(PlayerController.prototype), { grounded: true, vy: 0 });
+  e.behaviors.push(pc);
+  const a = attach(Animator, e, { jumpClip: 'Flip', jumpRate: 1.3, landClip: 'Soft', landTime: 0.2, hardLandClip: 'Hard', hardLandSpeed: 10, hardLandTime: 0.4 }, fakeWorld());
+  pc.grounded = false; pc.vy = 5; a.update(0.05);   // take-off
+  pc.vy = -8; a.update(0.05);                       // falling at 8 m/s
+  pc.grounded = true; pc.vy = 0; a.update(0.05);    // soft land
+  a.update(0.1);                                    // still holding
+  a.update(0.1);                                    // 0.25 s > landTime → idle
+  pc.grounded = false; pc.vy = -15; a.update(0.2);  // big fall
+  pc.grounded = true; pc.vy = 0; a.update(0.05);    // hard land
+  e.object3d.position.x += 0.3; a.update(0.1);      // moving doesn't cut a hard land
+  a.update(0.3);
+  assert.deepEqual(played, ['Flip@1.3', 'Flip@1.3', 'Soft', 'Idle', 'Flip@1.3', 'Hard', 'Idle']);
+});
+
+test('Animator: moving cuts a soft land short; no land clip = straight to locomotion', async () => {
+  const { PlayerController } = await import('../behaviors/index.js');
+  const e = fakeEntity(), played = [];
+  e.anim = { play: n => played.push(n) };
+  const pc = Object.assign(Object.create(PlayerController.prototype), { grounded: false, vy: -5 });
+  e.behaviors.push(pc);
+  const a = attach(Animator, e, { landClip: 'Soft', landTime: 1, airDelay: 0 }, fakeWorld());
+  a.update(0.05);                                              // airborne (jump pose)
+  pc.grounded = true; e.object3d.position.x += 0.3; a.update(0.1); // land while running at 3 m/s
+  e.object3d.position.x += 0.3; a.update(0.1);
+  assert.deepEqual(played, ['Jump', 'Soft', 'Walking']);
+  const e2 = fakeEntity(), p2 = [];
+  e2.anim = { play: n => p2.push(n) };
+  const pc2 = Object.assign(Object.create(PlayerController.prototype), { grounded: false, vy: -5 });
+  e2.behaviors.push(pc2);
+  const b = attach(Animator, e2, { airDelay: 0 }, fakeWorld());
+  b.update(0.05); pc2.grounded = true; b.update(0.05);
+  assert.deepEqual(p2, ['Jump', 'Idle']);
+});
+
+test('Animator jumpHold lets a flip finish before the fall clip cuts in; a bounce restarts it', async () => {
+  const { PlayerController } = await import('../behaviors/index.js');
+  const e = fakeEntity(), played = [];
+  e.anim = { play: n => played.push(n) };
+  const pc = Object.assign(Object.create(PlayerController.prototype), { grounded: true, vy: 0 });
+  e.behaviors.push(pc);
+  const a = attach(Animator, e, { jumpClip: 'Flip', fallClip: 'Fall', jumpHold: 0.5 }, fakeWorld());
+  pc.grounded = false; pc.vy = 5; a.update(0.2);   // take-off
+  pc.vy = -1; a.update(0.2);                       // apex passed at 0.2 s: flip keeps playing
+  a.update(0.2);                                   // 0.4 s
+  a.update(0.2);                                   // 0.6 s ≥ hold → fall
+  pc.vy = 4; a.update(0.1);                        // stomp bounce → flip again
+  pc.vy = -1; a.update(0.1);
+  assert.deepEqual(played, ['Flip', 'Flip', 'Flip', 'Fall', 'Flip', 'Flip']);
+});
+
 test('Pickup emits pickup before score', () => {
   const coin = fakeEntity('coin'), player = fakeEntity('player');
   const w = fakeWorld([coin, player]);

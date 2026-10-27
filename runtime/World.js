@@ -174,7 +174,7 @@ export class World {
     const anim = {
       clips: clips.map(c => c.name),
       get current() { return currentName; },
-      play(name, { fade = 0.2, once = false } = {}) {
+      play(name, { fade = 0.2, once = false, speed = 1 } = {}) {
         if (name === currentName) return;
         const clip = THREE.AnimationClip.findByName(clips, name);
         if (!clip) return;
@@ -182,6 +182,7 @@ export class World {
         action.reset();
         action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat);
         action.clampWhenFinished = once;
+        action.timeScale = speed;
         action.fadeIn(fade).play();
         if (current) current.fadeOut(fade);
         current = action; currentName = name;

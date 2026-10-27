@@ -89,6 +89,8 @@ for (const f of files) {
       const clips = clipsOf(v.glb.replace(/^\.\//, ''));
       if (clips === null) err(f, `${e.id}: model file not found: ${v.glb}`);
       else if (e.animation && !clips.includes(e.animation)) err(f, `${e.id}: animation "${e.animation}" isn't in ${v.glb} (has: ${clips.join(', ')})`);
+      else for (const b of e.behaviors || []) for (const [k, val] of Object.entries(b.params || {}))
+        if (/Clip$/.test(k) && val && typeof val === 'string' && !clips.includes(val)) err(f, `${e.id}: ${b.type}.${k} "${val}" isn't in ${v.glb}`);
     }
     checkBehaviors(f, e.id, e.behaviors);
   }

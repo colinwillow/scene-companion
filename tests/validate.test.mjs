@@ -29,11 +29,12 @@ test('validator catches duplicate ids, unknown behaviors, bad params, missing pr
       { id: 'e', asset: 'm' },
       { id: 'f', asset: 'missing' },
       { id: 'g', asset: { variants: { web: { glb: './assets/models/robot.glb' } } }, animation: 'Moonwalk' },
+      { id: 'h', asset: { variants: { web: { glb: './assets/models/robot.glb' } } }, behaviors: [{ type: 'Animator', params: { landClip: 'Splat', fallClip: '' } }] },
     ],
   }));
   assert.equal(r.status, 1);
   for (const msg of ['unknown behavior "Nope"', 'duplicate id "a"', 'speed: 99', '"sped" is not in the schema',
-                     'prefab "ghost" file not found', 'model file not found', 'unknown asset "missing"', 'animation "Moonwalk"'])
+                     'prefab "ghost" file not found', 'model file not found', 'unknown asset "missing"', 'animation "Moonwalk"', 'Animator.landClip "Splat"'])
     assert.ok(r.stderr.includes(msg), `expected: ${msg}\n${r.stderr}`);
 });
 
