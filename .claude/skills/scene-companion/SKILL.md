@@ -26,6 +26,8 @@ description: Use whenever building or changing a Three.js game that uses Scene C
 
 - **Live edits:** if a behavior caches anything from the position in `start()` (base height, home, spawn), also implement `onMoved()` to re-read it — the live link calls it when the editor moves the object mid-play. Game pages report state back with `runtime/livestate.js` (see `play.html`); debug overlays that aren't scene objects mark their `new Mesh` line with `// sc:overlay`.
 
+- **MCP:** with `npm run dev` + the editor open, the `scene-companion` MCP server (`.mcp.json`) lets you list/spawn/move/delete, attach behaviors, set params, play/stop, screenshot and save. Prefer it for placement and tuning when the user is looking at the editor; it keeps everything in the scene file by construction.
+
 ## When asked for a feature
 Make a behavior and attach it in the scene. For "breakable buildings": create a `Breakable` behavior with `health`, `debrisCount` and `debrisModel` in its schema, then attach it to the building objects in the scene file.
 

@@ -1,0 +1,38 @@
+// MCP tool definitions (name, description, JSON schema). Scene-edit tools map 1:1 to runtime/commands.js.
+const vec3 = d => ({ type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 3, description: d });
+const scene = { type: 'string', description: 'Scene file to target, e.g. ./scenes/tiny-hop.scene.json (default: whichever editor answers)' };
+const obj = (properties, required = []) => ({ type: 'object', properties: { ...properties, scene }, required });
+const id = { type: 'string', description: 'Entity id (see list_entities)' };
+
+export const TOOLS = [
+  { name: 'list_entities', description: 'List every object in the open scene: id, prefab/asset, position (metres, Y up) and behaviors.',
+    inputSchema: obj({ filter: { type: 'string', description: 'Only entries containing this text' } }) },
+  { name: 'get_entity', description: 'Full authored data of one entity plus its resolved behaviors and params (prefab merged).',
+    inputSchema: obj({ id }, ['id']) },
+  { name: 'list_library', description: 'What can be spawned and attached: scene assets, prefabs, and every behavior with its param schema (type, default, min, max).',
+    inputSchema: obj({}) },
+  { name: 'get_selection', description: 'The entity selected in the editor (what the user is pointing at), or null.',
+    inputSchema: obj({}) },
+  { name: 'select', description: 'Select an entity in the editor and frame the camera on it (null id clears).',
+    inputSchema: obj({ id: { type: ['string', 'null'] } }) },
+  { name: 'spawn', description: 'Add an entity from a prefab or a scene asset. Returns its new id.',
+    inputSchema: obj({ prefab: { type: 'string' }, asset: { type: 'string' }, position: vec3('Metres, Y up'), id: { type: 'string', description: 'Optional lowercase_with_underscores id' } }) },
+  { name: 'move', description: 'Set position (metres), rotation (degrees) and/or scale of an entity.',
+    inputSchema: obj({ id, position: vec3('Metres'), rotation: vec3('Degrees'), scale: vec3('Scale factors') }, ['id']) },
+  { name: 'delete', description: 'Delete an entity.', inputSchema: obj({ id }, ['id']) },
+  { name: 'attach_behavior', description: 'Attach a behavior (see list_library) with optional params.',
+    inputSchema: obj({ id, type: { type: 'string' }, params: { type: 'object' } }, ['id', 'type']) },
+  { name: 'set_param', description: 'Set one behavior param on an entity (validated against the schema; on prefab instances it becomes an override).',
+    inputSchema: obj({ id, type: { type: 'string' }, key: { type: 'string' }, value: {} }, ['id', 'type', 'key', 'value']) },
+  { name: 'remove_behavior', description: 'Remove a behavior from an entity (prefab behaviors are dropped via removeBehaviors).',
+    inputSchema: obj({ id, type: { type: 'string' } }, ['id', 'type']) },
+  { name: 'play', description: 'Enter play mode (behaviors run). Optional seconds to wait before returning, e.g. to screenshot mid-play.',
+    inputSchema: obj({ seconds: { type: 'number', minimum: 0, maximum: 10 } }) },
+  { name: 'stop', description: 'Leave play mode; everything snaps back to the authored scene.', inputSchema: obj({}) },
+  { name: 'screenshot', description: 'Image of the editor viewport right now.',
+    inputSchema: obj({ maxSize: { type: 'number', description: 'Longest side in px (default 768, max 1024)' } }) },
+  { name: 'read_errors', description: 'Errors shown in the editor, including ones reported by running games ([game] …).',
+    inputSchema: obj({ clear: { type: 'boolean' } }) },
+  { name: 'save_scene', description: 'Write the open scene back to its file in the repo (scenes/*.scene.json). Then run npm run check and commit.',
+    inputSchema: obj({}) },
+];

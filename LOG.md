@@ -21,3 +21,4 @@
 - 2026-10-27 — Tiny Hop feel pass — jump/fall clips, platform riding, camera collision, synthesized sounds + mute; 65 tests; checked headless (Jump plays, rides Bob platform) (build run)
 - 2026-10-27 — Live link polish — Behavior.onMoved hook (Bob/Chase/PlayerController), ● LIVE badge on both pages; 67 tests; checked headless via dev server (badge shows, moved platform bobs around new height) (build run)
 - 2026-10-27 — Game state back — livestate.js (fps meter, state msg), game→editor FPS/errors/selected position, editor→game selection marker, codecheck `sc:overlay` opt-out; 70 tests; checked headless via dev server (build run)
+- 2026-10-27 — MCP server — tools/mcp-server.mjs + mcp-tools.mjs, runtime/commands.js, editor command handler (undoable, patches in place when it can), .mcp.json; 76 tests incl. end-to-end dev server + MCP; checked headless with a real editor tab (spawn/attach/select/play/screenshot/stop/save all work; headless GPU is slow) (build run)

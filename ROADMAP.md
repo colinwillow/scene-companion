@@ -39,7 +39,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [ ] Live link: tap an object in the running game to select it in the editor (needs a 'select mode' toggle so it doesn't fight the joystick)
 
 ## Stage 5 — MCP server
-- [ ] [IN PROGRESS 2026-10-27 00:06 UTC] MCP server exposing: list entities, get selection, spawn/move/delete, attach behavior, set param, play/stop, screenshot, read errors
+- [x] MCP server exposing: list entities, get selection, spawn/move/delete, attach behavior, set param, play/stop, screenshot, read errors — `tools/mcp-server.mjs` (stdio, no SDK) → dev server → editor tab; `.mcp.json` for Claude Code; 16 tools incl. get_entity, list_library, select, remove_behavior, save_scene; edits via pure `runtime/commands.js` (schema-checked, undoable, live-linked)
+- [ ] MCP: headless fallback — when no editor tab is open, the MCP server launches its own headless editor so Claude can work alone (cloud runs, finish-line test)
 - [ ] Finish-line test: Claude builds a small game (e.g. Tetris or a tiny platformer) through MCP alone
 
 ## Later

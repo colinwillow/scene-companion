@@ -103,6 +103,8 @@ import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
 import { createPost } from './runtime/post.js';
 import { describeState, sameScene } from './runtime/livestate.js';
+import { COMMANDS, runCommand } from './runtime/commands.js';
+import { applyScene } from './runtime/livepatch.js';
 import './behaviors/index.js';
 
 const $ = id => document.getElementById(id);
@@ -400,6 +402,12 @@ var sendSelect;
     ws.onclose = () => { $('liveBadge').hidden = true; setTimeout(connect, 3000); };
     ws.onmessage = ev => {
       let s; try { s = JSON.parse(ev.data); } catch { return; }
+      if (s.type === 'cmd' && (!s.scene || sameScene(s.scene, SCENE_URL))) {      // from the MCP server
+        editorCommand(s.op, s.args || {}).then(
+          r => ws.send(JSON.stringify({ type: 'cmd-result', id: s.id, ok: true, ...r })),
+          e => ws.send(JSON.stringify({ type: 'cmd-result', id: s.id, ok: false, error: e.message })));
+        return;
+      }
       if (s.type !== 'state' || !sameScene(s.url, SCENE_URL)) return;
       for (const m of s.errors || []) { gameErrors++; showErr('[game] ' + m); }
       $('liveBadge').textContent = describeState(s, gameErrors);
@@ -415,6 +423,50 @@ var sendSelect;
     const text = JSON.stringify({ type: 'scene', url: SCENE_URL, data });
     if (text !== lastSent) { ws.send(text); lastSent = text; flashLive(); }
   }, 250);
+}
+
+// ---- commands from Claude (MCP server → dev server → here). Scene edits go through runtime/commands.js,
+// are undoable like any other edit, and show up on screen (and in live games) immediately.
+async function editorCommand(op, args) {
+  if (COMMANDS[op]) {
+    const ctx = { schemas: Object.fromEntries(behaviorNames().map(n => [n, getBehavior(n).schema])), prefabs: world.prefabs };
+    if (COMMANDS[op].mutates && playing) throw new Error('Stop play mode first (use the stop tool) — edits made while playing are thrown away.');
+    const before = structuredClone(data);
+    const { result, changed } = runCommand(data, op, args, ctx);
+    if (changed) {
+      hist.record(before); updateUndo();
+      if (selectedId && !data.entities.some(e => e.id === selectedId)) selectedId = null;
+      if (applyScene(world, before, data) === 'rebuild') await rebuild();   // moves / params patch in place (fast)
+      renderPanel();
+    }
+    return { result };
+  }
+  switch (op) {
+    case 'get_selection': return { result: selectedId ? runCommand(data, 'get_entity', { id: selectedId }, { prefabs: world.prefabs }).result : null };
+    case 'select':
+      if (args.id && !world.getEntity(args.id)) throw new Error(`No entity "${args.id}"`);
+      select(args.id || null); if (args.id) frame(args.id);
+      return { result: { selected: selectedId } };
+    case 'play': case 'stop':
+      if ((op === 'play') !== playing) await $('play').onclick();
+      if (op === 'play' && args.seconds) await new Promise(r => setTimeout(r, Math.min(10, args.seconds) * 1000));
+      return { result: { playing } };
+    case 'screenshot': {
+      const max = Math.min(1024, args.maxSize || 768);
+      if (post) post.render(); else renderer.render(world.scene, camera);       // draw now so the buffer is fresh
+      const src = renderer.domElement, k = Math.min(1, max / Math.max(src.width, src.height));
+      const c = document.createElement('canvas'); c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
+      c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+      return { result: { width: c.width, height: c.height, playing, selected: selectedId }, image: c.toDataURL('image/jpeg', 0.8).split(',')[1], mime: 'image/jpeg' };
+    }
+    case 'read_errors': {
+      const box = $('err'), errors = box.textContent ? box.textContent.split('\n') : [];
+      if (args.clear) { box.textContent = ''; box.hidden = true; }
+      return { result: { errors } };
+    }
+    case 'get_scene': return { result: { url: SCENE_URL, data } };
+    default: throw new Error(`Unknown command "${op}"`);
+  }
 }
 
 // ---- undo / redo (whole-scene snapshots; sliders coalesce into one step)

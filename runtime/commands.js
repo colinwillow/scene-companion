@@ -1,0 +1,153 @@
+// Scene commands shared by the editor and the MCP server. Pure data (no three/DOM): each command reads or
+// edits scene data and throws a readable Error on bad input *before* changing anything.
+//
+//   runCommand(data, op, args, { schemas, prefabs }) → { result, changed }
+//   schemas: { BehaviorName: schema }   prefabs: { name: prefabJson }   (both supplied by the host)
+import { addEntity, deleteEntity } from './editing.js';
+import { mergeEntity, setOverride } from './prefabs.js';
+
+const r3 = v => Math.round(v * 1000) / 1000;
+const isVec3 = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n));
+
+function need(data, id) {
+  const e = data.entities.find(x => x.id === id);
+  if (!e) throw new Error(`No entity "${id}". Use list_entities to see ids.`);
+  return e;
+}
+const resolved = (e, prefabs) => (e.prefab ? mergeEntity(prefabs?.[e.prefab], e) : e);
+
+// Check one param against its schema; returns the cleaned value.
+export function checkParam(schemas, type, key, value) {
+  const schema = schemas?.[type];
+  if (!schema) throw new Error(`Unknown behavior "${type}". Known: ${Object.keys(schemas || {}).join(', ')}`);
+  const def = schema[key];
+  if (!def) throw new Error(`${type} has no param "${key}". Params: ${Object.keys(schema).join(', ')}`);
+  switch (def.type) {
+    case 'number':
+      if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${type}.${key} must be a number`);
+      if ((def.min !== undefined && value < def.min) || (def.max !== undefined && value > def.max))
+        throw new Error(`${type}.${key} must be between ${def.min} and ${def.max}`);
+      return value;
+    case 'boolean': if (typeof value !== 'boolean') throw new Error(`${type}.${key} must be true/false`); return value;
+    case 'string': if (typeof value !== 'string') throw new Error(`${type}.${key} must be a string`); return value;
+    case 'vec3': if (!isVec3(value)) throw new Error(`${type}.${key} must be [x, y, z]`); return value.map(r3);
+    case 'color': if (typeof value !== 'string' && typeof value !== 'number') throw new Error(`${type}.${key} must be a colour`); return value;
+    default: return value;
+  }
+}
+
+const summary = (e, prefabs) => ({
+  id: e.id,
+  ...(e.prefab ? { prefab: e.prefab } : {}),
+  ...(e.asset !== undefined ? { asset: typeof e.asset === 'string' ? e.asset : 'inline' } : {}),
+  ...(e.light ? { light: e.light.type } : {}),
+  position: e.position || [0, 0, 0],
+  behaviors: (resolved(e, prefabs).behaviors || []).map(b => b.type),
+});
+
+export const COMMANDS = {
+  list_entities: {
+    mutates: false,
+    run(data, { filter } = {}, ctx) {
+      const f = filter ? String(filter).toLowerCase() : '';
+      return data.entities.map(e => summary(e, ctx.prefabs)).filter(s => !f || JSON.stringify(s).toLowerCase().includes(f));
+    },
+  },
+  get_entity: {
+    mutates: false,
+    run(data, { id }, ctx) {
+      const e = need(data, id);
+      return { authored: structuredClone(e), resolved: structuredClone(resolved(e, ctx.prefabs)) };
+    },
+  },
+  list_library: {
+    mutates: false,
+    run(data, _args, ctx) {
+      return {
+        assets: Object.keys(data.assets || {}),
+        prefabs: Object.keys(data.prefabs || {}),
+        behaviors: Object.fromEntries(Object.entries(ctx.schemas || {}).map(([n, s]) => [n, s])),
+      };
+    },
+  },
+  spawn: {
+    mutates: true,
+    run(data, { prefab, asset, position = [0, 0, 0], id }) {
+      if (!prefab && !asset) throw new Error('spawn needs a prefab or an asset (see list_library)');
+      if (prefab && !data.prefabs?.[prefab]) throw new Error(`No prefab "${prefab}" in this scene. Prefabs: ${Object.keys(data.prefabs || {}).join(', ')}`);
+      if (asset && !data.assets?.[asset]) throw new Error(`No asset "${asset}" in this scene. Assets: ${Object.keys(data.assets || {}).join(', ')}`);
+      if (!isVec3(position)) throw new Error('position must be [x, y, z] in metres');
+      if (id !== undefined) {
+        if (!/^[a-z0-9_]+$/.test(id)) throw new Error('id must be lowercase_with_underscores');
+        if (data.entities.some(e => e.id === id)) throw new Error(`id "${id}" is taken`);
+      }
+      const e = addEntity(data, prefab ? { prefab } : { asset }, position);
+      if (id) e.id = id;
+      return { id: e.id };
+    },
+  },
+  move: {
+    mutates: true,
+    run(data, { id, position, rotation, scale }) {
+      const e = need(data, id);
+      for (const [k, v] of Object.entries({ position, rotation, scale })) if (v !== undefined && !isVec3(v)) throw new Error(`${k} must be [x, y, z]`);
+      if (position === undefined && rotation === undefined && scale === undefined) throw new Error('move needs position, rotation (degrees) or scale');
+      if (position) e.position = position.map(r3);
+      if (rotation) e.rotation = rotation.map(r3);
+      if (scale) e.scale = scale.map(r3);
+      return { id, position: e.position, rotation: e.rotation, scale: e.scale };
+    },
+  },
+  delete: {
+    mutates: true,
+    run(data, { id }) { need(data, id); deleteEntity(data, id); return { deleted: id }; },
+  },
+  attach_behavior: {
+    mutates: true,
+    run(data, { id, type, params = {} }, ctx) {
+      const e = need(data, id);
+      if (!ctx.schemas?.[type]) throw new Error(`Unknown behavior "${type}". Known: ${Object.keys(ctx.schemas || {}).join(', ')}`);
+      if ((resolved(e, ctx.prefabs).behaviors || []).some(b => b.type === type)) throw new Error(`${id} already has ${type}; use set_param`);
+      const clean = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, checkParam(ctx.schemas, type, k, v)]));
+      if (e.removeBehaviors?.includes(type)) { e.removeBehaviors = e.removeBehaviors.filter(t => t !== type); if (!e.removeBehaviors.length) delete e.removeBehaviors; }
+      (e.behaviors ||= []).push({ type, params: clean });
+      return { id, type, params: clean };
+    },
+  },
+  set_param: {
+    mutates: true,
+    run(data, { id, type, key, value }, ctx) {
+      const e = need(data, id);
+      if (!(resolved(e, ctx.prefabs).behaviors || []).some(b => b.type === type)) throw new Error(`${id} has no ${type}; use attach_behavior`);
+      const v = checkParam(ctx.schemas, type, key, value);
+      setOverride(e, type, key, v);
+      return { id, type, key, value: v };
+    },
+  },
+  remove_behavior: {
+    mutates: true,
+    run(data, { id, type }, ctx) {
+      const e = need(data, id);
+      const own = (e.behaviors || []).findIndex(b => b.type === type);
+      const fromPrefab = e.prefab && (ctx.prefabs?.[e.prefab]?.behaviors || []).some(b => b.type === type);
+      if (own < 0 && !fromPrefab) throw new Error(`${id} has no ${type}`);
+      if (own >= 0) e.behaviors.splice(own, 1);
+      if (e.behaviors && !e.behaviors.length) delete e.behaviors;
+      if (fromPrefab && !e.removeBehaviors?.includes(type)) (e.removeBehaviors ||= []).push(type);
+      return { id, removed: type };
+    },
+  },
+};
+
+export function runCommand(data, op, args = {}, ctx = {}) {
+  const cmd = COMMANDS[op];
+  if (!cmd) throw new Error(`Unknown command "${op}"`);
+  if (!cmd.mutates) return { result: cmd.run(data, args, ctx), changed: false };
+  const draft = structuredClone(data);          // all-or-nothing: a throw leaves `data` untouched
+  const result = cmd.run(draft, args, ctx);
+  for (const k of Object.keys(data)) delete data[k];
+  Object.assign(data, draft);
+  return { result, changed: true };
+}
+
+

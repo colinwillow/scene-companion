@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "scene-companion": {
+      "command": "node",
+      "args": ["tools/mcp-server.mjs"],
+      "env": { "SC_DEV_URL": "ws://localhost:8080/live" }
+    }
+  }
+}

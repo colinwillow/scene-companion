@@ -25,3 +25,10 @@ If the file changed on GitHub since you opened it (e.g. Claude pushed), it asks 
 `npm install` then `npm run dev`. Open the editor on your computer (`/index.html?scene=./scenes/tiny-hop.scene.json`) and the game on your phone
 (`http://<computer-ip>:8080/play.html`, same Wi-Fi). Moves, slider tweaks and animation changes apply instantly; adding/removing objects or
 swapping models restarts the game with the new scene. Nothing is saved until you press ⇪ Save.
+
+## Claude in the editor (MCP server)
+1. `npm run dev`, then open the editor (`/index.html`, phone or computer) and leave it open.
+2. Claude Code picks up `.mcp.json` in this repo (server `scene-companion` → `node tools/mcp-server.mjs`). Point it elsewhere with `SC_DEV_URL=ws://<host>:<port>/live`.
+3. Tools: `list_entities`, `get_entity`, `list_library`, `get_selection`, `select`, `spawn`, `move`, `delete`, `attach_behavior`, `set_param`, `remove_behavior`, `play`, `stop`, `screenshot`, `read_errors`, `save_scene`.
+
+Edits go through `runtime/commands.js` (schema-checked, all-or-nothing), are undoable in the editor, and stream to running games over the live link. `save_scene` writes the scene file into `scenes/`; run `npm run check` and commit after.

@@ -7,7 +7,8 @@
     "serve": "npx --yes serve .",
     "test": "node --test 'tests/*.test.mjs'",
     "check": "npm run validate && npm test",
-    "dev": "node tools/dev-server.mjs"
+    "dev": "node tools/dev-server.mjs",
+    "mcp": "node tools/mcp-server.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",
