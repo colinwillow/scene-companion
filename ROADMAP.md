@@ -3,6 +3,17 @@
 Top unchecked item = next run. Colin can reorder, add or delete freely.
 Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` passing and the kitchen-sink scene working.
 
+## Colin's playtest pass (2026-10-27) — do these first, in order
+- [ ] Editor: ＋Add (and Duplicate offset) places at the centre of the camera VIEW on the ground — raycast screen centre against ground + solids, fall back to the y=0 plane; same for MCP `spawn` with no position (use the editor's view)
+- [ ] Editor: selection no longer auto-opens the inspector — highlight (outline/marker) + a small name chip with an "edit" button that opens the sheet; tapping empty ground deselects quietly; landscape side panel may stay open if already open
+- [ ] Game kit: Colin's twin-stick controls in `play.html` — floating stylized sticks (look at rollergirl/weirdport `bindStick` + their CSS), left = move, right = orbit yaw only, tap right stick = jump (`settings.controls.jumpTap: right|either`), remove the jump button; hold/flick left free and documented in SKILL.md
+- [ ] Sky Steps: double jump (PlayerController `airJumps` param) with Zap's `front_flip` on the second jump (Animator `doubleJumpClip`)
+- [ ] Level-building kit: a set of modular obstacle-course pieces (blocks, ledges, beams, ramps, poles, walls of standard sizes on a grid) as prefabs + grid snapping in the editor (toggle, 0.5 m / 15°), so Colin can hand-place a course instead of describing it. Target: his ninja-goblin parkour game.
+- [ ] Art direction: editable light entities in the editor (directional/point/spot: colour, intensity, shadows), a `Trigger` behavior (box volume → emits an event / activates entities) for enemy triggers, and a scatter brush for shrubs/trees/grass (tap-drag to paint prefab instances)
+- [ ] One-button sign-in: replace the paste-a-token Save with GitHub sign-in (OAuth device flow or a GitHub App; no token typing) — goal: an artist who doesn't know GitHub can open the app, tap "Connect GitHub", and save
+- [ ] [ask Colin first] Move the ninja-goblin game out of `zap` into its own repo, built as a Scene Companion game (scene file + behaviors), and use it as the real dogfood project from then on
+- [ ] Motion library: hook the Libraries "Motions" tab to `retarget-anims` (its MCP layer) so a clip can be retargeted onto a character from the editor; long-term: a character library where each character ships with its tuned animation set
+
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
 Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.
 - [x] Sky + environment lighting: procedural sky (three's Sky addon) or gradient sky, PMREM environment from it, sun direction/colour from scene settings, filmic tone mapping. Make `pbr` look great by default.
