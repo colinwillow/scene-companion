@@ -4,6 +4,7 @@ import { WHEN, compare } from '../runtime/reactions.js';
 import { Behavior } from '../runtime/Behavior.js';
 import { roleClip } from '../runtime/character.js';
 import { topAt, walkShape } from '../runtime/collide.js';
+import { mergeMeshes } from '../runtime/batch.js';
 import { placeCollider } from '../runtime/colliders.js';
 import { ik2 } from '../runtime/ik.js';
 import { yawOf } from '../runtime/yaw.js';
@@ -799,6 +800,7 @@ export class Breakables extends Behavior {
     debris:   { type: 'number', default: 24, min: 0, max: 200, step: 1 },     // most flying pieces at once (0 = none)
     throw:    { type: 'number', default: 3.5, min: 0, max: 20, step: 0.1 },   // m/s a piece leaves away from the blast
     life:     { type: 'number', default: 2.2, min: 0.2, max: 10, step: 0.1 },  // s before a piece is gone
+    batch:    { type: 'boolean', default: true },   // merge the walls per material (draw calls), each wall keeping its vertex range
   };
   start() {
     this.walls = []; this.solids = []; this.flying = [];
@@ -822,7 +824,22 @@ export class Breakables extends Behavior {
       this.walls.push(W);
     }
     (this.world.solids ||= []).push(...this.solids);
+    if (this.params.batch) this.batchWalls();
     this.world.on?.('blast', (x, y, z, r, dmg) => this.blast(x, y, z, r, dmg));
+  }
+  // the walls merged per material; a wall's chunks are then collapsed inside its own RANGE of the merged buffer (kitBatch)
+  batchWalls() {
+    const o = this.entity.object3d, meshes = this.walls.flatMap(W => W.meshes).filter(m => !m.isSkinnedMesh);
+    if (meshes.length < 2) return;
+    this.batches = mergeMeshes(o, meshes);
+    for (const b of this.batches) { o.add(b.mesh); b.orig = b.mesh.geometry.attributes.position.array.slice(); }
+    for (const m of meshes) m.visible = false;
+    const V = o.position.constructor;
+    for (const W of this.walls) {
+      W.ranges = [];
+      for (const b of this.batches) for (const m of W.meshes) { const r = b.ranges.get(m); if (r) W.ranges.push({ b, ...r }); }
+      for (const c of W.chunks) { const v = o.worldToLocal(new V(...c.c)); c.rc = [v.x, v.y, v.z]; }
+    }
   }
   get alive() { return this.walls.reduce((n, W) => n + W.chunks.filter(c => !c.dead).length, 0); }
   blast(x, y, z, r = 0.5, dmg = 1) {
@@ -844,8 +861,14 @@ export class Breakables extends Behavior {
     if (c.dead) return false;
     const W = c.wall; c.dead = true;
     if (loud && this.params.debris > 0) this.throwPiece(c, this.lastBlast);   // lifted out BEFORE the collapse destroys its triangles
-    if (!W.cloned) { W.cloned = true; for (const m of W.meshes) { m.userData.kGeo = m.geometry; m.geometry = m.geometry.clone(); } }   // the mesh is SHARED by several walls
-    for (const m of W.meshes) {
+    if (W.ranges) {                                    // batched: collapse inside this wall's ranges of the merged buffers
+      for (const R of W.ranges) {
+        const g = R.b.mesh.geometry, pos = g.attributes.position, ch = g.attributes._chunk; if (!ch) continue;
+        for (let i = R.start, e = R.start + R.count; i < e; i++) if (Math.round(ch.getX(i)) === c.id) pos.setXYZ(i, c.rc[0], c.rc[1], c.rc[2]);
+        pos.needsUpdate = true;
+      }
+    } else if (!W.cloned) { W.cloned = true; for (const m of W.meshes) { m.userData.kGeo = m.geometry; m.geometry = m.geometry.clone(); } }   // the mesh is SHARED by several walls
+    if (!W.ranges) for (const m of W.meshes) {
       const pos = m.geometry.attributes.position, ch = m.geometry.attributes._chunk; let touched = false;
       for (let i = 0; i < ch.count; i++) if (Math.round(ch.getX(i)) === c.id) { pos.setXYZ(i, c.lc[0], c.lc[1], c.lc[2]); touched = true; }
       if (touched) pos.needsUpdate = true;
@@ -882,7 +905,12 @@ export class Breakables extends Behavior {
   restore(wallName, id) {
     const W = this.walls.find(w => w.node.name === wallName), c = W?.byId.get(id); if (!c?.dead) return false;
     c.dead = false; c.fall = 0; c.hp = c.hp0;
-    for (const m of W.meshes) {
+    if (W.ranges) for (const R of W.ranges) {
+      const g = R.b.mesh.geometry, pos = g.attributes.position, ch = g.attributes._chunk, O = R.b.orig; if (!ch) continue;
+      for (let i = R.start, e = R.start + R.count; i < e; i++) if (Math.round(ch.getX(i)) === c.id) pos.setXYZ(i, O[i * 3], O[i * 3 + 1], O[i * 3 + 2]);
+      pos.needsUpdate = true;
+    }
+    if (!W.ranges) for (const m of W.meshes) {
       const O = m.userData.kGeo?.attributes.position, pos = m.geometry.attributes.position, ch = m.geometry.attributes._chunk; if (!O) continue;
       for (let i = 0; i < ch.count; i++) if (Math.round(ch.getX(i)) === c.id) pos.setXYZ(i, O.getX(i), O.getY(i), O.getZ(i));
       pos.needsUpdate = true;
@@ -915,6 +943,9 @@ export class Breakables extends Behavior {
   }
   destroy() {
     for (const f of [...(this.flying || [])]) this.dropPiece(f);
+    for (const b of this.batches || []) { b.mesh.removeFromParent(); b.mesh.geometry.dispose?.(); }
+    if (this.batches?.length) for (const W of this.walls || []) for (const m of W.meshes) m.visible = true;
+    this.batches = [];
     const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); }
     for (const W of this.walls || []) if (W.cloned) for (const m of W.meshes) if (m.userData.kGeo) { m.geometry.dispose?.(); m.geometry = m.userData.kGeo; delete m.userData.kGeo; }   // Stop: the wall as authored
   }
@@ -1189,6 +1220,30 @@ export class KitWalls extends Behavior {
     (this.world.solids ||= []).push(...this.solids);
   }
   destroy() { const all = this.world.solids || []; for (const s of this.solids || []) { const i = all.indexOf(s); if (i >= 0) all.splice(i, 1); } this.solids = []; }
+}
+
+// Batch a model's STATIC meshes per material at Play (weirdport's kitBatch: his test row went 1,505 draws → 84). Skipped, so they
+// keep working: skinned meshes, breakable walls (`chunks` — Breakables batches those itself, keeping each wall's vertex range),
+// moving parts (`door` / `breakable`), colliders (`col_*`), anything hidden or marked `noBatch`, and other entities. Stop puts the
+// original meshes back.
+export class Batch extends Behavior {
+  static schema = {};
+  start() {
+    const o = this.entity.object3d, list = [];
+    const skip = n => n !== o && (n.userData?.entityId || n.userData?.chunks || n.userData?.door || n.userData?.breakable || n.userData?.collider || n.userData?.noBatch || /^col_/.test(n.name || '') || n.visible === false);
+    const walk = n => { if (skip(n)) return; if (n.isMesh && !n.isSkinnedMesh && !n.userData?.batch) list.push(n); for (const c of n.children || []) walk(c); };
+    walk(o);
+    this.sources = list.length > 1 ? list : [];
+    this.batches = this.sources.length ? mergeMeshes(o, this.sources) : [];
+    for (const b of this.batches) o.add(b.mesh);
+    for (const m of this.sources) m.visible = false;
+    this.world.emit?.('batched', this.entity.id, this.sources.length, this.batches.length);
+  }
+  destroy() {
+    for (const b of this.batches || []) { b.mesh.removeFromParent(); b.mesh.geometry.dispose?.(); }
+    for (const m of this.sources || []) m.visible = true;
+    this.batches = []; this.sources = [];
+  }
 }
 
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
@@ -2300,6 +2355,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Blaster, Projectile, Disguise, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Breakables, KitParts, KitWalls, Batch, Blaster, Projectile, Disguise, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

@@ -172,6 +172,9 @@
         },
         {
           "type": "KitParts"
+        },
+        {
+          "type": "Batch"
         }
       ]
     },
@@ -192,6 +195,9 @@
         },
         {
           "type": "KitWalls"
+        },
+        {
+          "type": "Batch"
         }
       ]
     }

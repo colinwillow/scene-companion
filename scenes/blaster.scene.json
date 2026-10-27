@@ -164,6 +164,9 @@
         },
         {
           "type": "KitParts"
+        },
+        {
+          "type": "Batch"
         }
       ]
     }

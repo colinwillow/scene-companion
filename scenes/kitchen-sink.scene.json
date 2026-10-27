@@ -1404,6 +1404,9 @@
         },
         {
           "type": "KitParts"
+        },
+        {
+          "type": "Batch"
         }
       ]
     }

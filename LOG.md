@@ -118,3 +118,4 @@
 - 2026-10-27 — Performance part 1 — walkShape cache (6× on 2,581 solids); 260 tests (live session)
 - 2026-10-27 — Performance part 2 — stats chip with ▦, merged collider overlay; kit row measured at ~3,200 draws (live session)
 - 2026-10-27 — play HUD: more than 10 hearts shows as ❤ n / max (live session)
+- 2026-10-27 — Performance part 3 — mergeMeshes + Batch + batched Breakables; kit row 3,221 → 716 draws; 263 tests; checked headless (live session)
