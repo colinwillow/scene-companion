@@ -559,6 +559,8 @@ export class World {
     const d = playing ? this.time.visualDt(dt) : dt;
     this.mixers.forEach(m => m.update(d));
     if (playing) (this.animators || []).forEach(a => a.tick());   // frame events only fire in play
+    // after the pose: behaviors that move bones on top of the animation (spring chains, IK) — the mixer would overwrite them
+    if (playing) for (const ent of this.entities.values()) if (!ent.destroyed) for (const b of ent.behaviors) b.lateUpdate?.(d);
   }
 
   // Gameplay: behaviors update in fixed steps (world.time.step, 1/60 s) whatever the frame rate; between steps the

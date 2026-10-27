@@ -24,6 +24,7 @@ export class Behavior {
   // Lifecycle hooks — override as needed.
   start() {}
   update(dt, t) {}
+  lateUpdate(dt) {}     // after the animation each frame (play only): move bones on top of the pose — springs, IK
   destroy() {}
 
   // Called by the editor when an authored value changes while playing.

@@ -290,6 +290,13 @@
           "glb": "./assets/models/colin/props/katana.glb"
         }
       }
+    },
+    "agoblin": {
+      "variants": {
+        "web": {
+          "character": "./assets/models/colin/characters/agoblin.character.json"
+        }
+      }
     }
   },
   "entities": [
@@ -885,6 +892,68 @@
         -12.4,
         2.2,
         13
+      ]
+    },
+    {
+      "id": "korajin",
+      "asset": "agoblin",
+      "position": [
+        -6,
+        0,
+        2
+      ],
+      "behaviors": [
+        {
+          "type": "Patrol",
+          "params": {
+            "pointA": [
+              -6,
+              0,
+              2
+            ],
+            "pointB": [
+              6,
+              0,
+              2
+            ],
+            "speed": 4.5
+          }
+        },
+        {
+          "type": "Animator",
+          "params": {
+            "runSpeed": 3.5
+          }
+        },
+        {
+          "type": "Dynamics"
+        },
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              0.7,
+              1.4,
+              0.7
+            ],
+            "shape": "capsule"
+          }
+        }
+      ],
+      "children": [
+        {
+          "id": "korajin_katana",
+          "asset": "katana",
+          "behaviors": [
+            {
+              "type": "Mount",
+              "params": {
+                "bone": "weapon_root_right",
+                "unit": 0.01321
+              }
+            }
+          ]
+        }
       ]
     }
   ],

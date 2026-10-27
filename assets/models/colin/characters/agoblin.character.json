@@ -1,0 +1,45 @@
+{
+  "name": "Korajin Grumbo (alien goblin)",
+  "glb": "./assets/models/colin/characters/agoblin.glb",
+  "height": 1.4,
+  "source": "colinwillow/zap models/characters/alien_goblin_game.glb (HERO 'agoblin', 1.4 m; hair_ / cape_ spring chains — Dynamics)",
+  "roles": {
+    "idle": "katana_idle",
+    "walk": "katana_walk",
+    "run": "run_fast",
+    "jump": "in_air",
+    "doubleJump": "front_flip",
+    "fall": "in_air",
+    "land": "landing_soft",
+    "hardLand": "landing_hard",
+    "hit": "katana_hit",
+    "death": "take_damage_and_fall_down",
+    "attack": "katana_slash_3"
+  },
+  "events": {
+    "katana_walk": [
+      {
+        "t": 0.315,
+        "name": "foot",
+        "foot": "L"
+      },
+      {
+        "t": 1.003,
+        "name": "foot",
+        "foot": "R"
+      }
+    ],
+    "run_fast": [
+      {
+        "t": 0.165,
+        "name": "foot",
+        "foot": "L"
+      },
+      {
+        "t": 0.43,
+        "name": "foot",
+        "foot": "R"
+      }
+    ]
+  }
+}

@@ -387,6 +387,72 @@ export class Vault extends Behavior {
   }
 }
 
+// Spring chains (zap's SPRINGS, the creature repo's springs()): every `hair_<k>_<j>` / `cape_<k>_<j>` bone chain on the model
+// (blender-addons' chains.mjs makes them) swings on verlet springs AFTER the pose: each segment's tip keeps its momentum (`drag`
+// bleeds it), is pulled back toward where the pose puts it (`stiff`), down by gravity (`grav`), held to its length, kept out of
+// the body (hair: the head; cape: spheres on hips, back and legs) and never bent more than `maxBend` from rest. No three import:
+// vectors and quaternions are made from the bones' own classes.
+export class Dynamics extends Behavior {
+  static schema = {
+    hair: { type: 'vec3', default: [3.6, 0.32, 0.45] },   // stiff, drag, gravity — light and springy
+    cape: { type: 'vec3', default: [1.1, 0.14, 1.6] },    // heavy and loose
+    hairBend: { type: 'number', default: 0.9, min: 0, max: 3, step: 0.05 },   // rad
+    capeBend: { type: 'number', default: 1.35, min: 0, max: 3, step: 0.05 },
+    on: { type: 'boolean', default: true },
+  };
+  start() { this.segs = null; }
+  init() {
+    const root = this.entity.object3d; this.segs = []; this.cols = [];
+    let bone; root.traverse(o => { if (o.isBone && !bone) bone = o; }); if (!bone) return;
+    const V = bone.position.constructor, Q = bone.quaternion.constructor; this.V = V; this.Q = Q;
+    const chains = {}, bones = {};
+    root.traverse(o => { if (!o.isBone) return; bones[o.name] = o; const m = /^(hair|cape)_(\d+)_(\d+)$/.exec(o.name); if (m) ((chains[m[1] + m[2]] ||= { kind: m[1], b: [] }).b[+m[3]] = o); });
+    root.updateMatrixWorld(true);
+    const wp = o => o.getWorldPosition(new V());
+    for (const C of Object.values(chains)) for (let j = 0; j + 1 < C.b.length; j++) {
+      const b = C.b[j], c = C.b[j + 1]; if (!b || !c) continue;
+      const len = wp(b).distanceTo(wp(c)); if (len < 1e-4) continue;
+      const tip = wp(c);
+      this.segs.push({ kind: C.kind, b, rest: b.quaternion.clone(), dir: c.position.clone().normalize(), len, cur: tip.clone(), prev: tip.clone() });
+    }
+    if (!this.segs.length) return;
+    const head = bones.mixamorig_Head, hips = bones.mixamorig_Hips, H = head && hips ? Math.max(0.5, (wp(head).y - root.getWorldPosition(new V()).y) * 1.12) : 1.75;
+    this.head = head; this.headR = 0.075 * H;
+    const sph = (a, b2, r, t = 0) => { const A = bones['mixamorig_' + a], B = b2 && bones['mixamorig_' + b2]; if (A) this.cols.push({ A, B, t, r: r * H }); };
+    sph('Hips', null, .13); sph('Spine1', null, .12); sph('Spine2', null, .12); sph('LeftUpLeg', 'LeftLeg', .075, .5); sph('RightUpLeg', 'RightLeg', .075, .5);
+    sph('LeftLeg', 'LeftFoot', .06, .4); sph('RightLeg', 'RightFoot', .06, .4); sph('LeftUpLeg', null, .08); sph('RightUpLeg', null, .08);
+    // a body sphere must never reach the cape where it hangs at rest: shrink each to just short of the nearest cape joint
+    const tips = []; for (const sg of this.segs) if (sg.kind === 'cape') tips.push(wp(sg.b), sg.cur.clone());
+    for (const c of this.cols) { const p = wp(c.A); if (c.B) p.lerp(wp(c.B), c.t); for (const t of tips) c.r = Math.min(c.r, p.distanceTo(t) * 0.92); }
+    this.world.emit?.('dynamics', this.entity.id, this.segs.length);
+  }
+  lateUpdate(dt) {
+    if (!this.params.on || !(dt > 0)) return;
+    if (!this.segs) this.init();
+    if (!this.segs.length) return;
+    const V = this.V, Q = this.Q, d = Math.min(dt, 1 / 30), f = d * 60, down = new V(0, -1, 0), tmp = new V(), q = new Q(), q2 = new Q();
+    const wp = o => o.getWorldPosition(new V());
+    const cols = this.cols.map(c => { const p = wp(c.A); if (c.B) p.lerp(wp(c.B), c.t); return { p, r: c.r }; });
+    const hc = this.head ? wp(this.head).add(new V(0, this.headR * 0.4, 0)) : null;
+    for (const s of this.segs) {
+      const [stiff, drag, grav] = this.params[s.kind], maxBend = s.kind === 'hair' ? this.params.hairBend : this.params.capeBend, b = s.b;
+      b.parent.getWorldQuaternion(q); q.multiply(s.rest);
+      const head = wp(b), restDir = s.dir.clone().applyQuaternion(q), restTip = head.clone().addScaledVector(restDir, s.len);
+      if (s.cur.distanceTo(restTip) > 1.5) { s.cur.copy(restTip); s.prev.copy(restTip); }   // a teleport resets it
+      const next = s.cur.clone().addScaledVector(tmp.copy(s.cur).sub(s.prev), 1 - drag)
+        .addScaledVector(restDir, stiff * s.len * f * d).addScaledVector(down, grav * s.len * d * f);
+      next.sub(head).setLength(s.len).add(head);
+      const push = (c, r) => { const off = next.clone().sub(c), dd = off.length(); if (dd < r && dd > 1e-6) next.copy(c).addScaledVector(off.normalize(), r).sub(head).setLength(s.len).add(head); };
+      if (s.kind === 'hair' && hc) push(hc, this.headR);
+      if (s.kind === 'cape') for (const c of cols) push(c.p, c.r);
+      s.prev.copy(s.cur); s.cur.copy(next);
+      let want = next.clone().sub(head).applyQuaternion(q.clone().invert()).normalize();
+      const ang = want.angleTo(s.dir); if (ang > maxBend) want = s.dir.clone().lerp(want, maxBend / ang).normalize();
+      b.quaternion.copy(s.rest).multiply(q2.setFromUnitVectors(s.dir, want)); b.updateMatrixWorld(true);
+    }
+  }
+}
+
 // Wall run (zap's WRUN, docs/goblin-extraction.md): TAP beside a tall wall while moving along it → run along the face on a
 // low arc (feet on it, body rolled off it); heading INTO it → run up the face. Tap again on the wall → kick off it (a wall
 // jump, carrying some speed — onto the opposite wall with another tap). It ends at the wall's end, its top, the time
@@ -966,6 +1032,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
