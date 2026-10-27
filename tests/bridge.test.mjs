@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, existsSync } from 'node:fs';
+import { mkdtempSync, existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,4 +51,25 @@ test('dev server bridge: send → inbox → return writes the GLB and tells the 
   const r2 = await (await fetch(url('return?id=hero'), { method: 'POST', body: glb })).json();
   assert.equal(r2.saved, 'assets/models/bridge/hero-2.glb', 'a new file per return, so undo keeps the old model');
   assert.ok(existsSync(join(cwd, 'assets/models/bridge/hero-1.glb')) && existsSync(join(cwd, 'assets/models/bridge/hero-2.glb')));
+});
+
+test('dev server bridge: a prefab send updates prefabs/<name>.prefab.json for every instance', async t => {
+  const PORT = 18900 + Math.floor(Math.random() * 90), cwd = mkdtempSync(join(tmpdir(), 'sc-bridge-pf-'));
+  mkdirSync(join(cwd, 'prefabs'));
+  writeFileSync(join(cwd, 'prefabs/rock.prefab.json'), JSON.stringify({ asset: { variants: { web: { glb: './rock.glb', height: 0.5 }, desktop: { glb: './rock_hd.glb' } } }, behaviors: [{ type: 'Solid' }] }));
+  const dev = spawn(process.execPath, [join(root, 'tools/dev-server.mjs')], { cwd, env: { ...process.env, PORT }, stdio: 'ignore' });
+  t.after(() => dev.kill());
+  await wait(400);
+  const url = p => `http://localhost:${PORT}/bridge/${p}`;
+  assert.equal((await fetch(url('send'), { method: 'POST', body: '{"id":"rock_01","glb":"./rock.glb","prefab":"nope"}' })).status, 400);
+  assert.equal((await fetch(url('send'), { method: 'POST', body: '{"id":"rock_01","glb":"./rock.glb","prefab":"rock"}' })).status, 200);
+  assert.equal((await (await fetch(url('inbox'))).json())[0].prefab, 'rock');
+  const ed = new WebSocket(`ws://localhost:${PORT}/live`); await new Promise(r => ed.on('open', r)); t.after(() => ed.close());
+  const heard = new Promise(r => ed.on('message', m => { const x = JSON.parse(m.toString()); if (x.type === 'bridge-return') r(x); }));
+  const r = await (await fetch(url('return?id=rock_01'), { method: 'POST', body: Buffer.concat([Buffer.from('glTF'), Buffer.alloc(16)]) })).json();
+  assert.equal(r.saved, 'assets/models/bridge/rock-1.glb');
+  assert.equal((await heard).prefab, 'rock');
+  const pf = JSON.parse(readFileSync(join(cwd, 'prefabs/rock.prefab.json'), 'utf8'));
+  assert.deepEqual(pf.asset, { variants: { web: { glb: './assets/models/bridge/rock-1.glb', height: 0.5 } } });
+  assert.deepEqual(pf.behaviors, [{ type: 'Solid' }]);
 });

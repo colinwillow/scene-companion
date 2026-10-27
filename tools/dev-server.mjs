@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { networkInterfaces } from 'node:os';
+import { existsSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
 
 const PORT = +(process.env.PORT || 8080);
@@ -15,12 +16,13 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
   '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.css': 'text/css', '.md': 'text/markdown' };
 
 // ---- Blender bridge (tools/blender/scene_companion_bridge.py polls these over plain HTTP)
-//   POST /bridge/send   {id, glb, scene}  editor → queued for Blender
+//   POST /bridge/send   {id, glb, scene, prefab?}  editor → queued for Blender (prefab: edit every instance)
 //   GET  /bridge/inbox                    Blender takes the queue (also its heartbeat)
-//   POST /bridge/return?id=<id>           Blender posts the edited GLB → assets/models/bridge/<id>-<n>.glb,
-//                                         then every page hears {type:'bridge-return', id, glb, scene}
+//   POST /bridge/return?id=<id>[&prefab=<name>]  Blender posts the edited GLB → assets/models/bridge/<id|prefab>-<n>.glb,
+//                                         (prefab: also rewrites prefabs/<name>.prefab.json's web glb)
+//                                         then every page hears {type:'bridge-return', id, glb, scene, prefab}
 //   GET  /bridge/status                   {blender: seconds since Blender last polled, or null}
-const bridge = { queue: [], lastPoll: 0, scenes: {} };
+const bridge = { queue: [], lastPoll: 0, jobs: {} };
 const ID = /^[a-z0-9_]+$/;
 const body = (req, max) => new Promise((ok, fail) => {
   const parts = []; let n = 0;
@@ -35,8 +37,10 @@ async function bridgeRoute(req, res, url) {
   if (route === 'send' && req.method === 'POST') {
     let job; try { job = JSON.parse(await body(req, 1e5)); } catch { return json(res, 400, { error: 'bad JSON' }); }
     if (!ID.test(job.id || '') || typeof job.glb !== 'string' || !/\.glb$/i.test(job.glb) || job.glb.includes('..')) return json(res, 400, { error: 'need id and a .glb path' });
-    bridge.queue = bridge.queue.filter(j => j.id !== job.id).concat({ id: job.id, glb: job.glb, scene: job.scene || '' });
-    bridge.scenes[job.id] = job.scene || '';
+    if (job.prefab && !(ID.test(job.prefab) && existsSync(join(ROOT, 'prefabs', `${job.prefab}.prefab.json`)))) return json(res, 400, { error: `no prefabs/${job.prefab}.prefab.json` });
+    const j = { id: job.id, glb: job.glb, scene: job.scene || '', ...(job.prefab ? { prefab: job.prefab } : {}) };
+    bridge.queue = bridge.queue.filter(q => q.id !== job.id).concat(j);
+    bridge.jobs[job.id] = j;
     return json(res, 200, { queued: true, blender: !!bridge.lastPoll && Date.now() - bridge.lastPoll < 5000 });
   }
   if (route === 'return' && req.method === 'POST') {
@@ -44,13 +48,27 @@ async function bridgeRoute(req, res, url) {
     if (!ID.test(id)) return json(res, 400, { error: 'bad id' });
     let glb; try { glb = await body(req, 60e6); } catch { return json(res, 413, { error: 'GLB over 60 MB' }); }
     if (glb.subarray(0, 4).toString() !== 'glTF') return json(res, 400, { error: 'not a GLB' });
-    const dir = join(ROOT, 'assets/models/bridge'); await mkdir(dir, { recursive: true });
+    const prefab = url.searchParams.get('prefab') || bridge.jobs[id]?.prefab || '';
+    const pfFile = join(ROOT, 'prefabs', `${prefab}.prefab.json`);
+    let pf = null;
+    if (prefab) {
+      if (!ID.test(prefab) || !existsSync(pfFile)) return json(res, 400, { error: `no prefabs/${prefab}.prefab.json` });
+      pf = JSON.parse(await readFile(pfFile, 'utf8'));
+      if (!(pf.asset?.variants?.web || pf.asset)?.glb) return json(res, 400, { error: `prefab ${prefab} has no glb model` });
+    }
+    const base = prefab || id, dir = join(ROOT, 'assets/models/bridge'); await mkdir(dir, { recursive: true });
     const taken = new Set(await readdir(dir));
-    let n = 1; while (taken.has(`${id}-${n}.glb`)) n++;
-    await writeFile(join(dir, `${id}-${n}.glb`), glb);
-    const msg = JSON.stringify({ type: 'bridge-return', id, glb: `./assets/models/bridge/${id}-${n}.glb`, scene: url.searchParams.get('scene') || bridge.scenes[id] || '' });
+    let n = 1; while (taken.has(`${base}-${n}.glb`)) n++;
+    await writeFile(join(dir, `${base}-${n}.glb`), glb);
+    const path = `./assets/models/bridge/${base}-${n}.glb`;
+    if (pf) {                                   // every instance of the prefab gets the edit; other tiers would show the old model
+      const web = pf.asset.variants ? pf.asset.variants.web : pf.asset;
+      pf.asset = { variants: { web: { ...web, glb: path } } };
+      await writeFile(pfFile, JSON.stringify(pf, null, 2) + '\n');
+    }
+    const msg = JSON.stringify({ type: 'bridge-return', id, glb: path, scene: url.searchParams.get('scene') || bridge.jobs[id]?.scene || '', ...(prefab ? { prefab } : {}) });
     for (const c of wss.clients) if (c.readyState === 1) c.send(msg);
-    return json(res, 200, { saved: `assets/models/bridge/${id}-${n}.glb`, bytes: glb.length, editors: wss.clients.size });
+    return json(res, 200, { saved: path.slice(2), ...(prefab ? { prefab: `prefabs/${prefab}.prefab.json` } : {}), bytes: glb.length, editors: wss.clients.size });
   }
   json(res, 404, { error: 'unknown bridge route' });
 }

@@ -156,9 +156,12 @@ async function callTool(name, args = {}) {
     const { result: sc } = await command('get_scene', {}, scene);
     const a = ent.resolved.asset, glb = modelPath(typeof a === 'object' ? a : sc.data.assets?.[a]);
     if (!glb) throw new Error(`${rest.id} has no GLB model to edit`);
-    const r = await (await fetch(`${http}/bridge/send`, { method: 'POST', body: JSON.stringify({ id: rest.id, glb, scene: sc.url }) })).json();
+    if (rest.prefab && !ent.authored.prefab) throw new Error(`${rest.id} isn't a prefab instance`);
+    if (rest.prefab && ent.authored.asset) throw new Error(`${rest.id} overrides its prefab's model; send it without prefab`);
+    const job = { id: rest.id, glb, scene: sc.url, ...(rest.prefab ? { prefab: ent.authored.prefab } : {}) };
+    const r = await (await fetch(`${http}/bridge/send`, { method: 'POST', body: JSON.stringify(job) })).json();
     if (r.error) throw new Error(r.error);
-    return [{ type: 'text', text: `Sent ${rest.id} (${glb}) to Blender${r.blender ? '' : " — queued; Blender isn't connected yet (sidebar › Scene Companion › Start)"}. When Colin presses Send Back, the edited model replaces it in the editor; then save_scene and commit the new GLB in assets/models/bridge/.` }];
+    return [{ type: 'text', text: `Sent ${rest.id} (${glb}) to Blender${r.blender ? '' : " — queued; Blender isn't connected yet (sidebar › Scene Companion › Start)"}. When Colin presses Send Back, ${job.prefab ? `prefabs/${job.prefab}.prefab.json is updated so every ${job.prefab} changes; commit it and` : 'the edited model replaces it in the editor; then save_scene and commit'} the new GLB in assets/models/bridge/.` }];
   }
   const r = await command(name, rest, scene);
   if (name === 'list_library' && r.result) {           // prefab files the scene doesn't list yet (spawn adds them)

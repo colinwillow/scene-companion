@@ -281,16 +281,19 @@ function renderPanel() {
     const acts = document.createElement('div'); acts.className = 'acts';
     const glb = modelPath(assetOf(ent));
     acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
-      (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it here">${blenderLabel()}</button>` : '');
+      (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object">${blenderLabel()}</button>` : '') +
+      (glb && liveOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)">→ Blender: all ${e.prefab}</button>` : '');
     acts.onclick = async ev => {
       const btn = ev.target.closest('button'), a = btn?.dataset.a; if (!a) return;
-      if (a === 'blender') {
+      if (a === 'blender' || a === 'blender-prefab') {
+        const label = btn.innerHTML;
         try {
-          const r = await (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify({ id: e.id, glb, scene: SCENE_URL }) })).json();
+          const job = { id: e.id, glb, scene: SCENE_URL, ...(a === 'blender-prefab' ? { prefab: e.prefab } : {}) };
+          const r = await (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify(job) })).json();
           if (r.error) throw new Error(r.error);
           btn.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
         } catch (err) { showErr('Send to Blender: ' + err.message); }
-        setTimeout(() => (btn.innerHTML = blenderLabel()), 3000);
+        setTimeout(() => (btn.innerHTML = a === 'blender' ? blenderLabel() : label), 3000);
       }
       if (a === 'dup') { record(); const c = duplicateEntity(data, e.id); await rebuild(); select(c.id); }
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }
@@ -431,6 +434,12 @@ var sendSelect, liveOn = () => false;
         return;
       }
       if (s.type === 'bridge-return' && (!s.scene || sameScene(s.scene, SCENE_URL))) {   // edited model back from Blender
+        if (s.prefab) {                                                              // the prefab file changed: every instance
+          if (!data.prefabs?.[s.prefab]) return;
+          if (playing) { showErr(`Blender updated prefab ${s.prefab} — stop play to see it`); return; }
+          rebuild().then(() => renderPanel());
+          return;
+        }
         const ent = world.getEntity(s.id);
         if (!ent || playing) { showErr(`Blender sent back ${s.id} but ${playing ? 'the scene is playing — stop and send again' : 'it is not in this scene'}`); return; }
         record();

@@ -70,6 +70,7 @@ def import_job(job):
             c.objects.unlink(o)
         coll.objects.link(o)
     coll["sc_id"], coll["sc_glb"], coll["sc_scene"] = sc_id, glb, job.get("scene", "")
+    coll["sc_prefab"] = job.get("prefab", "")  # set: Send Back updates the prefab file, so every instance changes
     return coll
 
 
@@ -86,7 +87,7 @@ def send_back(coll, draco=False):
                               export_animations=True, export_draco_mesh_compression_enable=draco)
     with open(tmp, "rb") as f:
         data = f.read()
-    q = urllib.parse.urlencode({"id": coll["sc_id"], "scene": coll.get("sc_scene", "")})
+    q = urllib.parse.urlencode({"id": coll["sc_id"], "scene": coll.get("sc_scene", ""), "prefab": coll.get("sc_prefab", "")})
     return json.loads(_request(f"/bridge/return?{q}", data=data, timeout=120))
 
 
@@ -154,7 +155,7 @@ class SC_PT_panel(bpy.types.Panel):
         for c in bpy.data.collections:
             if c.get("sc_id"):
                 row = col.row()
-                row.label(text=c["sc_id"], icon="OUTLINER_COLLECTION")
+                row.label(text=f"{c['sc_id']} (all {c['sc_prefab']})" if c.get("sc_prefab") else c["sc_id"], icon="OUTLINER_COLLECTION")
                 row.operator(SC_OT_send_back.bl_idname, text="Send Back", icon="EXPORT").sc_id = c["sc_id"]
 
 
