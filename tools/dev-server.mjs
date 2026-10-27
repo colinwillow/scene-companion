@@ -9,6 +9,8 @@ import { extname, join, normalize } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { existsSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
+import { loadGenerators, runGenerator } from './generators.mjs';
+import { genSummary } from '../runtime/generators.js';
 
 const PORT = +(process.env.PORT || 8080);
 const ROOT = process.cwd();
@@ -76,8 +78,18 @@ async function bridgeRoute(req, res, url) {
   json(res, 404, { error: 'unknown bridge route' });
 }
 
+const GEN = await loadGenerators(join(ROOT, 'generators'));
+for (const p of GEN.problems) console.warn('generator skipped:', p);
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  // Generator plug-ins (generators/*.gen.mjs): GET /gen/list, POST /gen/<id> {prompt, ...} (?dry=1 shows the request, spends nothing)
+  if (url.pathname === '/gen/list') return json(res, 200, { generators: Object.values(GEN.gens).map(genSummary), problems: GEN.problems });
+  if (url.pathname.startsWith('/gen/') && req.method === 'POST') return (async () => {
+    let raw = ''; for await (const c of req) raw += c;
+    const r = await runGenerator(GEN.gens, url.pathname.slice(5), JSON.parse(raw || '{}'), { root: ROOT, dry: url.searchParams.has('dry') });
+    json(res, r.status, r.body);
+  })().catch(e => json(res, 500, { error: e.message }));
   if (url.pathname.startsWith('/bridge/')) return bridgeRoute(req, res, url).catch(e => json(res, 500, { error: e.message }));
   // the VFX workspace saves a preset: POST /fx/save { name, preset } → assets/fx/<name>.fx.json (+ the list in assets/fx/index.json)
   if (url.pathname === '/fx/save' && req.method === 'POST') return (async () => {
