@@ -73,3 +73,41 @@ test('fakie: rolling backwards plays her backward clips, the model turned a half
   assert.equal(e.anim.current, 'blade_casual_backward'); assert.ok(sk.v[0] < -4.2, `pushed fakie, vx=${sk.v[0].toFixed(2)}`);
   assert.equal(sk.lastFlip, Math.PI);
 });
+
+// a flat rail 1 m up along x (x −3..3), and a skater above it
+const railScene = (rot = [0, 0, 0]) => ({ settings: { look: 'baked' }, assets: { body: { variants: { web: { primitive: 'box', size: [0.4, 1.7, 0.4] } } } },
+  entities: [
+    { id: 'rail', position: [0, 1, 0], rotation: rot, behaviors: [{ type: 'Rail', params: { length: 6 } }] },
+    { id: 'player', asset: 'body', position: [-2, 2, 0.3], behaviors: [{ type: 'Skater' }] }] });
+
+test('grind: dropping onto a rail along it catches it; she slides to the end and flies off with her speed', async () => {
+  const sides = []; let left = null;
+  const { sk } = await run(railScene(), 3, (w, s, i) => {
+    if (i === 0) { s.grounded = false; s.v = [6, 0, -0.5]; w.on('grind', (_, side) => sides.push(side)); }
+    if (s.grind) left = w.getEntity('player').object3d.position.x;
+  });
+  assert.deepEqual(sides, ['left'], 'caught once; heading +x her right is +z (−fz, fx), so drifting −z is a LEFT-side grind');
+  assert.ok(left > 2.9, `rode it to the end (last x on the rail ${left?.toFixed(2)})`);
+  assert.equal(sk.grind, null);
+});
+
+test('grind: crossing a rail square is a jump over it, not a grind', async () => {
+  let caught = false;
+  await run({ ...railScene(), entities: railScene().entities.map(e => e.id === 'player' ? { ...e, position: [0, 2, -1] } : e) }, 2, (w, s, i) => {
+    if (i === 0) { s.grounded = false; s.v = [0, 0, 5]; }
+    if (s.grind) caught = true;
+  });
+  assert.equal(caught, false);
+});
+
+test('grind: a tilted rail is a down rail — she speeds up on it; a tap ollies off', async () => {
+  let peak = 0, sk0;
+  await run(railScene([0, 0, -15]), 0.9, (w, s, i) => {      // tilted: the +x end lower
+    sk0 = s; if (i === 0) { s.grounded = false; s.v = [3, 0, 0]; }
+    if (s.grind) peak = Math.max(peak, s.grind.speed);
+  });
+  assert.ok(peak > 4, `sped up down the rail, ${peak.toFixed(2)} m/s`);
+  const { sk, w } = await run(railScene(), 0.3, (w, s, i) => { if (i === 0) { s.grounded = false; s.v = [3, 0, 0]; } });
+  assert.ok(sk.grind, 'grinding'); w.input.jump = true; sk.update(1 / 60);
+  assert.equal(sk.grind, null); assert.ok(sk.v[1] > 5, 'popped off');
+});

@@ -101,6 +101,36 @@
           "roughness": 0.6
         }
       }
+    },
+    "rail6": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "size": [
+            6,
+            0.07,
+            0.07
+          ],
+          "color": "#d8dde4",
+          "roughness": 0.25,
+          "metalness": 0.85
+        }
+      }
+    },
+    "post": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            0.08,
+            1,
+            0.08
+          ],
+          "color": "#34383e",
+          "roughness": 0.5
+        }
+      }
     }
   },
   "entities": [
@@ -287,6 +317,101 @@
         8,
         1.2,
         4
+      ]
+    },
+    {
+      "id": "rail_flat",
+      "asset": "rail6",
+      "position": [
+        -8,
+        0.9,
+        4
+      ],
+      "behaviors": [
+        {
+          "type": "Rail",
+          "params": {
+            "length": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "rail_flat_post_a",
+      "asset": "post",
+      "position": [
+        -10.8,
+        0,
+        4
+      ],
+      "scale": [
+        1,
+        0.86,
+        1
+      ]
+    },
+    {
+      "id": "rail_flat_post_b",
+      "asset": "post",
+      "position": [
+        -5.2,
+        0,
+        4
+      ],
+      "scale": [
+        1,
+        0.86,
+        1
+      ]
+    },
+    {
+      "id": "rail_down",
+      "asset": "rail6",
+      "position": [
+        -8,
+        1.25,
+        -2
+      ],
+      "rotation": [
+        0,
+        0,
+        -10
+      ],
+      "behaviors": [
+        {
+          "type": "Rail",
+          "params": {
+            "length": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "rail_down_post_a",
+      "asset": "post",
+      "position": [
+        -10.8,
+        0,
+        -2
+      ],
+      "scale": [
+        1,
+        1.68,
+        1
+      ]
+    },
+    {
+      "id": "rail_down_post_b",
+      "asset": "post",
+      "position": [
+        -5.2,
+        0,
+        -2
+      ],
+      "scale": [
+        1,
+        0.73,
+        1
       ]
     }
   ],

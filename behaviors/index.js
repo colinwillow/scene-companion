@@ -238,6 +238,22 @@ export class CollisionMesh extends Behavior {
 
 const STEP_UP = 0.35;
 
+// A grind rail (Roller Girl's railPath, straight for now): the bar runs along this object's local X, `length` long, through its
+// origin — so turning or TILTING the object in the editor makes a down rail. Skaters catch it from the air (Skater).
+export class Rail extends Behavior {
+  static schema = { length: { type: 'number', default: 4, min: 0.5, max: 50, step: 0.1 } };
+  start() { (this.world.rails ||= []).push(this); }
+  destroy() { const l = this.world.rails; if (l) { const i = l.indexOf(this); if (i >= 0) l.splice(i, 1); } }
+  ends() {   // world-space ends [a, b]
+    const o = this.entity.object3d, V = o.position.constructor, h = this.params.length / 2;
+    o.updateMatrixWorld?.(true);
+    const a = o.localToWorld ? o.localToWorld(new V(-h, 0, 0)) : null, b = o.localToWorld ? o.localToWorld(new V(h, 0, 0)) : null;
+    if (a) return [[a.x, a.y, a.z], [b.x, b.y, b.z]];
+    const y = yawOf(o), c = Math.cos(y), sn = -Math.sin(y), p = o.position;     // a plain object (tests): yaw only
+    return [[p.x - c * h, p.y, p.z - sn * h], [p.x + c * h, p.y, p.z + sn * h]];
+  }
+}
+
 // SKATING (Roller Girl's stepGround / stepAir, docs/rollergirl-extraction.md) — a whole controller for a skater, used INSTEAD of
 // a PlayerController. Her velocity lives in the frame of the SURFACE she is on: the wheels roll freely along it, the edges bite
 // across it (a grip-limited carve), and gravity's component along the surface is what slows her up a transition and gives it
@@ -275,6 +291,12 @@ export class Skater extends Behavior {
     backIdle: { type: 'string', default: 'idle_backward' },
     idleBelow:{ type: 'number', default: 0.4, min: 0, max: 5, step: 0.05 },  // m/s: slower is standing
     fakieAt:  { type: 'number', default: 1, min: 0, max: 5, step: 0.1 },     // m/s backwards that counts as fakie
+    // grinds (Rail): caught from the air within `catchR` of the bar, not crossing it squarer than `minCos`
+    catchR:   { type: 'number', default: 0.6, min: 0.05, max: 3, step: 0.05 },
+    minCos:   { type: 'number', default: 0.35, min: 0, max: 1, step: 0.05 },
+    grindDrag:{ type: 'number', default: 0.08, min: 0, max: 3, step: 0.01 },
+    grindLeft: { type: 'string', default: 'grind_left' },
+    grindRight:{ type: 'string', default: 'grind_right' },
   };
   start() {
     const o = this.entity.object3d, p = o.position;
@@ -291,9 +313,11 @@ export class Skater extends Behavior {
   }
   update(dt) {
     if (dt <= 0 || this.entity.defeated) return;
+    this.railCoolT = Math.max(0, (this.railCoolT || 0) - dt);
     const P = this.params, o = this.entity.object3d, p = o.position, input = this.world.input || {}, move = input.move || [0, 0];
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], mag = Math.hypot(move[0], move[1]);
     const v = this.v;
+    if (this.grind) { this.stepGrind(dt, input); return this.pose(dt); }
     if (input.jump) {
       input.jump = false;
       if (this.grounded) { const k = P.ollie; v[0] += this.n[0] * k * 0.3; v[1] += k; v[2] += this.n[2] * k * 0.3; this.leave(); this.world.emit('jump'); }
@@ -344,6 +368,7 @@ export class Skater extends Behavior {
       v[1] -= P.gravity * dt;
       if (mag > 0.2) { const want = Math.atan2(move[0], move[1]); let d = want - this.heading; d = Math.atan2(Math.sin(d), Math.cos(d)); this.heading += Math.max(-4 * dt, Math.min(4 * dt, d)); }
       const ny = p.y + v[1] * dt, nx = p.x + v[0] * dt, nz = p.z + v[2] * dt;
+      if (this.catchRail(p, [nx, ny, nz])) return this.pose(dt);
       const g = this.floor(nx, nz, p.y + 0.05);
       if (v[1] <= 0 && ny <= g.y) {                // touch down: keep the speed along the face
         p.x = nx; p.z = nz; p.y = g.y; this.n = g.n; this.grounded = true;
@@ -364,6 +389,45 @@ export class Skater extends Behavior {
     if (p.y < P.killY) { [p.x, p.y, p.z] = this.spawn; this.v = [0, 0, 0]; this.grounded = true; this.n = [0, 1, 0]; this.world.emit('respawn'); }
     this.pose(dt);
   }
+  // GRINDS. Caught on the way down: the frame's path (from → to) passes the bar's top within catchR in plan, at a glancing angle.
+  catchRail(p, to) {
+    const P = this.params, v = this.v; if (v[1] > 2) return false;
+    for (const rail of this.world.rails || []) {
+      if (rail === this.lastRail && this.railCoolT > 0) continue;
+      const [a, b] = rail.ends(), d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d); if (L < 1e-6) continue;
+      const u = d.map(c => c / L), hsp = Math.hypot(v[0], v[2]);
+      const along = (v[0] * u[0] + v[2] * u[2]) / (Math.hypot(u[0], u[2]) || 1);
+      if (hsp > 1 && Math.abs(along) / hsp < P.minCos) continue;          // crossing it square: a jump over, not a grind
+      // the nearest point on the bar to where she will be, in plan
+      const t = Math.max(0, Math.min(L, ((to[0] - a[0]) * u[0] + (to[2] - a[2]) * u[2]) / ((u[0] ** 2 + u[2] ** 2) || 1)));
+      const q = [a[0] + u[0] * t, a[1] + u[1] * t, a[2] + u[2] * t];
+      if (Math.hypot(to[0] - q[0], to[2] - q[2]) > P.catchR) continue;
+      if (!(p.y >= q[1] - 0.1 && to[1] <= q[1] + 0.35)) continue;          // her feet come down through the bar's top
+      const dir = Math.sign(v[0] * u[0] + v[1] * u[1] + v[2] * u[2]) || 1;
+      const right = [-u[2] * dir, u[0] * dir], drift = v[0] * right[0] + v[2] * right[1];   // her right is (-fz, fx)
+      this.grind = { rail, a, u, L, t, dir, speed: Math.max(1.5, Math.abs(v[0] * u[0] + v[1] * u[1] + v[2] * u[2])), side: drift >= 0 ? 'right' : 'left' };
+      this.grounded = false; this.heading = Math.atan2(u[0] * dir, u[2] * dir);
+      [p.x, p.y, p.z] = q;
+      this.world.emit('grind', this.entity.id, this.grind.side);
+      return true;
+    }
+    return false;
+  }
+  stepGrind(dt, input) {
+    const G = this.grind, P = this.params, p = this.entity.object3d.position;
+    if (input.jump) {                                   // ollie off the rail
+      input.jump = false; const k = G.speed * G.dir; this.v = [G.u[0] * k, G.u[1] * k + P.ollie, G.u[2] * k];
+      this.endGrind(); this.world.emit('jump'); return;
+    }
+    G.speed += -P.gravity * G.u[1] * G.dir * dt;          // a down rail speeds her up, an up rail slows her
+    G.speed *= Math.exp(-P.grindDrag * dt);
+    if (G.speed <= 0.2) { const k = 0.2 * G.dir; this.v = [G.u[0] * k, 0, G.u[2] * k]; this.endGrind(); return; }   // stalled: tipped off
+    G.t += G.speed * G.dir * dt;
+    const k = G.speed * G.dir; this.v = [G.u[0] * k, G.u[1] * k, G.u[2] * k];
+    if (G.t < 0 || G.t > G.L) { this.endGrind(); return; }   // off the end with her speed
+    p.x = G.a[0] + G.u[0] * G.t; p.y = G.a[1] + G.u[1] * G.t; p.z = G.a[2] + G.u[2] * G.t;
+  }
+  endGrind() { this.lastRail = this.grind.rail; this.railCoolT = 0.3; this.grind = null; this.grounded = false; this.airT = 0; this.n = [0, 1, 0]; }
   // leaving the ground: off a face steeper than vertAt, the speed out over the lip goes (she comes back down the same wall)
   leave() {
     const n = this.n, P = this.params, v = this.v, h = Math.hypot(n[0], n[2]);
@@ -383,6 +447,7 @@ export class Skater extends Behavior {
     if (this.grounded) { if (this.along < -P.fakieAt) this.fakie = true; else if (this.along > P.fakieAt) this.fakie = false; }
     const back = this.fakie && has(P.backPush);   // only with backward clips; otherwise fakie plays the forward ones
     let clip, rate = 1;
+    if (this.grind) return { clip: pick(this.grind.side === 'right' ? P.grindRight : P.grindLeft, P.airClip), rate: 1, flip: 0 };
     if (!this.grounded) clip = pick(P.airClip, roleClip('', 'jump', R));
     else if (sp < P.idleBelow) clip = back ? pick(P.backIdle, P.idleClip) : pick(P.idleClip, roleClip('', 'idle', R));
     else if (this.pushing) {
@@ -1512,6 +1577,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
