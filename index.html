@@ -133,6 +133,7 @@ import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
 import { clipRoles, characterEntries } from './runtime/character.js';
 import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runtime/packs.js';
+import { findEntity } from './runtime/tree.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -257,7 +258,7 @@ function select(id) {
 function entityTags(e) {
   const r = e.resolved || e.data;
   const what = e.data.prefab ? `⧉ ${e.data.prefab}` : e.data.light ? `☀ ${e.data.light.type}` : typeof e.data.asset === 'string' ? e.data.asset : '';
-  return [what, ...(r.behaviors || []).map(b => b.type)].filter(Boolean);
+  return [what, ...(r.behaviors || []).map(b => b.type), ...(e.tags || []).map(t => `#${t}`), ...(e.inherited ? ['from prefab'] : [])].filter(Boolean);
 }
 function renderTree() {
   if (!$('tree').classList.contains('open') || !world) return;
@@ -272,10 +273,12 @@ function renderTree() {
     const li = document.createElement('li');
     li.className = e.id === selectedId ? 'sel' : '';
     li.innerHTML = `<span></span><small></small>`;
-    li.firstChild.textContent = e.id;
+    li.firstChild.textContent = (e.depth ? '↳ ' : '') + e.id;
+    if (e.depth) li.style.paddingLeft = `${8 + e.depth * 16}px`;   // children sit under their parent (they move with it)
     li.lastChild.textContent = entityTags(e).join(' · ');
     li.onclick = () => {
-      select(e.id); frame(e.id);
+      let id = e.id; while (world.getEntity(id)?.inherited) id = world.getEntity(id).parent;   // prefab children belong to the prefab file
+      select(id); frame(id);
       if (!wide) { $('tree').classList.remove('open'); $('list').classList.remove('on'); }   // phone portrait: give the view back
     };
     ul.append(li);
@@ -505,7 +508,7 @@ function strokeAt(e) {
     for (const id of scatterEraseIds(data, $('scPrefab').value, [p], eraseRadius(gap))) {
       if (stroke.ids.has(id)) continue;
       stroke.ids.add(id);
-      const pos = data.entities.find(x => x.id === id).position;
+      const pos = data.entities.find(x => x.id === id).position;   // painted instances are top-level
       brushDot([pos[0], pos[1] + 0.3, pos[2]], 0xff5d5d);
     }
     return;
@@ -565,6 +568,7 @@ renderer.domElement.addEventListener('pointerup', e => {
     return;
   }
   let id = hits.length ? entityIdOf(hits[0].object) : null;
+  while (id && world.getEntity(id)?.inherited) id = world.getEntity(id).parent;   // a prefab's own child: edit the instance
   const ent = id && world.getEntity(id);
   if (ent && isGround(id, ent.resolved)) id = null;    // tapping the ground deselects quietly (pick it from ☰ List)
   if (id !== selectedId) select(id);
@@ -692,7 +696,7 @@ async function editorCommand(op, args) {
     const { result, changed } = runCommand(data, op, args, ctx);
     if (changed) {
       hist.record(before); updateUndo();
-      if (selectedId && !data.entities.some(e => e.id === selectedId)) selectedId = null;
+      if (selectedId && !findEntity(data, selectedId)) selectedId = null;
       if (applyScene(world, before, data) === 'rebuild') await rebuild();   // moves / params patch in place (fast)
       renderPanel();
     }
@@ -736,7 +740,7 @@ async function travel(dir) {
   if (!(dir < 0 ? hist.undo(data) : hist.redo(data))) return;
   $('look').value = data.settings?.look || 'toon';
   updateUndo();
-  if (selectedId && !data.entities.some(e => e.id === selectedId)) selectedId = null;
+  if (selectedId && !findEntity(data, selectedId)) selectedId = null;
   if (libTab === "packs") renderLib();   // pack installs are scene data too
   fillAdd();
   await rebuild(); renderPanel(); renderLib();

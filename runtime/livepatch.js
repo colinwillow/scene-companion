@@ -3,19 +3,22 @@
 // otherwise 'patched' or 'none'. Only fields that changed since `prev` are applied, so a running game's
 // runtime state (where the player walked to) isn't reset by unrelated edits.
 import { mergeEntity } from './prefabs.js';
+import { allEntities, walkEntities } from './tree.js';
 
 const DEG = Math.PI / 180;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export function applyScene(world, prev, next) {
   if (!prev) return 'rebuild';
-  const ids = d => (d.entities || []).map(e => e.id);
+  // Ids with their parent, so moving an entity under another parent also rebuilds.
+  const ids = d => { const out = []; walkEntities(d.entities, (e, { parent }) => { out.push(`${parent?.id ?? ''}/${e.id}`); }); return out; };
   if (!same(ids(prev), ids(next)) || !same(prev.assets, next.assets) || !same(prev.prefabs, next.prefabs) || !same(prev.settings, next.settings))
     return 'rebuild';
   let changed = false;
-  const before = new Map(prev.entities.map(e => [e.id, e]));
-  for (const authored of next.entities) {
-    const old = before.get(authored.id);
+  const strip = e => { const { children, ...rest } = e; return rest; };   // a child's edit is patched on the child itself
+  const before = new Map(allEntities(prev).map(e => [e.id, strip(e)]));
+  for (const full of allEntities(next)) {
+    const authored = strip(full), old = before.get(authored.id);
     if (same(old, authored)) continue;
     const ent = world.getEntity(authored.id);
     if (!ent) return 'rebuild';
@@ -37,7 +40,7 @@ export function applyScene(world, prev, next) {
         if (!same(oldB[i].params?.[k], v)) { live?.onParamChanged(k, structuredClone(v)); changed = true; }
     });
     if (moved) ent.behaviors.forEach(b => b.onMoved?.());   // e.g. Bob re-reads its base height, Squash its scale
-    ent.data = authored;
+    ent.data = full;
   }
   return changed ? 'patched' : 'none';
 }

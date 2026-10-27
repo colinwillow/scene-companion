@@ -1156,6 +1156,92 @@
         0,
         -5.5
       ]
+    },
+    {
+      "id": "carousel",
+      "prefab": "kit_platform",
+      "position": [
+        8,
+        0,
+        8
+      ],
+      "tags": [
+        "nesting-demo"
+      ],
+      "behaviors": [
+        {
+          "type": "Spin",
+          "params": {
+            "speed": 0.6
+          }
+        }
+      ],
+      "children": [
+        {
+          "id": "carousel_crate",
+          "asset": "crate",
+          "position": [
+            1,
+            0.9,
+            0
+          ]
+        },
+        {
+          "id": "carousel_pole",
+          "prefab": "kit_pole",
+          "position": [
+            -1,
+            0.4,
+            -1
+          ],
+          "children": [
+            {
+              "id": "carousel_flag",
+              "asset": "flag",
+              "position": [
+                0,
+                3,
+                0
+              ],
+              "scale": [
+                0.6,
+                0.6,
+                0.6
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coin_fountain",
+      "prefab": "kit_block",
+      "position": [
+        12,
+        0,
+        0
+      ],
+      "tags": [
+        "spawner-demo"
+      ],
+      "behaviors": [
+        {
+          "type": "Spawner",
+          "params": {
+            "prefab": "coin",
+            "interval": 2,
+            "max": 4,
+            "lifetime": 8,
+            "offset": [
+              0,
+              1.6,
+              0
+            ],
+            "spread": 1.5,
+            "tag": "fountain_coin"
+          }
+        }
+      ]
     }
   ],
   "prefabs": {

@@ -459,6 +459,43 @@ export class Dormant extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Squash, Footsteps, Trigger, Dormant })) {
+// Makes copies of a prefab while the game runs (coin fountains, enemy waves, falling rocks). Spawned copies are
+// runtime-only: they never end up in the scene file. `attach` parents them to this entity (they move with it).
+export class Spawner extends Behavior {
+  static schema = {
+    prefab:   { type: 'string', default: 'coin' },
+    interval: { type: 'number', default: 2, min: 0.1, max: 60, step: 0.1 },   // s between spawns
+    max:      { type: 'number', default: 3, min: 1, max: 50, step: 1 },        // alive at once
+    total:    { type: 'number', default: 0, min: 0, max: 500, step: 1 },       // stop after this many (0 = never)
+    lifetime: { type: 'number', default: 0, min: 0, max: 120, step: 0.5 },     // s before each copy is removed (0 = stays)
+    offset:   { type: 'vec3', default: [0, 1, 0] },                            // where copies appear, from this entity
+    spread:   { type: 'number', default: 0, min: 0, max: 20, step: 0.25 },     // random sideways scatter (m)
+    attach:   { type: 'boolean', default: false },
+    tag:      { type: 'string', default: '' },                                 // extra tag on each copy (world.find)
+  };
+  start() {
+    this.timer = 0; this.made = 0; this.alive = new Map();   // id → seconds left (Infinity = no lifetime)
+    this.world.on?.('destroyed', id => this.alive.delete(id));
+  }
+  update(dt) {
+    if (this.entity.dormant) return;
+    const P = this.params;
+    for (const [id, left] of this.alive) if ((left - dt) <= 0) { this.alive.delete(id); this.world.destroy(id); } else this.alive.set(id, left - dt);
+    this.timer += dt;
+    if (this.timer + 1e-6 < P.interval || this.pending || this.alive.size >= P.max || (P.total && this.made >= P.total)) return;
+    this.timer = 0; this.made++;
+    const p = this.entity.object3d.position, r = this.world.rng ?? Math.random;
+    const jitter = () => (r() * 2 - 1) * P.spread;
+    const off = [P.offset[0] + jitter(), P.offset[1], P.offset[2] + jitter()];
+    const at = P.attach ? off : [p.x + off[0], p.y + off[1], p.z + off[2]];
+    this.pending = true;
+    Promise.resolve(this.world.spawn(P.prefab, { position: at, ...(P.attach ? { parent: this.entity.id } : {}), ...(P.tag ? { tags: [P.tag] } : {}) }))
+      .then(ent => { if (ent) this.alive.set(ent.id, P.lifetime > 0 ? P.lifetime : Infinity); this.world.emit('spawn', ent?.id, this.entity.id); })
+      .catch(e => console.warn(`Spawner on ${this.entity.id}: ${e.message}`))
+      .finally(() => { this.pending = false; });
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Squash, Footsteps, Trigger, Dormant, Spawner })) {
   registerBehavior(name, cls);
 }

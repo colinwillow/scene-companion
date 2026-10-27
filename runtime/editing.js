@@ -1,4 +1,6 @@
 // Scene-data edits the editor (and later the MCP server) make. Pure data, no three/DOM.
+// Entities may nest (`children`, runtime/tree.js): lookups search the whole tree; ids are unique scene-wide.
+import { allEntities, findEntity, walkEntities } from './tree.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
 
@@ -16,7 +18,8 @@ export function nextId(existingIds, base) {
   return id;
 }
 
-const ids = data => data.entities.map(e => e.id);
+const ids = data => allEntities(data).map(e => e.id);
+const byId = (data, id) => findEntity(data, id)?.entity;
 
 // Add a new entity from a prefab ({ prefab: 'coin' }) or a scene asset ({ asset: 'crate' }) at a position.
 export function addEntity(data, source, position = [0, 0, 0]) {
@@ -27,27 +30,31 @@ export function addEntity(data, source, position = [0, 0, 0]) {
   return e;
 }
 
-// Copy an entity (everything authored, deep) under a new id, nudged so it doesn't overlap.
+// Copy an entity (everything authored, deep, children too) under new ids, nudged so it doesn't overlap.
+// The copy sits next to the original (same parent).
 export function duplicateEntity(data, id, offset = [1, 0, 0]) {
-  const i = data.entities.findIndex(e => e.id === id);
-  if (i < 0) return null;
-  const copy = structuredClone(data.entities[i]);
-  copy.id = nextId(ids(data), id);
+  const hit = findEntity(data, id);
+  if (!hit) return null;
+  const copy = structuredClone(hit.entity);
+  const taken = ids(data);
+  walkEntities([copy], e => { e.id = nextId(taken, e.id); taken.push(e.id); });
   if (copy.position) copy.position = copy.position.map((v, k) => r3(v + offset[k]));
-  data.entities.splice(i + 1, 0, copy);
+  hit.list.splice(hit.index + 1, 0, copy);
   return copy;
 }
 
+// Delete an entity (and its children) wherever it sits in the tree.
 export function deleteEntity(data, id) {
-  const i = data.entities.findIndex(e => e.id === id);
-  if (i < 0) return false;
-  data.entities.splice(i, 1);
+  const hit = findEntity(data, id);
+  if (!hit) return false;
+  hit.list.splice(hit.index, 1);
+  if (hit.parent && !hit.parent.children.length) delete hit.parent.children;
   return true;
 }
 
 // Swap which scene asset an entity uses (works on prefab instances too: an instance's asset wins).
 export function setAsset(data, id, assetKey) {
-  const e = data.entities.find(x => x.id === id);
+  const e = byId(data, id);
   if (!e || !data.assets?.[assetKey]) return false;
   e.asset = assetKey;
   return true;
@@ -68,7 +75,7 @@ export function modelPath(assetDef, characters = {}) {
 // show the old model. Becomes an inline asset on this entity only (an override on prefab instances).
 // A `character` variant keeps its character file (roles still apply); the new glb overrides the file's model.
 export function replaceModel(data, id, glb, assetDef, characters = {}) {
-  const e = data.entities.find(x => x.id === id);
+  const e = byId(data, id);
   if (!e || !modelPath(assetDef, characters)) return false;
   const web = structuredClone(assetDef.variants ? assetDef.variants.web : assetDef);
   e.asset = { variants: { web: { ...web, glb } } };
@@ -128,7 +135,7 @@ export function addLight(data, type, position = [0, 0, 0]) {
 
 // Set one light field (validated against LIGHT_FIELDS). → true if it changed
 export function setLightValue(data, id, key, value) {
-  const e = data.entities.find(x => x.id === id);
+  const e = byId(data, id);
   const def = e?.light && LIGHT_FIELDS[e.light.type]?.[key];
   if (!def) return false;
   if (def.type === 'number') value = Math.min(def.max, Math.max(def.min, +value));

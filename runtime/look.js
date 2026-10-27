@@ -72,16 +72,21 @@ function convert(mat, look) {
   return mat; // pbr keeps the standard material
 }
 
-export function applyLook(world, look) {
-  const { scene, renderer } = world;
+// Convert the materials under one object (the whole scene on load; a spawned entity later).
+export function applyLookTo(root, look) {
   const meshes = [];
-  scene.traverse(o => { if (o.isMesh && o.name !== '__sky' && o.name !== '__outline') meshes.push(o); });
+  root.traverse(o => { if (o.isMesh && o.name !== '__sky' && o.name !== '__outline') meshes.push(o); });
   for (const o of meshes) {
     o.material = Array.isArray(o.material) ? o.material.map(m => convert(m, look)) : convert(o.material, look);
     // Outlines on toon, except big flat floors (they'd draw a dark rim along the horizon).
     const big = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
     if (look === 'toon' && ![].concat(o.material).some(m => m.transparent && m.opacity < 1) && big.radius * Math.max(...o.getWorldScale(new THREE.Vector3()).toArray()) < 6) addOutline(o);
   }
+}
+
+export function applyLook(world, look) {
+  const { scene, renderer } = world;
+  applyLookTo(scene, look);
 
   const lights = [];
   scene.traverse(o => o.isLight && lights.push(o));

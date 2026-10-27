@@ -4,6 +4,7 @@
 import { LIGHT_FIELDS } from '../runtime/editing.js';
 import { characterVariant, checkCharacter } from '../runtime/character.js';
 import { checkPack, checkScenePacks } from '../runtime/packs.js';
+import { allEntities, walkEntities } from '../runtime/tree.js';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -58,6 +59,7 @@ const typeOk = (def, v) => ({
 
 let errors = 0, warnings = 0;
 const err = (f, msg) => { errors++; console.error(`✗ ${f}: ${msg}`); };
+const checkTags = (f, who, tags) => { if (tags !== undefined && (!Array.isArray(tags) || !tags.every(t => typeof t === 'string' && /^[a-z0-9_-]+$/.test(t)))) err(f, `${who}: tags must be a list of lowercase words`); };
 const warn = (f, msg) => { warnings++; console.error(`⚠ ${f}: ${msg}`); };
 
 // Behavior params must exist in the schema and fit their type/range.
@@ -87,10 +89,21 @@ for (const f of files) {
     for (const k of ['id', 'position', 'prefab']) if (k in p) err(f, `prefab "${name}": "${k}" belongs on instances, not in the prefab`);
     if (!p.asset && !p.light) err(f, `prefab "${name}": no asset`);
     checkBehaviors(f, `prefab ${name}`, p.behaviors);
+    checkTags(f, `prefab ${name}`, p.tags);
+    if (p.children !== undefined) {     // come with every instance; ids are prefixed with the instance id at runtime
+      if (!Array.isArray(p.children)) err(f, `prefab "${name}": children must be a list`);
+      else { const seen = new Set(); walkEntities(p.children, c => {
+        if (!c.id || !/^[a-z0-9_]+$/.test(c.id)) err(f, `prefab "${name}": every child needs a lowercase_with_underscores id`);
+        else if (seen.has(c.id)) err(f, `prefab "${name}": duplicate child id "${c.id}"`);
+        seen.add(c.id); checkBehaviors(f, `prefab ${name} › ${c.id}`, c.behaviors);
+      }); }
+    }
   }
-  const used = new Set((scene.entities || []).map(e => e.prefab).filter(Boolean));
+  const used = new Set(allEntities(scene).map(e => e.prefab).filter(Boolean));
   for (const name of Object.keys(prefabs)) if (!used.has(name)) warn(f, `prefab "${name}" is listed but never used`);
-  for (const authored of scene.entities || []) {
+  for (const authored of allEntities(scene)) {          // nested children included; ids unique scene-wide
+    if (authored.children !== undefined && !Array.isArray(authored.children)) err(f, `${authored.id}: children must be a list of entities`);
+    checkTags(f, authored.id, authored.tags);
     if (authored.prefab && !prefabs[authored.prefab]) err(f, `${authored.id}: unknown prefab "${authored.prefab}"`);
     if (authored.removeBehaviors) {
       if (!authored.prefab) err(f, `${authored.id}: removeBehaviors only works on prefab instances`);

@@ -6,11 +6,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
-import { applyLook } from './look.js';
+import { applyLook, applyLookTo } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
 import { proceduralTexture } from './textures.js';
 import { characterVariant } from './character.js';
+import { childIdFor, mergeTags, matchesQuery, spawnId } from './tree.js';
 
 const TIER_ORDER = { web: 0, desktop: 1 };
 
@@ -32,6 +33,7 @@ export class World {
     this.characterCache = new Map();   // character.json path → Promise<json>
     this.characters = {};              // character.json path → json (loaded), for the editor
     this.mixers = [];
+    this.prefabs = {};
     this.t = 0;
     this.input = { move: [0, 0], jump: false };   // filled by the game page; read by behaviors
   }
@@ -156,41 +158,116 @@ export class World {
       this.prefabs[name] = typeof url === 'string' ? await (await fetch(url)).json() : url;
     }
 
-    for (const authored of sceneData.entities) {
-      const e = authored.prefab ? mergeEntity(this.prefabs[authored.prefab], authored) : authored;
-      // An asset can be a key into scene assets, or defined inline (prefabs do this).
-      const assetDef = typeof e.asset === 'object' ? e.asset : sceneData.assets?.[e.asset];
-      let variant = e.light ? null : this.resolveVariant(assetDef), character = null;
-      if (variant?.character) {                     // character.json: model + clip roles (runtime/character.js)
-        if (!this.characterCache.has(variant.character)) this.characterCache.set(variant.character, fetch(variant.character).then(r => r.json()));
-        character = this.characters[variant.character] = await this.characterCache.get(variant.character);
-        variant = characterVariant(character, variant);
-      }
-      const obj = e.light ? this.buildLight(e.light) : await this.buildObject(variant);
-      obj.name = e.id;
-      obj.userData.entityId = e.id;
-      if (e.position) obj.position.fromArray(e.position);
-      if (e.rotation) obj.rotation.set(...e.rotation.map(d => THREE.MathUtils.degToRad(d)));
-      if (e.scale) obj.scale.fromArray(e.scale);
-      this.scene.add(obj);
-      const ent = { id: e.id, object3d: obj, data: authored, resolved: e, behaviors: [] };
-      if (character?.roles) ent.roles = { ...character.roles };
-      if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle);
-      this.entities.set(e.id, ent);
-    }
+    for (const authored of sceneData.entities) await this.buildEntity(authored, null);
+    this.look = st.look || 'toon';
 
     if (st.sky) applySky(this, st.sky);
-    applyLook(this, st.look || 'toon');
+    applyLook(this, this.look);
 
     // Behaviors attach after every object exists, so they can find each other.
-    for (const ent of this.entities.values()) {
-      for (const b of ent.resolved.behaviors || []) {
-        const Cls = getBehavior(b.type);
-        if (!Cls) { console.warn(`Unknown behavior "${b.type}" on ${ent.id}`); continue; }
-        ent.behaviors.push(new Cls(ent, b.params, this));
-      }
+    const all = [...this.entities.values()];
+    all.forEach(ent => this.attachBehaviors(ent));
+    all.forEach(ent => ent.behaviors.forEach(b => b.start()));
+  }
+
+  attachBehaviors(ent) {
+    for (const b of ent.resolved.behaviors || []) {
+      const Cls = getBehavior(b.type);
+      if (!Cls) { console.warn(`Unknown behavior "${b.type}" on ${ent.id}`); continue; }
+      ent.behaviors.push(new Cls(ent, b.params, this));
     }
-    for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.start());
+  }
+
+  // One authored entity (prefab merged) and its children, depth-first. Children's transforms are relative to the
+  // parent's object; a prefab's own children come with every instance (ids prefixed with the instance id).
+  // opts.spawned marks runtime-only entities (world.spawn) — never in the scene file.
+  async buildEntity(authored, parentEnt, { spawned = false, prefix = null } = {}) {
+    const pf = authored.prefab ? await this.loadPrefab(authored.prefab) : null;
+    const e = pf ? mergeEntity(pf, authored) : authored;
+    const id = prefix ? childIdFor(prefix, e.id) : e.id;   // prefix: the instance id, for a prefab file's children
+    // An asset can be a key into scene assets, or defined inline (prefabs do this).
+    const assetDef = typeof e.asset === 'object' ? e.asset : this.data?.assets?.[e.asset];
+    let variant = e.light ? null : this.resolveVariant(assetDef), character = null;
+    if (variant?.character) {                     // character.json: model + clip roles (runtime/character.js)
+      if (!this.characterCache.has(variant.character)) this.characterCache.set(variant.character, fetch(variant.character).then(r => r.json()));
+      character = this.characters[variant.character] = await this.characterCache.get(variant.character);
+      variant = characterVariant(character, variant);
+    }
+    const obj = e.light ? this.buildLight(e.light) : await this.buildObject(variant);
+    obj.name = id;
+    obj.userData.entityId = id;
+    if (e.position) obj.position.fromArray(e.position);
+    if (e.rotation) obj.rotation.set(...e.rotation.map(d => THREE.MathUtils.degToRad(d)));
+    if (e.scale) obj.scale.fromArray(e.scale);
+    (parentEnt ? parentEnt.object3d : this.scene).add(obj);
+    const ent = { id, object3d: obj, data: authored, resolved: e, behaviors: [], children: [],
+      parent: parentEnt?.id ?? null, depth: parentEnt ? parentEnt.depth + 1 : 0, tags: mergeTags(pf?.tags || [], authored.tags || []),
+      prefab: authored.prefab ?? parentEnt?.prefab ?? null };
+    if (spawned) ent.spawned = true;
+    if (prefix) ent.inherited = true;   // a prefab file's child: not in the scene file, edit the prefab instead
+    if (character?.roles) ent.roles = { ...character.roles };
+    if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle);
+    this.entities.set(id, ent);
+    parentEnt?.children.push(id);
+    // The instance's own children (authored) plus the prefab's children (renamed per instance; both, so adding a hat keeps the sword).
+    for (const c of authored.children || []) await this.buildEntity(c, ent, { spawned, prefix });
+    if (pf?.children) for (const c of pf.children) await this.buildEntity(c, ent, { spawned, prefix: id });
+    return ent;
+  }
+
+  // A prefab by name: the scene's own list first, else prefabs/<name>.prefab.json (children and spawns may use
+  // prefabs the scene doesn't list).
+  async loadPrefab(name) {
+    if (!this.prefabs[name]) {
+      const url = this.data?.prefabs?.[name] || `./prefabs/${name}.prefab.json`;
+      this.prefabs[name] = typeof url === 'string' ? await (await fetch(url)).json() : url;
+    }
+    return this.prefabs[name];
+  }
+
+  // ---- runtime entities (behaviors call these; nothing here is ever saved to the scene file)
+  // world.spawn('coin', { position: [x, y, z], rotation, scale, parent: 'id', id, tags }) → Promise<entity>
+  async spawn(prefab, { position, rotation, scale, parent, id, tags } = {}) {
+    await this.loadPrefab(prefab);
+    const parentEnt = parent ? this.entities.get(parent) : null;
+    if (parent && !parentEnt) throw new Error(`spawn: no parent "${parent}"`);
+    const authored = { id: id && !this.entities.has(id) ? id : spawnId(new Set(this.entities.keys()), prefab, (this.spawnSeq ||= {})), prefab,
+      ...(position ? { position } : {}), ...(rotation ? { rotation } : {}), ...(scale ? { scale } : {}), ...(tags ? { tags } : {}) };
+    const before = new Set(this.entities.keys());
+    const ent = await this.buildEntity(authored, parentEnt, { spawned: true });
+    applyLookTo(ent.object3d, this.look || 'toon');
+    const added = [...this.entities.values()].filter(x => !before.has(x.id));
+    added.forEach(x => this.attachBehaviors(x));
+    added.forEach(x => x.behaviors.forEach(b => b.start()));
+    this.emit('spawned', ent.id);
+    return ent;
+  }
+
+  // Remove an entity and everything under it (spawned or authored — authored ones come back on the next Play).
+  destroy(id) {
+    const ent = this.entities.get(id);
+    if (!ent) return false;
+    for (const c of [...ent.children]) this.destroy(c);
+    ent.destroyed = true;
+    ent.behaviors.forEach(b => b.destroy());
+    ent.object3d.removeFromParent();
+    if (ent.anim?.mixer) this.mixers = this.mixers.filter(m => m !== ent.anim.mixer);
+    const parent = ent.parent && this.entities.get(ent.parent);
+    if (parent) parent.children = parent.children.filter(c => c !== id);
+    this.entities.delete(id);
+    this.emit('destroyed', id);
+    return true;
+  }
+
+  // Entities matching a tag ('enemy'), a query ({ tag, prefab, id, near: [x,y,z], radius }) or a function.
+  find(q) {
+    const out = [];
+    for (const ent of this.entities.values()) {
+      if (ent.destroyed) continue;
+      const p = ent.object3d.getWorldPosition(new THREE.Vector3());
+      if (matchesQuery({ id: ent.id, tags: ent.tags, prefab: ent.prefab, position: [p.x, p.y, p.z] }, q)) out.push(ent);
+    }
+    return out;
   }
 
   // Animation API handed to behaviors as entity.anim — keeps behaviors free of three.
@@ -199,6 +276,7 @@ export class World {
     this.mixers.push(mixer);
     let current = null, currentName = null;
     const anim = {
+      mixer,
       clips: clips.map(c => c.name),
       get current() { return currentName; },
       play(name, { fade = 0.2, once = false, speed = 1, restart = false } = {}) {   // restart: replay even if it's playing
@@ -233,7 +311,7 @@ export class World {
 
   update(dt) {
     this.t += dt;
-    for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.update(dt, this.t));
+    for (const ent of this.entities.values()) { if (!ent.destroyed) for (const b of ent.behaviors) { if (ent.destroyed) break; b.update(dt, this.t); } }
   }
 
   dispose() {

@@ -6,12 +6,13 @@
 import { addEntity, deleteEntity, addLight, setLightValue, LIGHT_FIELDS } from './editing.js';
 import { mergeEntity, setOverride } from './prefabs.js';
 import { libraryPacks, setInstalled } from './packs.js';
+import { allEntities, findEntity, walkEntities } from './tree.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
 const isVec3 = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n));
 
 function need(data, id) {
-  const e = data.entities.find(x => x.id === id);
+  const e = findEntity(data, id)?.entity;   // nested children too
   if (!e) throw new Error(`No entity "${id}". Use list_entities to see ids.`);
   return e;
 }
@@ -51,7 +52,9 @@ export const COMMANDS = {
     mutates: false,
     run(data, { filter } = {}, ctx) {
       const f = filter ? String(filter).toLowerCase() : '';
-      return data.entities.map(e => summary(e, ctx.prefabs)).filter(s => !f || JSON.stringify(s).toLowerCase().includes(f));
+      const out = [];
+      walkEntities(data.entities, (e, { parent }) => { out.push(parent ? { ...summary(e, ctx.prefabs), parent: parent.id } : summary(e, ctx.prefabs)); });
+      return out.filter(s => !f || JSON.stringify(s).toLowerCase().includes(f));
     },
   },
   get_entity: {
@@ -85,7 +88,7 @@ export const COMMANDS = {
       if (!isVec3(position)) throw new Error('position must be [x, y, z] in metres');
       if (id !== undefined) {
         if (!/^[a-z0-9_]+$/.test(id)) throw new Error('id must be lowercase_with_underscores');
-        if (data.entities.some(e => e.id === id)) throw new Error(`id "${id}" is taken`);
+        if (findEntity(data, id)) throw new Error(`id "${id}" is taken`);
       }
       const e = addEntity(data, prefab ? { prefab } : { asset }, position);
       if (id) e.id = id;
@@ -149,7 +152,7 @@ export const COMMANDS = {
       if (!LIGHT_FIELDS[type]) throw new Error(`type must be one of ${Object.keys(LIGHT_FIELDS).join(', ')}`);
       if (!isVec3(position)) throw new Error('position must be [x, y, z] in metres (point lights go 2.5 m above it, spots 4 m)');
       for (const k of Object.keys(values)) if (!LIGHT_FIELDS[type][k]) throw new Error(`${type} lights have no "${k}" (fields: ${Object.keys(LIGHT_FIELDS[type]).join(', ')})`);
-      if (id !== undefined && (!/^[a-z0-9_]+$/.test(id) || data.entities.some(e => e.id === id))) throw new Error(`id "${id}" is taken or not lowercase_with_underscores`);
+      if (id !== undefined && (!/^[a-z0-9_]+$/.test(id) || findEntity(data, id))) throw new Error(`id "${id}" is taken or not lowercase_with_underscores`);
       const e = addLight(data, type, position);
       if (id) e.id = id;
       for (const [k, v] of Object.entries(values)) setLightValue(data, e.id, k, v);
@@ -216,7 +219,7 @@ export const COMMANDS = {
 // A copy of the scene ready to write to disk: prefabs no entity uses are dropped (the validator warns about them).
 // → { data, dropped: [prefab names] }
 export function sceneForSave(scene) {
-  const used = new Set(scene.entities.map(e => e.prefab).filter(Boolean));
+  const used = new Set(allEntities(scene).map(e => e.prefab).filter(Boolean));
   const data = structuredClone(scene), dropped = Object.keys(data.prefabs || {}).filter(n => !used.has(n));
   for (const n of dropped) delete data.prefabs[n];
   return { data, dropped };
