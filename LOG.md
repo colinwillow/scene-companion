@@ -84,3 +84,4 @@
 - 2026-10-27 — Goblin step 3a — WallRun behavior (side run, run up, wall jump) + mover/jumpTaps/carry hand-offs + setYaw fix; stadium wall-run lane; 197 tests; checked headless (live session)
 - 2026-10-27 — Goblin step 3b — katana.glb (make-katana) + Mount behavior; katana in the goblin's hand in the stadium; 199 tests; checked headless (live session)
 - 2026-10-27 — Goblin step 3c — Ledge behavior (grab, hang, climb, let go) on the stadium player; 203 tests (live session)
+- 2026-10-27 — Goblin step 3d — Vault behavior (tap into a hurdle → arc over in the tuck pose); 205 tests (live session)

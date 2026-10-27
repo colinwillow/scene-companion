@@ -365,6 +365,9 @@
           "type": "Ledge"
         },
         {
+          "type": "Vault"
+        },
+        {
           "type": "Animator",
           "params": {
             "runSpeed": 4,

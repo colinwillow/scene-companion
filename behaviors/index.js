@@ -329,6 +329,64 @@ export class Ledge extends Behavior {
   let() { this.hold = null; this.coolT = 0.4; if (this.entity.mover === this) this.entity.mover = null; this.pc.vy = 0; this.pc.grounded = false; this.pc.sinceGround = 1; }
 }
 
+// Vault (zap's VAULT, docs/goblin-extraction.md): TAP while moving into a low block (a hurdle: between `low` and `high` × his
+// height, at most `depth` m deep) → a driven arc over it in the `clip` pose (zap's tuck: no baked motion to fight the arc),
+// ending just past the far face still in the air, with his speed carried on (`out`). A tap anywhere else is still a jump.
+export class Vault extends Behavior {
+  static schema = {
+    clip:  { type: 'string', default: 'tuck' },
+    low:   { type: 'number', default: 0.25, min: 0, max: 1, step: 0.05 },     // × height: lower than this is a step
+    high:  { type: 'number', default: 0.9, min: 0.2, max: 2, step: 0.05 },     // × height: higher is a wall (climb it)
+    depth: { type: 'number', default: 2, min: 0.2, max: 6, step: 0.1 },        // m: deeper is a platform, not a hurdle
+    reach: { type: 'number', default: 0.8, min: 0, max: 3, step: 0.05 },       // m off the face (beyond his radius)
+    time:  { type: 'number', default: 0.5, min: 0.15, max: 2, step: 0.05 },    // s over the top
+    clear: { type: 'number', default: 0.3, min: 0, max: 2, step: 0.05 },       // m his feet clear the top by
+    beyond:{ type: 'number', default: 0.15, min: 0, max: 2, step: 0.05 },      // m past the far face where the arc lets go
+    out:   { type: 'number', default: 6.5, min: 0, max: 15, step: 0.5 },       // m/s carried on after
+  };
+  start() {
+    this.pc = this.entity.behaviors.find(b => b instanceof PlayerController); this.arc = null; this.clip = this.params.clip;
+    this.onTap = move => this.tap(move); (this.entity.jumpTaps ||= []).push(this.onTap);
+  }
+  destroy() { if (this.entity.mover === this) this.entity.mover = null; const l = this.entity.jumpTaps, i = l ? l.indexOf(this.onTap) : -1; if (i >= 0) l.splice(i, 1); }
+  tap(move) {
+    const pc = this.pc, mag = Math.hypot(move[0], move[1]); if (!pc || this.arc || !pc.grounded || mag < 0.3) return false;
+    const p = this.entity.object3d.position, P = this.params, H = pc.params.height, r = pc.params.radius, mx = move[0] / mag, mz = move[1] / mag;
+    let best = null;
+    for (const solid of this.world.solids || []) {
+      if ((solid.params?.shape && solid.params.shape !== 'box') || solid.params?.slope) continue;
+      const sh = walkShape(solid), top = sh.maxY - p.y;
+      if (top < P.low * H || top > P.high * H || sh.minY > p.y + 0.2) continue;
+      const { cx, cz, inside } = sh.near(p.x, p.z); if (inside) continue;
+      const d = Math.hypot(p.x - cx, p.z - cz); if (d < 1e-6 || d > r + P.reach || (best && d >= best.d)) continue;
+      const nx = (p.x - cx) / d, nz = (p.z - cz) / d; if (-(mx * nx + mz * nz) < 0.6) continue;      // heading into it
+      // how deep it is along his line: march through until out the far side
+      let t = 0; while (t < P.depth + 0.1 && sh.topNear(cx - nx * (t + 0.05), cz - nz * (t + 0.05), 0.01) > -Infinity) t += 0.05;
+      if (t > P.depth) continue;
+      best = { d, nx, nz, cx, cz, top: sh.maxY, through: t };
+    }
+    if (!best) return false;
+    const travel = best.d + best.through + r + P.beyond;
+    this.arc = { t: 0, from: [p.x, p.y, p.z], dx: -best.nx, dz: -best.nz, travel, apex: best.top + P.clear, y0: p.y };
+    setYaw(this.entity.object3d, Math.atan2(-best.nx, -best.nz), 0);
+    this.entity.mover = this; this.world.emit('vault', this.entity.id); this.world.emit('jump');
+    return true;
+  }
+  update(dt) {
+    const A = this.arc; if (!A || dt <= 0) return;
+    const p = this.entity.object3d.position, P = this.params;
+    A.t = Math.min(1, A.t + dt / P.time);
+    // along: steady; up: a parabola through the apex at 45 % of the way (he is coming down as he lets go)
+    const u = A.t, k = 0.45, rise = A.apex - A.y0, y = u < k ? A.y0 + rise * (1 - ((u - k) / k) ** 2) : A.y0 + rise * (1 - ((u - k) / (1 - k)) ** 2 * 0.55);
+    p.x = A.from[0] + A.dx * A.travel * u; p.z = A.from[2] + A.dz * A.travel * u; p.y = y;
+    if (A.t >= 1) {
+      this.arc = null; if (this.entity.mover === this) this.entity.mover = null;
+      const pc = this.pc; pc.grounded = false; pc.sinceGround = 1; pc.vy = -2; pc.airTime = 0.2;
+      pc.carry = [A.dx * P.out, A.dz * P.out];
+    }
+  }
+}
+
 // Wall run (zap's WRUN, docs/goblin-extraction.md): TAP beside a tall wall while moving along it → run along the face on a
 // low arc (feet on it, body rolled off it); heading INTO it → run up the face. Tap again on the wall → kick off it (a wall
 // jump, carrying some speed — onto the opposite wall with another tap). It ends at the wall's end, its top, the time
@@ -908,6 +966,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Mount, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }
