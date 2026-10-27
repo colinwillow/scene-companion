@@ -7,6 +7,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { retargetClip } from './retarget.js';
 import { entityMotions, motionsBase, motionUrl } from './motions.js';
 import { raycast, sweep, overlap, lineClear } from './collide.js';
+import { bodyMasks, eventsCrossed, DEFAULT_MASK_ROOTS } from './animlayers.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { getBehavior } from './registry.js';
 import { applyLook, applyLookTo } from './look.js';
@@ -248,7 +249,8 @@ export class World {
     const baked = new Set((obj.userData.clips || []).map(c => c.name));   // tools/bake-motions.mjs puts them in the GLB
     const stems = entityMotions(character, e).filter(m => !baked.has(m));
     if (stems.length && obj.userData.clips && variant?.glb) obj.userData.clips = [...obj.userData.clips, ...await this.loadMotions(obj.children[0], variant, stems)];
-    if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle);
+    if (obj.userData.clips?.length) ent.anim = this.makeAnimator(obj, obj.userData.clips, e.animation || ent.roles?.idle,
+      { masks: character?.masks, events: character?.events, emit: (name, clip) => this.emit(name, id, clip) });
     this.entities.set(id, ent);
     parentEnt?.children.push(id);
     // The instance's own children (authored) plus the prefab's children (renamed per instance; both, so adding a hat keeps the sword).
@@ -336,29 +338,79 @@ export class World {
   }
 
   // Animation API handed to behaviors as entity.anim — keeps behaviors free of three.
-  makeAnimator(root, clips, startClip) {
+  // Two layers. BASE plays on the whole body; UPPER (spine and up, see runtime/animlayers.js) plays on top — and while it
+  // does, the base switches to its legs-only copy, so no bone is ever shared by two clips (weights stay summed to 1;
+  // averaging two full-body clips is a shrug). Frame events from character.json fire as world events with the entity id.
+  //   anim.play(name, { layer: 'base' | 'upper', fade, once, speed, restart })   anim.stop('upper', { fade })
+  // A one-shot on the upper layer stops itself when it ends, handing the arms back to the base clip.
+  makeAnimator(root, clips, startClip, { masks, events, emit } = {}) {
     const mixer = new THREE.AnimationMixer(root);
     this.mixers.push(mixer);
-    let current = null, currentName = null;
+    const bones = [];
+    root.traverse(o => { if (o.isBone) bones.push({ name: o.name, parent: o.parent?.isBone ? o.parent.name : null }); });
+    const split = bodyMasks(bones, masks?.upper || DEFAULT_MASK_ROOTS.upper);
+    const masked = new Map();   // "name|upper" → clip with only that part's tracks
+    const clipFor = (name, part) => {
+      const clip = THREE.AnimationClip.findByName(clips, name); if (!clip || !part) return clip;
+      const key = `${name}|${part}`;
+      if (!masked.has(key)) masked.set(key, new THREE.AnimationClip(`${name}|${part}`, clip.duration,
+        clip.tracks.filter(t => split[part].has(t.name.split('.')[0]))));
+      return masked.get(key);
+    };
+    const L = { base: { name: null, action: null, opts: {} }, upper: { name: null, action: null, opts: {} } };
+    const start = (clip, { fade = 0.2, once = false, speed = 1 }, time) => {
+      const action = mixer.clipAction(clip);
+      action.reset();
+      action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat);
+      action.clampWhenFinished = once;
+      action.timeScale = speed;
+      if (time !== undefined) action.time = Math.min(time, clip.duration);
+      action.fadeIn(fade).play();
+      return action;
+    };
+    // (Re)start the base clip on the right part of the body, keeping its phase when only the mask changes.
+    const playBase = (fade, keepTime) => {
+      const b = L.base; if (!b.name) return;
+      const clip = clipFor(b.name, L.upper.name ? 'lower' : null); if (!clip) return;
+      const t = keepTime ? b.action?.time : undefined, old = b.action;
+      b.action = start(clip, { ...b.opts, fade }, t);
+      if (old && old !== b.action) old.fadeOut(fade);
+    };
     const anim = {
       mixer,
       clips: clips.map(c => c.name),
-      get current() { return currentName; },
-      play(name, { fade = 0.2, once = false, speed = 1, restart = false } = {}) {   // restart: replay even if it's playing
-        if (name === currentName && !restart) return;
-        const clip = THREE.AnimationClip.findByName(clips, name);
-        if (!clip) return;
-        const action = mixer.clipAction(clip);
-        action.reset();
-        action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat);
-        action.clampWhenFinished = once;
-        action.timeScale = speed;
-        action.fadeIn(fade).play();
-        if (current && current !== action) current.fadeOut(fade);
-        current = action; currentName = name;
+      get current() { return L.base.name; },
+      layer: part => L[part]?.name ?? null,
+      play(name, { layer = 'base', fade = 0.2, once = false, speed = 1, restart = false } = {}) {
+        const l = L[layer]; if (!l) return;
+        if (name === l.name && !restart) return;
+        if (!THREE.AnimationClip.findByName(clips, name)) return;
+        l.prev = 0;                                   // a fresh clip counts its events from the start
+        if (layer === 'base') { l.name = name; l.opts = { once, speed }; playBase(fade, false); return; }
+        const firstUpper = !L.upper.name, old = l.action;
+        l.name = name; l.opts = { once, speed };
+        l.action = start(clipFor(name, 'upper'), { fade, once, speed });
+        if (old && old !== l.action) old.fadeOut(fade);
+        if (firstUpper) playBase(fade, true);       // the base hands its arms over
+      },
+      stop(layer = 'upper', { fade = 0.2 } = {}) {
+        const l = L[layer]; if (!l?.action) return;
+        l.action.fadeOut(fade); l.action = null; l.name = null;
+        if (layer === 'upper') playBase(fade, true);   // arms back to the base clip, same phase
+      },
+      // after each mixer update: frame events + one-shot upper layers ending
+      tick() {
+        for (const [part, l] of Object.entries(L)) {
+          const a = l.action; if (!a) continue;
+          const now = a.time, prev = l.prev ?? 0, list = events?.[l.name];
+          if (list && emit) for (const ev of eventsCrossed(list, prev, now, now < prev - 1e-6)) emit(ev, l.name);
+          l.prev = now;
+          if (part === 'upper' && l.opts.once && !a.isRunning() && now >= a.getClip().duration - 1e-3) anim.stop('upper');
+        }
       },
     };
     anim.play(startClip || (anim.clips.includes('Idle') ? 'Idle' : anim.clips[0]), { fade: 0 });
+    (this.animators ||= []).push(anim);
     return anim;
   }
 
@@ -373,7 +425,11 @@ export class World {
 
   // Runs in edit mode too, so authored animations preview while placing things.
   // Edit mode (playing = false) previews at normal speed; in play, animation follows time.scale / pause / hit-stop.
-  animate(dt, playing = true) { const d = playing ? this.time.visualDt(dt) : dt; this.mixers.forEach(m => m.update(d)); }
+  animate(dt, playing = true) {
+    const d = playing ? this.time.visualDt(dt) : dt;
+    this.mixers.forEach(m => m.update(d));
+    if (playing) (this.animators || []).forEach(a => a.tick());   // frame events only fire in play
+  }
 
   // Gameplay: behaviors update in fixed steps (world.time.step, 1/60 s) whatever the frame rate; between steps the
   // moving entities are drawn interpolated (position + rotation), so 120 Hz screens stay smooth.
@@ -409,6 +465,7 @@ export class World {
     this.scene.traverse(o => { if (o.geometry && !SHARED.has(o.geometry)) o.geometry.dispose(); [].concat(o.material || []).forEach(m => { if (!SHARED.has(m) && !m.userData?.shared) m.dispose(); }); });
     this.entities.clear();
     this.mixers.forEach(m => m.stopAllAction());
+    this.animators = [];
     this.mixers = [];
   }
 }

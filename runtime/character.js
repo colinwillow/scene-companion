@@ -1,3 +1,4 @@
+import { checkLayers } from './animlayers.js';
 // character.json: one file per character — its model, height and which clip plays each ROLE.
 //   { "name": "Zap", "glb": "./assets/…/zap.glb", "height": 1.6, "roles": { "idle": "idle_01", "walk": "walk_fwd", … } }
 // A scene/prefab asset variant points at it with { "character": "./assets/…/zap.character.json" } (other variant keys
@@ -43,6 +44,7 @@ export function checkCharacter(ch, clips) {
     else if (clips && !clips.includes(clip) && !(ch.motions || []).includes(clip)) err(`role "${role}": clip "${clip}" isn't in ${ch.glb} or its motions`);
   }
   if (!ch.roles.idle) warn('no "idle" role');
+  for (const m of checkLayers(ch, clips)) err(m);
   return out;
 }
 
