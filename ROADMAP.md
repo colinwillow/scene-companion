@@ -178,7 +178,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
   - [x] 2D part 1: `settings.camera2d` (orthographic side or top view, follows the player) + plane-locked movement/collision (z pinned for side view) — a tiny side-scroller scene proves it
   - [x] 2D part 2: sprite sheets in the runtime — asset variant `sprite` + `frames` [cols, rows] + named `clips`, SpriteAnimator plays idle/run/jump/fall from the PlayerController and flips to his facing; Blob Hop scene; tools/make-sprite.mjs draws the stand-in sheet
   - [x] 2D part 2b: Library → 2D tab lists assets/sprites sheets (or a PNG from the device, kept in the scene file); the slicer draws the numbered grid over the sheet (cols/rows guessed), clips as text lines ("run 2-5 10"), height in metres; Add puts it in the scene with a SpriteAnimator
-  - [ ] 2D part 3: tilemap painting in the editor, parallax layers
+  - [ ] [IN PROGRESS] 2D part 3a: parallax layers (a Parallax behavior: backdrop entities that follow the camera by a fraction)
+  - [ ] 2D part 3b: tilemaps — a Tilemap behavior (grid of tile ids from a tile sheet, solid tiles collide) + painting it in the editor
   - [ ] 2D part 4: render a 3D character into a sprite sheet
 - [ ] Ship anywhere: Capacitor wrapper → iOS/Android builds from a scene; export to Godot `.tscn`, then Unity/Unreal
 - [ ] Pack unlocks: purchase/unlock flow, licence per pack, free starter pack bundled — local unlock codes + the starter pack already work (?unlock=, packs/colin-starter); the PURCHASE half needs a payments account (blocked on Colin)
