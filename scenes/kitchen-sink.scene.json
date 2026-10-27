@@ -1076,6 +1076,41 @@
         0,
         -9
       ]
+    },
+    {
+      "id": "trigger_ambush",
+      "prefab": "trigger_zone",
+      "position": [
+        4,
+        0,
+        -5
+      ],
+      "behaviors": [
+        {
+          "type": "Trigger",
+          "params": {
+            "event": "ambush",
+            "activates": "skeleton_ambush"
+          }
+        }
+      ]
+    },
+    {
+      "id": "skeleton_ambush",
+      "prefab": "skeleton",
+      "position": [
+        7,
+        0,
+        -7
+      ],
+      "behaviors": [
+        {
+          "type": "Dormant",
+          "params": {
+            "hidden": true
+          }
+        }
+      ]
     }
   ],
   "prefabs": {
@@ -1101,6 +1136,7 @@
     "kit_pole": "./prefabs/kit_pole.prefab.json",
     "kit_platform": "./prefabs/kit_platform.prefab.json",
     "kit_wall": "./prefabs/kit_wall.prefab.json",
-    "kit_block": "./prefabs/kit_block.prefab.json"
+    "kit_block": "./prefabs/kit_block.prefab.json",
+    "trigger_zone": "./prefabs/trigger_zone.prefab.json"
   }
 }

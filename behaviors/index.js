@@ -30,6 +30,7 @@ export class Patrol extends Behavior {
   };
   start() { this.toB = true; }
   update(dt) {
+    if (this.entity.dormant) return;
     const p = this.entity.object3d.position;
     const target = this.toB ? this.params.pointB : this.params.pointA;
     const dx = target[0] - p.x, dz = target[2] - p.z;
@@ -291,7 +292,7 @@ export class Chase extends Behavior {
   start() { const p = this.entity.object3d.position; this.home = [p.x, p.z]; }
   onMoved() { this.start(); }
   update(dt) {
-    if (this.entity.object3d.visible === false || this.entity.defeated) return;
+    if (this.entity.object3d.visible === false || this.entity.defeated || this.entity.dormant) return;
     const t = this.world.getEntity(this.params.targetId); if (!t) return;
     const p = this.entity.object3d.position, q = t.object3d.position;
     const near = Math.hypot(q.x - p.x, q.z - p.z) < this.params.radius;
@@ -317,6 +318,7 @@ export class Stompable extends Behavior {
     hideAfter:  { type: 'number', default: 1.5, min: 0, max: 10, step: 0.1 },  // s the defeat clip shows before it vanishes
   };
   update(dt) {
+    if (this.entity.dormant) return;
     if (this.defeated) {
       if (this.hideIn > 0 && (this.hideIn -= dt) <= 0) this.entity.object3d.visible = false;
       return;
@@ -384,6 +386,55 @@ export class Footsteps extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Squash, Footsteps })) {
+
+// An invisible box volume (bottom-anchored at the entity, like Solid). When the target walks in it emits `event`
+// (with this entity's id) and wakes every entity listed in `activates` (comma-separated ids; see Dormant).
+// The trigger's own model (a see-through box, prefab trigger_zone) shows in the editor and hides once play starts.
+export class Trigger extends Behavior {
+  static schema = {
+    size:      { type: 'vec3', default: [3, 2, 3] },        // metres
+    targetId:  { type: 'string', default: 'player' },
+    event:     { type: 'string', default: 'trigger' },      // emitted on entry ('' = none)
+    activates: { type: 'string', default: '' },             // "enemy_01, enemy_02" → world.emit('activate', id) each
+    once:      { type: 'boolean', default: true },          // false: fires on every entry
+  };
+  start() { this.inside = false; this.fired = false; this.hidden = false; }
+  contains(q) {
+    const p = this.entity.object3d.position, [sx, sy, sz] = this.params.size;
+    return Math.abs(q.x - p.x) <= sx / 2 && Math.abs(q.z - p.z) <= sz / 2 && q.y >= p.y - 0.05 && q.y <= p.y + sy;
+  }
+  update() {
+    if (!this.hidden) { this.entity.object3d.visible = false; this.hidden = true; }   // first play frame
+    const t = this.world.getEntity(this.params.targetId); if (!t) return;
+    const inside = this.contains(t.object3d.position), entered = inside && !this.inside;
+    this.inside = inside;
+    if (!entered || (this.params.once && this.fired)) return;
+    this.fired = true;
+    if (this.params.event) this.world.emit(this.params.event, this.entity.id);
+    for (const id of this.params.activates.split(',').map(x => x.trim()).filter(Boolean)) this.world.emit('activate', id);
+  }
+}
+
+// Sleeps until a Trigger (or anything) emits 'activate' with this entity's id. While asleep, Chase / Patrol /
+// Stompable stand still; `hidden` also keeps it invisible (an ambush that appears). Editor view is unaffected.
+export class Dormant extends Behavior {
+  static schema = {
+    hidden: { type: 'boolean', default: false },
+  };
+  start() {
+    this.entity.dormant = false;      // the editor never runs update(), so it never looks asleep there
+    this.asleep = true;
+    this.world.on('activate', id => {
+      if (id !== this.entity.id || !this.asleep) return;
+      this.asleep = false; this.entity.dormant = false; this.entity.object3d.visible = true;
+      this.world.emit('awake', this.entity.id);
+    });
+  }
+  update() {
+    if (this.asleep && !this.entity.dormant) { this.entity.dormant = true; if (this.params.hidden) this.entity.object3d.visible = false; }
+  }
+}
+
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Squash, Footsteps, Trigger, Dormant })) {
   registerBehavior(name, cls);
 }

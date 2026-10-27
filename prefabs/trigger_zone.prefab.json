@@ -1,0 +1,30 @@
+{
+  "asset": {
+    "variants": {
+      "web": {
+        "primitive": "box",
+        "pivot": "bottom",
+        "size": [
+          3,
+          2,
+          3
+        ],
+        "color": "#ff3d6a",
+        "emissive": "#5a0f22",
+        "opacity": 0.25
+      }
+    }
+  },
+  "behaviors": [
+    {
+      "type": "Trigger",
+      "params": {
+        "size": [
+          3,
+          2,
+          3
+        ]
+      }
+    }
+  ]
+}

@@ -97,9 +97,11 @@ export class World {
       roughness: variant.roughness ?? 0.8,
       metalness: variant.metalness ?? 0,
       emissive: variant.emissive || '#000000',
+      ...(variant.opacity < 1 ? { transparent: true, opacity: variant.opacity, depthWrite: false } : {}),   // e.g. trigger volumes
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.castShadow = variant.castShadow !== false && !(variant.opacity < 1);
+    mesh.receiveShadow = !(variant.opacity < 1);
     return mesh;
   }
 

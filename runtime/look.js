@@ -66,7 +66,7 @@ function addOutline(mesh) {
 }
 
 function convert(mat, look) {
-  const base = { color: mat.color?.clone(), map: mat.map || null, transparent: mat.transparent, opacity: mat.opacity };
+  const base = { color: mat.color?.clone(), map: mat.map || null, transparent: mat.transparent, opacity: mat.opacity, depthWrite: mat.depthWrite };
   if (look === 'toon') return toonMaterial(base);
   if (look === 'baked') return new THREE.MeshBasicMaterial(base);
   return mat; // pbr keeps the standard material
@@ -80,7 +80,7 @@ export function applyLook(world, look) {
     o.material = Array.isArray(o.material) ? o.material.map(m => convert(m, look)) : convert(o.material, look);
     // Outlines on toon, except big flat floors (they'd draw a dark rim along the horizon).
     const big = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
-    if (look === 'toon' && big.radius * Math.max(...o.getWorldScale(new THREE.Vector3()).toArray()) < 6) addOutline(o);
+    if (look === 'toon' && ![].concat(o.material).some(m => m.transparent && m.opacity < 1) && big.radius * Math.max(...o.getWorldScale(new THREE.Vector3()).toArray()) < 6) addOutline(o);
   }
 
   const lights = [];

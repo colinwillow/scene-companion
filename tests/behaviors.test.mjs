@@ -279,3 +279,35 @@ test('Animator plays doubleJumpClip (restarted) on an air jump, then falls after
   Object.assign(pc, { grounded: true, vy: 0, airJumpCount: 0 }); a.update(1 / 60);
   assert.deepEqual(played, ['Idle', 'Up', 'Fall', 'Flip!', 'Flip', 'Fall', 'Idle']);
 });
+
+test('Trigger: entering the box emits its event and wakes Dormant entities (once); hides itself in play', async () => {
+  const { Trigger, Dormant, Chase } = await import('../behaviors/index.js');
+  const player = fakeEntity('player', [10, 0, 0]), zone = fakeEntity('zone', [0, 0, 0]), guard = fakeEntity('guard', [5, 0, 0]);
+  const w = fakeWorld([player, zone, guard]);
+  const seen = []; w.on('trigger', id => seen.push(id)); w.on('awake', id => seen.push('awake:' + id));
+  const trig = attach(Trigger, zone, { size: [2, 2, 2], activates: 'guard, nobody' }, w);
+  const dorm = attach(Dormant, guard, { hidden: true }, w);
+  const chase = attach(Chase, guard, { radius: 50, speed: 1 }, w);
+  assert.equal(zone.object3d.visible, true); assert.equal(guard.object3d.visible, true);   // editor view: untouched
+  for (const b of [trig, dorm, chase]) b.update(0.1);
+  assert.equal(zone.object3d.visible, false); assert.equal(guard.object3d.visible, false);
+  assert.equal(guard.object3d.position.x, 5, 'asleep: no chasing');
+  player.object3d.position.x = 0.5; trig.update(0.1);
+  assert.deepEqual(seen, ['zone', 'awake:guard']);
+  assert.equal(guard.object3d.visible, true);
+  dorm.update(0.1); chase.update(0.1);
+  assert.ok(guard.object3d.position.x < 5, 'awake: chases');
+  player.object3d.position.x = 10; trig.update(0.1); player.object3d.position.x = 0; trig.update(0.1);
+  assert.deepEqual(seen, ['zone', 'awake:guard'], 'once');
+});
+
+test('Trigger with once:false fires on every entry, and checks height', async () => {
+  const { Trigger } = await import('../behaviors/index.js');
+  const player = fakeEntity('player', [0, 5, 0]), zone = fakeEntity('zone', [0, 0, 0]);
+  const w = fakeWorld([player, zone]); let n = 0; w.on('door', () => n++);
+  const trig = attach(Trigger, zone, { size: [2, 2, 2], event: 'door', once: false }, w);
+  trig.update(0.1); assert.equal(n, 0, 'above the box');
+  player.object3d.position.y = 1; trig.update(0.1); trig.update(0.1);
+  player.object3d.position.x = 3; trig.update(0.1); player.object3d.position.x = 0; trig.update(0.1);
+  assert.equal(n, 2);
+});
