@@ -16,6 +16,13 @@ import { colliderKind } from '../runtime/colliders.js';
 
 // Read clip names straight out of a .glb's JSON chunk (no three needed).
 const glbClips = new Map();
+import { estimateDraws, glbDrawFacts } from '../runtime/drawcount.js';
+import { BUDGETS } from '../runtime/livestate.js';
+const glbFacts = new Map();
+function factsOf(path) {
+  if (!glbFacts.has(path)) { let r = null; if (existsSync(path)) { const b = readFileSync(path), len = b.readUInt32LE(12); r = glbDrawFacts(JSON.parse(b.subarray(20, 20 + len).toString())); } glbFacts.set(path, r); }
+  return glbFacts.get(path);
+}
 function clipsOf(path) {
   if (glbClips.has(path)) return glbClips.get(path);
   let names = null;
@@ -106,6 +113,7 @@ for (const f of files) {
   }
   const used = new Set(allEntities(scene).map(e => e.prefab).filter(Boolean));
   for (const name of Object.keys(prefabs)) if (!used.has(name)) warn(f, `prefab "${name}" is listed but never used`);
+  const drawList = [];
   for (const authored of allEntities(scene)) {          // nested children included; ids unique scene-wide
     if (authored.children !== undefined && !Array.isArray(authored.children)) err(f, `${authored.id}: children must be a list of entities`);
     checkTags(f, authored.id, authored.tags);
@@ -152,7 +160,16 @@ for (const f of files) {
         if (/Clip$/.test(k) && val && val !== 'none' && typeof val === 'string' && !clips.includes(val)) err(f, `${e.id}: ${b.type}.${k} "${val}" isn't in ${v.glb}`);
     }
     checkBehaviors(f, e.id, e.behaviors);
+    if (asset && !e.light) {                           // what it costs to draw (the budget estimate below)
+      let v = asset.variants?.web || Object.values(asset.variants || {})[0] || {};
+      if (v.character) { const ch = characterOf(f, v.character); if (ch) v = characterVariant(ch, v); }
+      const facts = v.glb ? factsOf(v.glb.replace(/^\.\//, '')) : { prims: 1, mats: 1, parts: 0 };
+      const types = (e.behaviors || []).map(b => b.type), still = types.every(t => ['Solid', 'Surface', 'CollisionMesh'].includes(t)) && !(e.children || []).length && !e.animation;
+      if (facts) drawList.push({ id: e.id, ...facts, batched: types.includes('Batch'), staticKey: still && !v.character ? (authored.prefab || (typeof authored.asset === 'string' ? authored.asset : null)) : null });
+    }
   }
+  { const budget = { ...BUDGETS.web, ...(scene.settings?.budget || {}) }, est = estimateDraws(drawList);
+    if (est.draws > budget.draws) warn(f, `up to ${est.draws} draw calls with shadows, before culling (budget ${budget.draws}) — most from ${est.top.map(([id, d]) => `${id} ~${d}`).join(', ')}; a Batch behavior on a big model helps`); }
   for (const r of scene.settings?.route || []) if (!ids.has(r)) err(f, `settings.route: no entity "${r}"`);
   { let cat = []; try { cat = JSON.parse(readFileSync('packs/index.json', 'utf8')); } catch {}
     for (const m of checkScenePacks(scene, Array.isArray(cat) ? cat : [])) err(f, m); }
