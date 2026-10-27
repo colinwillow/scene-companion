@@ -51,3 +51,25 @@ test('pushing builds speed on the flat; a tap ollies', async () => {
   w.input.move = [0, 0]; w.input.jump = true; sk.update(1 / 60);
   assert.equal(sk.grounded, false); assert.ok(sk.v[1] > 5);
 });
+
+test('the move brain: idle still, push clip pushing (hard when fast), roll pose coasting, air clip flying', async () => {
+  const { w, sk } = await run(scene(), 0.01);
+  const clips = ['idle_normal', 'idle_arms_behind_back', 'blade_casual_forward', 'blade_hard_forward', 'in_air', 'blade_casual_backward', 'idle_backward'];
+  const e = w.getEntity('player'); e.anim = { clips, play: n => (e.anim.current = n) };
+  sk.update(1 / 60); assert.equal(e.anim.current, 'idle_normal');
+  w.input.move = [1, 0]; for (let i = 0; i < 30; i++) sk.update(1 / 60); assert.equal(e.anim.current, 'blade_casual_forward');
+  sk.v = [14, 0, 0]; sk.update(1 / 60); assert.equal(e.anim.current, 'blade_hard_forward');
+  w.input.move = [0, 0]; sk.update(1 / 60); assert.equal(e.anim.current, 'idle_arms_behind_back');
+  w.input.jump = true; sk.update(1 / 60); assert.equal(e.anim.current, 'in_air');
+});
+
+test('fakie: rolling backwards plays her backward clips, the model turned a half turn so her nose leads', async () => {
+  const { w, sk } = await run(scene(), 0.01);
+  const e = w.getEntity('player'); e.anim = { clips: ['idle_normal', 'idle_arms_behind_back', 'blade_casual_forward', 'blade_casual_backward', 'idle_backward', 'in_air'], play: n => (e.anim.current = n) };
+  sk.heading = Math.PI / 2; sk.v = [-4, 0, 0];      // facing +x, rolling −x
+  for (let i = 0; i < 5; i++) sk.update(1 / 60);
+  assert.equal(sk.fakie, true); assert.equal(e.anim.current, 'idle_backward');
+  w.input.move = [-1, 0]; for (let i = 0; i < 20; i++) sk.update(1 / 60);   // push toward the leading (back) end
+  assert.equal(e.anim.current, 'blade_casual_backward'); assert.ok(sk.v[0] < -4.2, `pushed fakie, vx=${sk.v[0].toFixed(2)}`);
+  assert.equal(sk.lastFlip, Math.PI);
+});

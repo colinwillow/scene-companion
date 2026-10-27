@@ -262,13 +262,24 @@ export class Skater extends Behavior {
     step:    { type: 'number', default: 0.4, min: 0, max: 2, step: 0.05 },    // m she can roll up onto (a kerb)
     groundY: { type: 'number', default: 0, min: -50, max: 50, step: 0.1 },
     killY:   { type: 'number', default: -20, min: -200, max: 0, step: 1 },
-    pushClip:{ type: 'string', default: '' },       // '' = the walk role (casual push); faster = the run role
-    rollClip:{ type: 'string', default: '' },       // '' = idle role
+    // the move brain — clip names default to the alien skater's (a missing clip falls back to the character's roles)
+    idleClip: { type: 'string', default: 'idle_normal' },             // standing still
+    rollClip: { type: 'string', default: 'idle_arms_behind_back' },   // rolling with the thumb off (her r158 roll pose)
+    pushClip: { type: 'string', default: 'blade_casual_forward' },    // pushing…
+    hardClip: { type: 'string', default: 'blade_hard_forward' },      // …and pushing fast
+    hardAt:   { type: 'number', default: 12, min: 0, max: 50, step: 0.5 },   // m/s where the push turns hard
+    rateRef:  { type: 'number', default: 9, min: 1, max: 40, step: 0.5 },    // m/s at which a push clip plays at 1×
+    airClip:  { type: 'string', default: 'in_air' },
+    backPush: { type: 'string', default: 'blade_casual_backward' },   // fakie (her backward clips face backwards: the model is turned for them)
+    backRoll: { type: 'string', default: 'idle_backward' },
+    backIdle: { type: 'string', default: 'idle_backward' },
+    idleBelow:{ type: 'number', default: 0.4, min: 0, max: 5, step: 0.05 },  // m/s: slower is standing
+    fakieAt:  { type: 'number', default: 1, min: 0, max: 5, step: 0.1 },     // m/s backwards that counts as fakie
   };
   start() {
     const o = this.entity.object3d, p = o.position;
     this.v = [0, 0, 0]; this.n = [0, 1, 0]; this.grounded = true; this.heading = yawOf(o); this.spawn = [p.x, p.y, p.z];
-    this.airT = 0; this.pushing = false; this.lift = 0;
+    this.airT = 0; this.pushing = false; this.lift = 0; this.along = 0; this.fakie = false;
   }
   onMoved() { const p = this.entity.object3d.position; this.spawn = [p.x, p.y, p.z]; this.v = [0, 0, 0]; }
   // the floor under (x, z) at or below `below`: { y, n } — Surfaces, Solid tops, the flat ground
@@ -308,8 +319,8 @@ export class Skater extends Behavior {
       // the edges: what is across the wheels is turned onto them, at most `grip` m/s² — the rest is a slide
       const g = P.grip * dt; lat = Math.abs(lat) <= g ? 0 : lat - Math.sign(lat) * g;
       // push / brake / roll
-      this.pushing = ahead > 0.35 && along > -0.5;
-      if (this.pushing && along < P.top) along = Math.min(P.top, along + P.push * ahead * dt);
+      this.pushing = ahead > 0.35;                       // pushing along the LEADING end — forward, or backwards in fakie
+      if (this.pushing) along = along < -0.5 ? Math.max(-P.top, along - P.push * ahead * dt) : Math.min(P.top, along + P.push * ahead * dt);
       if (ahead < -0.35) along *= Math.exp(-P.brake * -ahead * dt);
       along *= Math.exp(-P.roll * dt); lat *= Math.exp(-P.roll * dt);
       // rolling backwards up and back down a wall: she rides it fakie (heading stays; the clip follows later)
@@ -318,6 +329,7 @@ export class Skater extends Behavior {
       const f2l = Math.hypot(...F2) || 1; F2 = F2.map(c => c / f2l);
       const R2 = [F2[1] * n[2] - F2[2] * n[1], F2[2] * n[0] - F2[0] * n[2], F2[0] * n[1] - F2[1] * n[0]];
       for (let i = 0; i < 3; i++) v[i] = F2[i] * along + R2[i] * lat;
+      this.along = along;
       // move, then find the surface again
       const nx = p.x + v[0] * dt, ny = p.y + v[1] * dt, nz = p.z + v[2] * dt;
       const g2 = this.floor(nx, nz, Math.max(ny, p.y) + P.step);
@@ -363,17 +375,35 @@ export class Skater extends Behavior {
     }
     this.grounded = false; this.airT = 0; this.n = [0, 1, 0];
   }
+  // the move brain (her MOVES / girlAnimMoves, simplified): which clip, how fast, and which way the model faces
+  moves() {
+    const P = this.params, sp = Math.hypot(...this.v), a = this.entity.anim, has = c => c && a?.clips.includes(c);
+    const R = this.entity.roles, pick = (...cs) => cs.find(has) || '';
+    // fakie: rolling backwards past `fakieAt` (out of it again past +fakieAt — hysteresis, so a stop does not flicker)
+    if (this.grounded) { if (this.along < -P.fakieAt) this.fakie = true; else if (this.along > P.fakieAt) this.fakie = false; }
+    const back = this.fakie && has(P.backPush);   // only with backward clips; otherwise fakie plays the forward ones
+    let clip, rate = 1;
+    if (!this.grounded) clip = pick(P.airClip, roleClip('', 'jump', R));
+    else if (sp < P.idleBelow) clip = back ? pick(P.backIdle, P.idleClip) : pick(P.idleClip, roleClip('', 'idle', R));
+    else if (this.pushing) {
+      clip = back ? P.backPush : sp > P.hardAt ? pick(P.hardClip, roleClip('', 'run', R)) : pick(P.pushClip, roleClip('', 'walk', R));
+      rate = Math.max(0.55, Math.min(1.35, sp / P.rateRef));
+    } else clip = back ? pick(P.backRoll, P.backIdle, P.rollClip) : pick(P.rollClip, P.idleClip, roleClip('', 'idle', R));
+    // her backward clips are authored facing backwards: turn the model a half turn so her nose still leads
+    const flip = back && clip && /_backward$/.test(clip) ? Math.PI : 0;
+    return { clip, rate, flip };
+  }
   pose(dt) {
     const o = this.entity.object3d, n = this.grounded ? this.n : [0, 1, 0], Q = o.quaternion.constructor, V = o.position.constructor;
-    const tilt = new Q().setFromUnitVectors(new V(0, 1, 0), new V(n[0], n[1], n[2])), yaw = new Q().setFromAxisAngle(new V(0, 1, 0), this.heading);
+    const m = this.moves();
+    const tilt = new Q().setFromUnitVectors(new V(0, 1, 0), new V(n[0], n[1], n[2])), yaw = new Q().setFromAxisAngle(new V(0, 1, 0), this.heading + m.flip);
     const want = tilt.multiply(yaw);
-    o.quaternion.slerp(want, 1 - Math.exp(-(this.grounded ? 14 : 6) * dt));
-    const a = this.entity.anim; if (!a || this.entity.animHold > 0) return;
-    const R = this.entity.roles, sp = Math.hypot(...this.v), P = this.params;
-    const clip = !this.grounded ? roleClip('', 'jump', R)
-      : this.pushing ? (sp > P.top * 0.6 ? roleClip('', 'run', R) : roleClip(P.pushClip, 'walk', R))
-      : roleClip(P.rollClip, 'idle', R);
-    if (clip) a.play(clip, { fade: 0.2 });
+    const snap = m.flip !== (this.lastFlip ?? 0); this.lastFlip = m.flip;
+    if (snap) o.quaternion.copy(want); else o.quaternion.slerp(want, 1 - Math.exp(-(this.grounded ? 14 : 6) * dt));
+    const a = this.entity.anim; if (!a || this.entity.animHold > 0 || !m.clip) return;
+    a.play(m.clip, { fade: 0.2 });
+    a.action?.()?.setEffectiveTimeScale?.(m.rate);
+    this.clip = m.clip;
   }
 }
 
