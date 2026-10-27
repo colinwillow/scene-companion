@@ -161,6 +161,15 @@
                 "bone": "weapon_root_right",
                 "unit": 0.01321
               }
+            },
+            {
+              "type": "Emitter",
+              "params": {
+                "preset": "glow",
+                "rate": 30,
+                "while": "player:Blaster.charging",
+                "scale": 0.5
+              }
             }
           ]
         }

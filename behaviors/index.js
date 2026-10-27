@@ -1291,7 +1291,15 @@ export class Emitter extends Behavior {
     rate:   { type: 'number', default: 0, min: 0, max: 200, step: 1 },           // per second, for a stream (`on` '')
     height: { type: 'number', default: 0, min: -5, max: 20, step: 0.1 },          // m up from the entity, when it is the source
     color:  { type: 'string', default: '' },                                       // '' = the preset's
+    while:  { type: 'string', default: '' },   // stream only while this is true: "Behavior.prop" on this entity, or "entity:Behavior.prop" (Skater.grind, player:Blaster.charging)
   };
+  // the `while` condition: a behavior's property, here or on another entity
+  active() {
+    const w = this.params.while; if (!w) return true;
+    const [eid, path] = w.includes(':') ? w.split(':') : [null, w], [cls, prop] = path.split('.');
+    const e = eid ? this.world.getEntity?.(eid) : this.entity, b = e?.behaviors?.find(x => x.constructor.name === cls);
+    return !!(b && b[prop]);
+  }
   start() {
     const P = this.params; this.acc = 0;
     if (P.on) this.world.on?.(P.on, (...a) => { if (!P.mine || a[0] === this.entity.id || typeof a[0] !== 'string') this.emit(eventPos(a), P.count || undefined); });
@@ -1300,6 +1308,7 @@ export class Emitter extends Behavior {
   emit(at, count) { const P = this.params; at = at || this.here(); if (at) this.world.emit('fx', { preset: P.preset, at, count, scale: P.scale, color: P.color || null }); }
   update(dt) {
     const P = this.params; if (P.on || !P.rate) return;
+    if (!this.active()) { this.acc = 0; return; }
     this.acc += P.rate * dt; const n = Math.floor(this.acc);
     if (n > 0) { this.acc -= n; this.emit(null, n); }
   }

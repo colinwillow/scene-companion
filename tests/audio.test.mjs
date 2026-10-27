@@ -60,3 +60,13 @@ test('Trail: samples a bone after animation, only while it moves fast enough, st
   root.position.x += 20 / 60; root.updateMatrixWorld(true); t.lateUpdate(1 / 60);
   assert.equal(sent.length, 1); assert.equal(sent[0].key, 'sk:toe'); assert.equal(sent[0].strength, 1);
 });
+
+test('Emitter.while: a stream only while a behavior property is true, here or on another entity', async () => {
+  const { Emitter } = await import('../behaviors/index.js');
+  class Blaster { constructor() { this.charging = false; } }
+  const player = { id: 'player', behaviors: [new Blaster()] }, sent = [];
+  const world = { emit: (n, r) => sent.push(r), getEntity: id => (id === 'player' ? player : null) };
+  const e = new Emitter({ id: 'gun', object3d: { position: { x: 0, y: 1, z: 0 } } }, { preset: 'glow', rate: 30, while: 'player:Blaster.charging' }, world); e.start();
+  for (let i = 0; i < 30; i++) e.update(1 / 60); assert.equal(sent.length, 0);
+  player.behaviors[0].charging = true; for (let i = 0; i < 30; i++) e.update(1 / 60); assert.ok(sent.length > 10);
+});

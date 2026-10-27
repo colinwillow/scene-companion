@@ -1,10 +1,34 @@
 {
   "asset": {
     "variants": {
-      "web": { "primitive": "sphere", "size": [1, 1, 1], "color": "#bff8ff", "emissive": "#38d6ff", "roughness": 0.3, "castShadow": false }
+      "web": {
+        "primitive": "sphere",
+        "size": [
+          1,
+          1,
+          1
+        ],
+        "color": "#bff8ff",
+        "emissive": "#38d6ff",
+        "roughness": 0.3,
+        "castShadow": false
+      }
     }
   },
   "behaviors": [
-    { "type": "Projectile" }
+    {
+      "type": "Projectile"
+    },
+    {
+      "type": "Trail",
+      "params": {
+        "bones": "",
+        "width": 0.35,
+        "life": 0.12,
+        "color": "#7fe9ff",
+        "minSpeed": 0,
+        "fullSpeed": 20
+      }
+    }
   ]
 }

@@ -297,6 +297,16 @@
             "minSpeed": 8,
             "fullSpeed": 16
           }
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "sparks",
+            "rate": 40,
+            "count": 0,
+            "while": "Skater.grind",
+            "scale": 0.7
+          }
         }
       ]
     },

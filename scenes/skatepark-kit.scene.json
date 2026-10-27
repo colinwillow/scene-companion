@@ -119,6 +119,16 @@
         },
         {
           "type": "Trail"
+        },
+        {
+          "type": "Emitter",
+          "params": {
+            "preset": "sparks",
+            "rate": 40,
+            "count": 0,
+            "while": "Skater.grind",
+            "scale": 0.7
+          }
         }
       ]
     },
