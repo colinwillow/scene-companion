@@ -36,3 +36,11 @@ No editor open? The MCP server starts the dev server if needed and opens a headl
 **Finish-line test:** `scenes/sky-steps.scene.json` (play it at `play.html?scene=./scenes/sky-steps.scene.json`) was built entirely through MCP calls — replay them with `node tools/mcp-replay.mjs tests/finish-line/sky-steps.calls.json` (delete the scene file first; ~4 min headless).
 
 Edits go through `runtime/commands.js` (schema-checked, all-or-nothing), are undoable in the editor, and stream to running games over the live link. `save_scene` writes the scene file into `scenes/`; run `npm run check` and commit after.
+
+## Blender bridge
+1. In Blender: Edit › Preferences › Add-ons › Install from Disk… › `tools/blender/scene_companion_bridge.py`, tick it.
+2. Run `npm run dev`. In Blender's 3D View sidebar (N) › **Scene Companion**, set the server (default `http://localhost:8080`; use the dev computer's LAN address if Blender runs elsewhere) and press **Start**.
+3. In the editor (opened from the dev server), select an object with a model › **→ Blender**. It opens in Blender in a collection `SC <id>`.
+4. Edit it, press **Send Back** next to its name. The GLB is saved as `assets/models/bridge/<id>-<n>.glb` and the object switches to it in the editor (same id, transform, behaviors; undoable) and in live games. Save the scene and commit the new GLB.
+
+Draco on Send Back is on by default. The add-on only talks HTTP to the dev server (`/bridge/send|inbox|return|status`), so it works with the editor on a phone too.

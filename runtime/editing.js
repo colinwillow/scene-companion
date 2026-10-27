@@ -52,3 +52,21 @@ export function setAsset(data, id, assetKey) {
   e.asset = assetKey;
   return true;
 }
+
+// Which GLB an entity shows (web variant), for "Send to Blender". assetDef: its asset, resolved (prefab merged,
+// scene asset key looked up). → path or null
+export function modelPath(assetDef) {
+  const v = assetDef?.variants ? assetDef.variants.web : assetDef;
+  return typeof v?.glb === 'string' ? v.glb : null;
+}
+
+// Blender bridge "Send Back": point one entity at the edited GLB. Keeps its id, transform, behaviors and the web
+// variant's size settings (height/scale/offset/frontSide); other tiers' variants are dropped since they'd still
+// show the old model. Becomes an inline asset on this entity only (an override on prefab instances).
+export function replaceModel(data, id, glb, assetDef) {
+  const e = data.entities.find(x => x.id === id);
+  if (!e || !modelPath(assetDef)) return false;
+  const web = structuredClone(assetDef.variants ? assetDef.variants.web : assetDef);
+  e.asset = { variants: { web: { ...web, glb } } };
+  return true;
+}

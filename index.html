@@ -98,7 +98,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel } from './runtime/editing.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
 import { createPost } from './runtime/post.js';
@@ -188,7 +188,7 @@ function select(id) {
   sendSelect?.();
   if (id && sheet === 0) setSheet(1);              // peeking sheet opens to show the inspector
   const ent = world.getEntity(id);
-  if (ent && !ent.data.light && !playing) gizmo.attach(ent.object3d); else gizmo.detach();
+  if (ent && !ent.data.light && !playing) gizmo?.attach(ent.object3d); else gizmo?.detach();   // gizmo is made at the end of the first rebuild
   renderPanel();
   renderTree();
 }
@@ -259,6 +259,8 @@ function control(def, value, onChange) {
   return row;
 }
 
+// The asset an entity shows: prefab merged, scene asset key looked up.
+const assetOf = ent => (typeof ent.resolved.asset === 'object' ? ent.resolved.asset : data.assets?.[ent.resolved.asset]);
 function renderPanel() {
   const panel = $('panelBody');
   const ent = world?.getEntity(selectedId);
@@ -268,9 +270,19 @@ function renderPanel() {
   panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div><div class="hint" id="liveIn"></div>`;
   if (!playing) {
     const acts = document.createElement('div'); acts.className = 'acts';
-    acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>`;
+    const glb = modelPath(assetOf(ent));
+    acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
+      (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on); Send Back replaces it here">→ Blender</button>` : '');
     acts.onclick = async ev => {
       const a = ev.target.dataset.a; if (!a) return;
+      if (a === 'blender') {
+        try {
+          const r = await (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify({ id: e.id, glb, scene: SCENE_URL }) })).json();
+          if (r.error) throw new Error(r.error);
+          ev.target.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
+        } catch (err) { showErr('Send to Blender: ' + err.message); }
+        setTimeout(() => (ev.target.textContent = '→ Blender'), 3000);
+      }
       if (a === 'dup') { record(); const c = duplicateEntity(data, e.id); await rebuild(); select(c.id); }
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await rebuild(); renderPanel(); }
     };
@@ -392,13 +404,14 @@ $('push').onclick = async () => {
 function flashLive() { const b = $('liveBadge'); b.classList.add('flash'); clearTimeout(flashLive.t); flashLive.t = setTimeout(() => b.classList.remove('flash'), 300); }
 // ---- live link: when served by `npm run dev`, every edit is sent to running games (play.html) to hot-patch,
 // the selection is shown in the game, and games report back FPS, errors and the selected object's live position.
-var sendSelect;
+var sendSelect, liveOn = () => false;
 {
   let ws, lastSent = '', gameErrors = 0, stale;
   sendSelect = () => { if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'select', url: SCENE_URL, id: selectedId })); };
+  liveOn = () => ws?.readyState === 1;
   const connect = () => {
     try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live`); } catch { return; }
-    ws.onopen = () => { lastSent = ''; $('play').title = 'Live link on'; $('liveBadge').hidden = false; $('liveBadge').textContent = describeState(null); sendSelect(); };
+    ws.onopen = () => { renderPanel(); lastSent = ''; $('play').title = 'Live link on'; $('liveBadge').hidden = false; $('liveBadge').textContent = describeState(null); sendSelect(); };
     ws.onclose = () => { $('liveBadge').hidden = true; setTimeout(connect, 3000); };
     ws.onmessage = ev => {
       let s; try { s = JSON.parse(ev.data); } catch { return; }
@@ -406,6 +419,13 @@ var sendSelect;
         editorCommand(s.op, s.args || {}).then(
           r => ws.send(JSON.stringify({ type: 'cmd-result', id: s.id, ok: true, ...r })),
           e => ws.send(JSON.stringify({ type: 'cmd-result', id: s.id, ok: false, error: e.message })));
+        return;
+      }
+      if (s.type === 'bridge-return' && (!s.scene || sameScene(s.scene, SCENE_URL))) {   // edited model back from Blender
+        const ent = world.getEntity(s.id);
+        if (!ent || playing) { showErr(`Blender sent back ${s.id} but ${playing ? 'the scene is playing — stop and send again' : 'it is not in this scene'}`); return; }
+        record();
+        if (replaceModel(data, s.id, s.glb, assetOf(ent))) rebuild().then(() => { select(s.id); fillAdd(); });
         return;
       }
       if (s.type === 'pick' && sameScene(s.url, SCENE_URL)) {                     // tapped in a running game

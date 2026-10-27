@@ -52,7 +52,9 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Editor ＋Add menu lists every prefab — new "More prefabs" group from `prefabs/index.json` (kept current by `npm run validate`, test checks it); picking one adds it to the scene's prefabs (undoable). Checked headless: bench added to Sky Steps, no errors
 
 ## Later
-- [ ] [IN PROGRESS 03:04 UTC] Blender bridge add-on (send object to Blender and back)
+- [x] Blender bridge add-on v0 — `tools/blender/scene_companion_bridge.py` (sidebar panel: server, Start/Stop, Send Back per model, Draco toggle) polls the dev server's new `/bridge/*` routes over plain HTTP; editor inspector **→ Blender** (when live); Send Back saves `assets/models/bridge/<id>-<n>.glb` and the editor swaps that one entity to it (pure `replaceModel()`, undoable, keeps height/frontSide). Tests for routes + swap. Checked end to end headless with Blender 5.0 (bpy): kitchen-sink robot → Blender → widened → back → editor shows it, no errors. Not tried in real Blender UI
+- [ ] Blender bridge: MCP tool `send_to_blender` / `blender_status`, and a "Blender connected" dot in the editor
+- [ ] Blender bridge: send a whole prefab (update `prefabs/<name>.prefab.json` so every instance gets the edit) as an option next to the per-object swap
 - [ ] Libraries panel (characters, motions, sounds, props)
 - [ ] Generator plug-ins (image→3D, image gen)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
