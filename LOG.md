@@ -33,3 +33,4 @@
 - 2026-10-27 — Route bot in CI-lite — npm run check:full (check + route bot per scene, summary), settings.routeKnownIssue for Tiny Hop's guard; Sky Steps ✓, Tiny Hop ⚠; 86 tests (build run)
 - 2026-10-27 — save_scene drops unused prefabs — sceneForSave(), new_scene drops template route; Sky Steps warnings gone, route still ✓; 87 tests (build run)
 - 2026-10-27 — spawn any prefab from prefabs/ — ctx.library in commands.js, editor fetch-on-demand, list_library morePrefabs; 88 tests; headless mcp-replay ✓ (build run)
+- 2026-10-27 — Add menu lists every prefab — prefabs/index.json (validate keeps it current), More prefabs group; 88 tests; headless ✓ (build run)

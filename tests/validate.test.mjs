@@ -76,9 +76,12 @@ test('behaviors and the pure runtime files import nothing from three or the DOM'
   }
 });
 
-test('every prefab file is valid JSON with an asset', () => {
-  for (const f of readdirSync(join(root, 'prefabs'))) {
+test('every prefab file is valid JSON with an asset, and prefabs/index.json lists them all', () => {
+  const files = readdirSync(join(root, 'prefabs')).filter(f => f.endsWith('.prefab.json'));
+  for (const f of files) {
     const p = JSON.parse(readFileSync(join(root, 'prefabs', f), 'utf8'));
     assert.ok(p.asset, `${f} has an asset`);
   }
+  const index = JSON.parse(readFileSync(join(root, 'prefabs', 'index.json'), 'utf8'));
+  assert.deepEqual(index, files.map(f => f.replace('.prefab.json', '')).sort(), 'run npm run validate to refresh prefabs/index.json');
 });

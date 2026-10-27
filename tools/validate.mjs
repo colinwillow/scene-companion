@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Checks scene files against the rules in SKILL.md.
 // Usage: node tools/validate.mjs [scenes/*.scene.json ...]   (defaults to every scene in scenes/)
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import { findHardcoded, findSpawnedMeshes } from './codecheck.mjs';
@@ -99,6 +99,17 @@ for (const f of files) {
   if (known !== undefined && (typeof known !== 'string' || !known.trim())) err(f, 'settings.routeKnownIssue must be a short reason (string)');
   if (known && !scene.settings?.route?.length) warn(f, 'settings.routeKnownIssue without a settings.route');
   if (errors === errorsBefore) console.log(`✓ ${f} — ${ids.size} entities`);
+}
+
+// prefabs/index.json lists every prefab file, so the editor's ＋Add menu can offer them (it can't list a folder).
+// Kept up to date here, so adding a prefab file and running validate is enough.
+{
+  const names = readdirSync('prefabs').filter(n => n.endsWith('.prefab.json')).map(n => n.slice(0, -'.prefab.json'.length)).sort();
+  const text = JSON.stringify(names, null, 1) + '\n';
+  if (!existsSync('prefabs/index.json') || readFileSync('prefabs/index.json', 'utf8') !== text) {
+    writeFileSync('prefabs/index.json', text);
+    console.log(`✎ prefabs/index.json updated (${names.length} prefabs) — commit it`);
+  }
 }
 
 // No hardcoded placement in code: behaviors, plus game pages/scripts at the root and in games/.

@@ -498,11 +498,15 @@ addEventListener('keydown', e => {
   if (k === 'z') { e.preventDefault(); travel(e.shiftKey ? 1 : -1); }
   else if (k === 'y') { e.preventDefault(); travel(1); }
 });
-// Add: any prefab or scene asset, dropped where the camera is looking (on the floor).
+// Add: any prefab (the scene's, or any in prefabs/ via prefabs/index.json) or scene asset, dropped where the camera
+// is looking (on the floor). Picking a prefab the scene doesn't list adds it to the scene's prefabs.
+let prefabLibrary = [];
+fetch('./prefabs/index.json').then(r => (r.ok ? r.json() : [])).then(names => { prefabLibrary = Array.isArray(names) ? names : []; fillAdd(); }).catch(() => {});
 function fillAdd() {
-  const pf = Object.keys(data.prefabs || {}), as = Object.keys(data.assets || {});
+  const pf = Object.keys(data.prefabs || {}), more = prefabLibrary.filter(n => !pf.includes(n)), as = Object.keys(data.assets || {});
   $('add').innerHTML = `<option value="">＋ Add</option>` +
     (pf.length ? `<optgroup label="Prefabs">${pf.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
+    (more.length ? `<optgroup label="More prefabs">${more.map(n => `<option value="prefab:${n}">${n}</option>`).join('')}</optgroup>` : '') +
     (as.length ? `<optgroup label="Models">${as.map(n => `<option value="asset:${n}">${n}</option>`).join('')}</optgroup>` : '');
 }
 fillAdd();
@@ -512,8 +516,9 @@ $('add').onchange = async () => {
   if (playing) return;                                 // adding is an edit-mode thing
   const t = orbit.target;
   record();
+  if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
   const e = addEntity(data, { [kind]: name }, [t.x, 0, t.z]);
-  await rebuild(); select(e.id);
+  await rebuild(); select(e.id); fillAdd();
 };
 $('save').onclick = async () => {
   const json = JSON.stringify(data, null, 2);
