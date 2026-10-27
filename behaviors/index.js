@@ -3,6 +3,8 @@ import { registerBehavior } from '../runtime/registry.js';
 import { WHEN, compare } from '../runtime/reactions.js';
 import { Behavior } from '../runtime/Behavior.js';
 import { roleClip } from '../runtime/character.js';
+import { topAt, walkShape } from '../runtime/collide.js';
+export { topAt };
 
 export class Spin extends Behavior {
   static schema = {
@@ -159,7 +161,7 @@ export class Animator extends Behavior {
 
 // ---- Platformer kit: our own tiny collider (axis-aligned boxes), no physics library needed.
 
-// A box other things can stand on and bump into. Axis-aligned (rotation is ignored).
+// A box other things can stand on and bump into. Axis-aligned unless `rotated`; `shape` sphere / capsule makes it round.
 // anchor "bottom" = the entity's origin is the box's bottom centre (Kenney models), "center" = primitives.
 export class Solid extends Behavior {
   static schema = {
@@ -167,7 +169,7 @@ export class Solid extends Behavior {
     anchor: { type: 'string', default: 'bottom' },        // bottom | center
     slope:  { type: 'boolean', default: false },          // a ramp: the top rises from nothing to size.y along the model's +x
     shape:  { type: 'string', default: 'box' },           // box | sphere | capsule — what raycasts/sweeps see (runtime/collide.js)
-    rotated: { type: 'boolean', default: false },         // queries follow the entity's yaw (walking still uses the upright box)
+    rotated: { type: 'boolean', default: false },         // follow the entity's yaw (a turned box), for walking and queries
     layer:  { type: 'string', default: 'default' },       // collision layer: queries can ask for some layers only
   };
   start() { (this.world.solids ||= []).push(this); }
@@ -185,13 +187,6 @@ export class Solid extends Behavior {
   }
 }
 
-// Height of a solid's top at (x, z): maxY for boxes, along the incline for ramps.
-export function topAt(b, x, z) {
-  if (!b.slope) return b.maxY;
-  const c = (v, lo, hi) => Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
-  const t = { '+x': c(x, b.minX, b.maxX), '-x': 1 - c(x, b.minX, b.maxX), '+z': c(z, b.minZ, b.maxZ), '-z': 1 - c(z, b.minZ, b.maxZ) }[b.slope];
-  return b.minY + t * (b.maxY - b.minY);
-}
 const STEP_UP = 0.35;   // m: walk up ramps and small steps without jumping; stick to ramps on the way down
 
 // Third-person platformer movement. Reads world.input = { move: [x, z] (world space, length ≤ 1), jump: bool }.
@@ -243,11 +238,11 @@ export class PlayerController extends Behavior {
     if (this.dead || dt <= 0) return;
     const P = this.params, p = this.entity.object3d.position, o = this.entity.object3d;
     const input = this.world.input || {}, move = input.move || [0, 0];
-    const all = this.world.solids || [], solids = all.map(s => s.box());
+    const all = this.world.solids || [], solids = all.map(walkShape);   // boxes, ramps, turned boxes, spheres, capsules
     // Ride moving platforms: move with whatever we stood on last frame by however much it moved since.
     if (this.ride && this.grounded) {
       const i = all.indexOf(this.ride.solid);
-      if (i >= 0) { const b = solids[i]; p.x += b.minX - this.ride.x; p.y += b.maxY - this.ride.y; p.z += b.minZ - this.ride.z; }
+      if (i >= 0) { const [rx, ry, rz] = solids[i].ref; p.x += rx - this.ride.x; p.y += ry - this.ride.y; p.z += rz - this.ride.z; }
     }
     this.ride = null;
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
@@ -259,16 +254,14 @@ export class PlayerController extends Behavior {
     p.z += move[1] * P.speed * ms * dt;
     if (Math.hypot(move[0], move[1]) > 0.05) o.rotation.y = Math.atan2(move[0], move[1]);
     for (const b of solids) {
-      if (p.y >= (b.slope ? topAt(b, p.x, p.z) - STEP_UP : b.maxY - 0.05) || p.y + P.height <= b.minY) continue;      // above or below it (on a ramp: walk up it)
-      const cx = Math.max(b.minX, Math.min(p.x, b.maxX)), cz = Math.max(b.minZ, Math.min(p.z, b.maxZ));
+      if (p.y + P.height <= b.minY) continue;                               // below it
+      const { cx, cz, inside } = b.near(p.x, p.z);
+      // above it? (a ramp or a curved top: walk up it, STEP_UP at a time)
+      if (p.y >= (inside ? b.top(p.x, p.z) : b.top(cx, cz)) - (b.sloped ? STEP_UP : 0.05)) continue;
       const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
-      if (d >= P.radius) continue;
-      if (d > 1e-6) { p.x = cx + (dx / d) * P.radius; p.z = cz + (dz / d) * P.radius; }
-      else {                                                                // centre inside: shortest way out
-        const pushes = [[b.minX - P.radius - p.x, 0], [b.maxX + P.radius - p.x, 0], [0, b.minZ - P.radius - p.z], [0, b.maxZ + P.radius - p.z]];
-        const [ox, oz] = pushes.sort((a, c) => Math.hypot(...a) - Math.hypot(...c))[0];
-        p.x += ox; p.z += oz;
-      }
+      if (!inside && d >= P.radius) continue;
+      if (!inside && d > 1e-6) { p.x = cx + (dx / d) * P.radius; p.z = cz + (dz / d) * P.radius; }
+      else { const [ox, oz] = b.out(p.x, p.z, P.radius); p.x += ox; p.z += oz; }   // centre inside: shortest way out
     }
 
     // Jump (buffered a little so an early tap still counts), with coyote time.
@@ -290,17 +283,17 @@ export class PlayerController extends Behavior {
     const ny = p.y + this.vy * dt;
     let support = P.groundY, supportIdx = -1;
     solids.forEach((b, i) => {
-      const top = topAt(b, p.x, p.z);
-      if (top <= p.y + (b.slope ? STEP_UP : 0.05) && top > support && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { support = top; supportIdx = i; }
+      const top = b.topNear(p.x, p.z, P.radius * 0.9);
+      if (top <= p.y + (b.sloped ? STEP_UP : 0.05) && top > support) { support = top; supportIdx = i; }
     });
     if (this.vy > 0) for (const b of solids) {
-      if (b.minY >= p.y + P.height - 0.01 && b.minY < ny + P.height && this.overlapsXZ(b, p.x, p.z, P.radius * 0.9)) { this.vy = 0; break; }
+      if (b.minY >= p.y + P.height - 0.01 && b.minY < ny + P.height && b.topNear(p.x, p.z, P.radius * 0.9) > -Infinity) { this.vy = 0; break; }
     }
-    const onRamp = supportIdx >= 0 && solids[supportIdx].slope;
+    const onRamp = supportIdx >= 0 && solids[supportIdx].sloped;
     if ((ny <= support || (onRamp && this.grounded && p.y - support < STEP_UP)) && this.vy <= 0) {   // ramps: stay stuck to the slope going down
       if (!this.grounded && this.airTime > 0.15) this.world.emit('land');
       p.y = support; this.vy = 0; this.grounded = true; this.airTime = 0; this.airJumpCount = 0;
-      if (supportIdx >= 0) { const b = solids[supportIdx]; this.ride = { solid: all[supportIdx], x: b.minX, y: b.maxY, z: b.minZ }; }
+      if (supportIdx >= 0) { const [x, y, z] = solids[supportIdx].ref; this.ride = { solid: all[supportIdx], x, y, z }; }
     }
     else { p.y = this.vy === 0 && !this.grounded ? p.y : ny; this.grounded = false; this.airTime = (this.airTime || 0) + dt; }
 

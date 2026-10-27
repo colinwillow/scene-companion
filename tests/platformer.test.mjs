@@ -200,3 +200,48 @@ test('ramps: walk up a slope without jumping, stay on it going down, turned ramp
   ramp.object3d.rotation.y = Math.PI / 2;                                // now rises toward -z, footprint swapped
   assert.equal(w.solids[0].box().slope, '-z');
 });
+
+// ---- walking against turned boxes, spheres and capsules (runtime/collide.js walkShape)
+function shaped(params, pos = [3, 0, 0], yaw = 0, pcParams = {}) {
+  const r = setup({ params: pcParams });
+  const e = fakeEntity('thing', pos); e.object3d.rotation.y = yaw;
+  attach(Solid, e, params, r.w);
+  return r;
+}
+
+test('a turned box blocks along its turned face, not its old axis-aligned one', () => {
+  // 1 m thick, 4 m long along z; turned 90° it runs along x (x 1..5) — walking +x meets its end at x=1
+  const { w, pc, p } = shaped({ size: [1, 2, 4], rotated: true }, [3, 0, 0], Math.PI / 2);
+  w.input.move = [1, 0]; run(pc, 120);
+  assert.ok(Math.abs(p.x - (1 - 0.35)) < 1e-6, `stopped by the turned end, x=${p.x}`);
+  const { w: w2, pc: pc2, p: p2 } = shaped({ size: [1, 2, 4] }, [3, 0, 0], Math.PI / 2);   // not rotated: the upright box (x 2.5..3.5)
+  w2.input.move = [1, 0]; run(pc2, 120);
+  assert.ok(Math.abs(p2.x - (2.5 - 0.35)) < 1e-6, `upright box, x=${p2.x}`);
+  const d = shaped({ size: [1, 2, 4], rotated: true }, [3, 0, 0], Math.PI / 4);   // 45°: slides along the diagonal face
+  d.w.input.move = [1, 0]; run(d.pc, 30);
+  assert.ok(Math.abs(d.p.z) > 0.05 && d.p.x < 2.6, `deflected along the face, z=${d.p.z.toFixed(3)}`);
+});
+
+test('a turned box can be stood on', () => {
+  const { pc, p } = shaped({ size: [2, 1, 2], rotated: true }, [0, 0, 0], 0.6);
+  p.y = 1.5; run(pc, 60);
+  assert.ok(Math.abs(p.y - 1) < 1e-6 && pc.grounded, `y=${p.y}`);
+});
+
+test('a sphere: blocks from the side, can be stood on its top', () => {
+  const { w, pc, p } = shaped({ size: [2, 2, 2], shape: 'sphere', anchor: 'center' }, [3, 1, 0]);   // R 1, centre y 1
+  w.input.move = [1, 0]; run(pc, 120);
+  assert.ok(p.x <= 2 - 0.35 + 1e-3 && p.x > 1.5, `stopped at the sphere, x=${p.x.toFixed(3)}`);
+  const s = shaped({ size: [2, 2, 2], shape: 'sphere', anchor: 'center' }, [0, 1, 0]);
+  s.p.y = 2.5; run(s.pc, 60);
+  assert.ok(Math.abs(s.p.y - 2) < 1e-6 && s.pc.grounded, `on top, y=${s.p.y}`);
+});
+
+test('a capsule (a pillar) blocks with a round side', () => {
+  const { w, pc, p } = shaped({ size: [1, 4, 1], shape: 'capsule' }, [3, 0, 0.3]);   // R 0.5, a little off the walking line
+  w.input.move = [1, 0];
+  let closest = Infinity;
+  for (let i = 0; i < 120; i++) { pc.update(1 / 60); closest = Math.min(closest, Math.hypot(p.x - 3, p.z - 0.3)); }
+  assert.ok(closest > 0.85 - 1e-3 && closest < 0.9, `kept at its radius + mine, closest ${closest.toFixed(3)}`);
+  assert.ok(p.z < -0.1 && p.x > 3, `slid round it, ended at ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+});

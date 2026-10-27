@@ -149,3 +149,51 @@ export function lineClear(solids, a, b, opts = {}) {
   const d = sub(b, a), dist = len(d); if (dist < 1e-6) return true;
   return !raycast(solids, a, d, { ...opts, maxDist: dist - 1e-4 });
 }
+
+// ---- walking (PlayerController): what a body standing at (x, z) sees of a solid, for every shape.
+// Height of a box/ramp's top at (x, z): maxY for boxes, along the incline for ramps.
+export function topAt(b, x, z) {
+  if (!b.slope) return b.maxY;
+  const c = (v, lo, hi) => Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
+  const t = { '+x': c(x, b.minX, b.maxX), '-x': 1 - c(x, b.minX, b.maxX), '+z': c(z, b.minZ, b.maxZ), '-z': 1 - c(z, b.minZ, b.maxZ) }[b.slope];
+  return b.minY + t * (b.maxY - b.minY);
+}
+
+// → { minY, maxY, sloped, ref, near(x, z), out(x, z, r), top(x, z), topNear(x, z, r) }
+//   near: the closest point of the footprint (plan view) and whether (x, z) is inside it
+//   out:  for a point inside, the shortest move that puts a circle of radius r just outside
+//   top:  the surface height at a point inside the footprint; topNear: the highest surface under a circle (−∞: none)
+//   sloped: walkable curve or incline — stepped up onto (STEP_UP) instead of blocking like a box's side
+//   ref: a point that moves with the solid (riding moving platforms)
+export function walkShape(solid) {
+  const s = shapeOf(solid);
+  if (s.kind === 'box' || s.kind === 'ramp') {
+    const b = s.box, R = b.slope ? b : null;
+    const inFoot = (x, z, r) => { const cx = Math.max(b.minX, Math.min(x, b.maxX)), cz = Math.max(b.minZ, Math.min(z, b.maxZ)); return (x - cx) ** 2 + (z - cz) ** 2 < r * r; };
+    return { minY: b.minY, maxY: b.maxY, sloped: !!R, ref: [b.minX, b.maxY, b.minZ], box: b,
+      near: (x, z) => { const cx = Math.max(b.minX, Math.min(x, b.maxX)), cz = Math.max(b.minZ, Math.min(z, b.maxZ)); return { cx, cz, inside: cx === x && cz === z }; },
+      out: (x, z, r) => [[b.minX - r - x, 0], [b.maxX + r - x, 0], [0, b.minZ - r - z], [0, b.maxZ + r - z]].sort((p, q) => Math.hypot(...p) - Math.hypot(...q))[0],
+      top: (x, z) => topAt(b, x, z),
+      topNear: (x, z, r) => inFoot(x, z, r) ? topAt(b, x, z) : -Infinity };
+  }
+  if (s.kind === 'obb') {
+    const [hx, hy, hz] = s.half, C = Math.cos(s.yaw), S = Math.sin(s.yaw);
+    const toL = (x, z) => { const dx = x - s.c[0], dz = z - s.c[2]; return [C * dx - S * dz, S * dx + C * dz]; };   // world → box frame
+    const toW = (lx, lz) => [s.c[0] + C * lx + S * lz, s.c[2] - S * lx + C * lz];
+    const maxY = s.c[1] + hy;
+    return { minY: s.c[1] - hy, maxY, sloped: false, ref: [s.c[0], maxY, s.c[2]],
+      near: (x, z) => { const [lx, lz] = toL(x, z), cx = Math.max(-hx, Math.min(lx, hx)), cz = Math.max(-hz, Math.min(lz, hz)); const [wx, wz] = toW(cx, cz); return { cx: wx, cz: wz, inside: cx === lx && cz === lz }; },
+      out: (x, z, r) => { const [lx, lz] = toL(x, z); const [ox, oz] = [[-hx - r - lx, 0], [hx + r - lx, 0], [0, -hz - r - lz], [0, hz + r - lz]].sort((p, q) => Math.hypot(...p) - Math.hypot(...q))[0]; return [C * ox + S * oz, -S * ox + C * oz]; },
+      top: () => maxY,
+      topNear: (x, z, r) => { const [lx, lz] = toL(x, z), cx = Math.max(-hx, Math.min(lx, hx)), cz = Math.max(-hz, Math.min(lz, hz)); return (lx - cx) ** 2 + (lz - cz) ** 2 < r * r ? maxY : -Infinity; } };
+  }
+  // sphere and (vertical) capsule: a round footprint of radius R; the top is a dome over the centre / upper cap
+  const R = s.r, cx0 = s.kind === 'sphere' ? s.c[0] : s.a[0], cz0 = s.kind === 'sphere' ? s.c[2] : s.a[2];
+  const capY = s.kind === 'sphere' ? s.c[1] : s.b[1], minY = (s.kind === 'sphere' ? s.c[1] : s.a[1]) - R;
+  const dome = d => d < R ? capY + Math.sqrt(R * R - d * d) : -Infinity;
+  return { minY, maxY: capY + R, sloped: true, ref: [cx0, capY + R, cz0],
+    near: (x, z) => { const dx = x - cx0, dz = z - cz0, d = Math.hypot(dx, dz); return d < R ? { cx: x, cz: z, inside: true } : { cx: cx0 + dx / d * R, cz: cz0 + dz / d * R, inside: false }; },
+    out: (x, z, r) => { const dx = x - cx0, dz = z - cz0, d = Math.hypot(dx, dz) || 1e-9, k = (R + r) / d - 1; return d < 1e-6 ? [R + r, 0] : [dx * k, dz * k]; },
+    top: (x, z) => Math.max(dome(Math.hypot(x - cx0, z - cz0)), capY),
+    topNear: (x, z, r) => dome(Math.max(0, Math.hypot(x - cx0, z - cz0) - r)) };
+}
