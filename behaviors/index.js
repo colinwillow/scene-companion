@@ -364,18 +364,73 @@ export class Stompable extends Behavior {
     const feet = q.y, top = p.y + P.height, bodyH = t.behaviors?.find(b => b instanceof PlayerController)?.params.height ?? 1.75;
     if (feet > top + 0.2 || feet + bodyH < p.y) return;                       // no vertical overlap
     const falling = (t.behaviors?.find(b => b instanceof PlayerController)?.vy ?? 0) < 0;
-    if (falling && feet > p.y + P.height * 0.5) {
-      this.defeated = this.entity.defeated = true;   // entity.defeated stands Chase + Animator down
-      const anim = this.entity.anim;
-      const defeat = roleClip(P.defeatClip, 'death', this.entity.roles);
-      if (defeat && anim?.clips.includes(defeat)) { anim.play(defeat, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
-      else this.entity.object3d.visible = false;
-      if (P.hitStop > 0) this.world.time?.hitStop(P.hitStop);
-      if (P.slowMo > 0) this.world.time?.slowMo(P.slowMoScale, P.slowMo);
-      this.world.emit('stomp', this.entity.id);
-      this.world.emit('score', P.points);
-      this.world.emit('bounce', 0.7);
-    } else this.world.emit('hurt', P.damage);
+    if (falling && feet > p.y + P.height * 0.5) { this.defeat(); this.world.emit('bounce', 0.7); }
+    else this.world.emit('hurt', P.damage);
+  }
+  // Knocked down: by a stomp, or struck by a Melee ('struck' event). Plays the death role, then vanishes.
+  defeat() {
+    if (this.defeated) return;
+    const P = this.params;
+    this.defeated = this.entity.defeated = true;   // entity.defeated stands Chase + Animator down
+    const anim = this.entity.anim;
+    const defeat = roleClip(P.defeatClip, 'death', this.entity.roles);
+    if (defeat && anim?.clips.includes(defeat)) { anim.play(defeat, { once: true, fade: 0.1 }); this.hideIn = P.hideAfter; }
+    else this.entity.object3d.visible = false;
+    if (P.hitStop > 0) this.world.time?.hitStop(P.hitStop);
+    if (P.slowMo > 0) this.world.time?.slowMo(P.slowMoScale, P.slowMo);
+    this.world.emit('stomp', this.entity.id);
+    this.world.emit('score', P.points);
+  }
+  start() {
+    if (this.listening) return; this.listening = true;
+    this.world.on('struck', (_by, id) => { if (id === this.entity.id && !this.entity.dormant) this.defeat(); });
+  }
+}
+
+// A strike: world.input.attack ([x, z] direction, or [0, 0] = the way I face) plays the attack role on the UPPER body
+// layer — the legs keep running — and after `hitDelay` anything Stompable within `reach`, inside the `arc` in front,
+// is struck ('struck' event: attacker id, target id, damage). The game page sets input.attack from a right-stick flick.
+export class Melee extends Behavior {
+  static schema = {
+    clip:     { type: 'string', default: '' },        // '' = the character's attack role
+    layer:    { type: 'string', default: 'upper' },   // upper (keep running) | base (whole body)
+    reach:    { type: 'number', default: 1.6, min: 0.3, max: 6, step: 0.1 },    // metres
+    arc:      { type: 'number', default: 100, min: 10, max: 360, step: 5 },     // degrees in front that count
+    hitDelay: { type: 'number', default: 0.15, min: 0, max: 1, step: 0.01 },    // s from swing to impact
+    cooldown: { type: 'number', default: 0.45, min: 0, max: 3, step: 0.05 },
+    damage:   { type: 'number', default: 1, min: 0, max: 100, step: 1 },
+    turn:     { type: 'boolean', default: true },     // face the strike direction
+    speed:    { type: 'number', default: 1.75, min: 0.25, max: 4, step: 0.05 },  // clip playback rate (weirdport plays Zap's strikes at 1.75)
+  };
+  start() { this.cool = 0; this.pending = null; }
+  update(dt) {
+    if (this.entity.defeated) return;
+    this.cool -= dt;
+    const input = this.world.input, a = input?.attack;
+    if (a) { input.attack = null; if (this.cool <= 0) this.swing(a); }
+    if (this.pending && (this.pending.t -= dt) <= 0) { this.hit(this.pending.dir); this.pending = null; }
+  }
+  swing([x, z]) {
+    const P = this.params, o = this.entity.object3d;
+    let dir = Math.hypot(x, z) > 1e-3 ? [x, z] : [Math.sin(o.rotation.y), Math.cos(o.rotation.y)];
+    const l = Math.hypot(...dir); dir = [dir[0] / l, dir[1] / l];
+    if (P.turn) o.rotation.y = Math.atan2(dir[0], dir[1]);
+    const clip = roleClip(P.clip, 'attack', this.entity.roles);
+    if (clip && this.entity.anim?.clips.includes(clip)) this.entity.anim.play(clip, { layer: P.layer, once: true, fade: 0.08, restart: true, speed: P.speed });
+    this.world.emit('swing', this.entity.id);
+    this.cool = P.cooldown;
+    if (P.hitDelay > 0) this.pending = { t: P.hitDelay, dir }; else this.hit(dir);
+  }
+  hit(dir) {
+    const P = this.params, p = this.entity.object3d.position, cosHalf = Math.cos((P.arc / 2) * Math.PI / 180);
+    for (const e of this.world.entities?.values?.() || []) {
+      if (e === this.entity || e.defeated || e.object3d?.visible === false) continue;
+      if (!e.behaviors?.some(b => b instanceof Stompable)) continue;
+      const q = e.object3d.position, dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+      if (d > P.reach || Math.abs(q.y - p.y) > 2) continue;
+      if (d > 1e-3 && (dx * dir[0] + dz * dir[1]) / d < cosHalf) continue;
+      this.world.emit('struck', this.entity.id, e.id, P.damage);
+    }
   }
 }
 
@@ -526,6 +581,6 @@ export class Spawner extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Squash, Footsteps, Trigger, Dormant, Spawner })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, PlayerController, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner })) {
   registerBehavior(name, cls);
 }

@@ -98,19 +98,19 @@ addEventListener('keydown', () => sfx.unlock(), { capture: true });
 // ---- input → world.input (camera-relative, world space)
 let yaw = 0; const pitch = 0.35;            // camera orbit around the player (yaw only: right stick, Q/E)
 const keys = new Set();
-const input = { move: [0, 0], jump: false };
+const input = { move: [0, 0], jump: false, attack: null };
 const stickL = { x: 0, y: 0, down: false }, stickR = { x: 0, y: 0, down: false };
 const YAW_RATE = 2.9;                        // rad/s at full right-stick deflection (rollergirl's CAM.yawRate)
 
-addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } });
+addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') { input.jump = true; e.preventDefault(); } if (e.code === 'KeyF') input.attack = [0, 0]; });
 addEventListener('keyup', e => keys.delete(e.code));
 
 // Twin sticks: left = move, right = orbit (yaw only); a TAP jumps — right stick, or either (settings.controls.jumpTap).
-// Hold and flick stay free on both for future verbs (onFlick is wired but unused).
+// A right-stick FLICK strikes in the flicked direction (Melee behavior); hold and the left flick stay free.
 const jumpTap = () => { input.jump = true; $('hint').style.opacity = 0; };
 const tapEither = () => (data.settings?.controls?.jumpTap === 'either');
 bindStick($('stkL'), stickL, { onTap: () => { if (tapEither()) jumpTap(); } });
-bindStick($('stkR'), stickR, { onTap: jumpTap });
+bindStick($('stkR'), stickR, { onTap: jumpTap, onFlick: (fx, fy) => { input.attack = [fx, fy]; } });   // right flick = strike that way (Melee)
 for (const p of [$('stkL'), $('stkR')]) p.addEventListener('pointerdown', () => ($('hint').style.opacity = 0));
 const cv = renderer.domElement;
 cv.addEventListener('pointerdown', e => { if (pickMode) pickAt(e.clientX, e.clientY); });
@@ -126,6 +126,11 @@ function readInput() {
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
   world.input.move = [rx * ix - fx * iy, rz * ix - fz * iy];
   if (input.jump) { world.input.jump = true; input.jump = false; }
+  if (input.attack) {                        // screen flick → world direction, same mapping as the move stick; [0,0] = facing
+    const [ax, ay] = input.attack, l = Math.hypot(ax, ay) || 1;
+    world.input.attack = l > 1e-3 && (ax || ay) ? [(rx * ax - fx * ay) / l, (rz * ax - fz * ay) / l] : [0, 0];
+    input.attack = null;
+  }
 }
 function turnCamera(dt) {
   const rx = stickR.x + ((keys.has('KeyE') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0));
@@ -154,7 +159,8 @@ async function start() {
   world.on('gameover', () => { sfx.play('gameover'); end('Game over'); });
   world.on('health', () => { sfx.play('hurt'); hud(); });
   for (const [ev, snd] of [['jump', 'jump'], ['land', 'land'], ['pickup', 'coin'], ['stomp', 'stomp'], ['respawn', 'respawn']]) world.on(ev, () => sfx.play(snd));
-  world.on('step', (_id, o) => sfx.play('step', { pitch: o?.pitch || 1 }));   // Footsteps varies the pitch (world.rng)
+  world.on('step', (_id, o) => sfx.play('step', { pitch: o?.pitch || 1 }));
+  world.on('swing', () => sfx.play('jump', { pitch: 1.6 }));   // a quick whoosh until there's a real sound   // Footsteps varies the pitch (world.rng)
   post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
   resize(); hud();

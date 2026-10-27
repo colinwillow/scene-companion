@@ -14,6 +14,7 @@ export function fakeWorld(entities = []) {
   const map = new Map(entities.map(e => [e.id, e]));
   const listeners = {};
   return {
+    entities: map,
     emitted: [],
     time: createTime(),
     rng: createRng(1),

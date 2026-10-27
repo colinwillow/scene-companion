@@ -231,6 +231,9 @@
             "landEvent": "score",
             "amount": 0.3
           }
+        },
+        {
+          "type": "Melee"
         }
       ],
       "animation": "Idle"
