@@ -177,7 +177,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [ ] 2D/2.5D (SPEC §7f): sprite + sprite-sheet import with slicing and named clip roles, orthographic side/top-down cameras and plane-locked collision, tilemap painting, parallax layers, and a 3D-character → sprite-sheet renderer
   - [x] 2D part 1: `settings.camera2d` (orthographic side or top view, follows the player) + plane-locked movement/collision (z pinned for side view) — a tiny side-scroller scene proves it
   - [x] 2D part 2: sprite sheets in the runtime — asset variant `sprite` + `frames` [cols, rows] + named `clips`, SpriteAnimator plays idle/run/jump/fall from the PlayerController and flips to his facing; Blob Hop scene; tools/make-sprite.mjs draws the stand-in sheet
-  - [ ] [IN PROGRESS] 2D part 2b: import a sprite sheet in the editor — pick a PNG, slice it (frame size or grid, live preview of the cells), name clips by tapping frame ranges, saved as the asset variant
+  - [x] 2D part 2b: Library → 2D tab lists assets/sprites sheets (or a PNG from the device, kept in the scene file); the slicer draws the numbered grid over the sheet (cols/rows guessed), clips as text lines ("run 2-5 10"), height in metres; Add puts it in the scene with a SpriteAnimator
   - [ ] 2D part 3: tilemap painting in the editor, parallax layers
   - [ ] 2D part 4: render a 3D character into a sprite sheet
 - [ ] Ship anywhere: Capacitor wrapper → iOS/Android builds from a scene; export to Godot `.tscn`, then Unity/Unreal

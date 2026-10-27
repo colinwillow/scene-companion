@@ -137,7 +137,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
   <div class="tlRow"><b id="tlWho"></b><select id="tlClip"></select><button id="tlPlay">⏸</button><button id="tlLoop" class="on" title="Loop">🔁</button>
@@ -172,6 +172,7 @@ import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runti
 import { findEntity, allEntities, descendantIds, reparent } from './runtime/tree.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { searchMotions, addMotion, motionsBase } from './runtime/motions.js';
+import { guessGrid, parseClipText, clipText, spriteVariant } from './runtime/sprites.js';
 import * as RX from './runtime/reactions.js';
 import * as TL from './runtime/timeline.js';
 import { History } from './runtime/history.js';
@@ -1151,6 +1152,18 @@ async function renderLib() {
         : { name, sub: `3D · ${m.prompt} — tap to add`, pick: () => addGenerated(m.path) });
     }
     $('libCount').textContent = genBusy ? `Generating… (${genBusy})` : gl ? `${gl.generators.length} generator(s)${gl.problems.length ? ' · skipped: ' + gl.problems.join('; ') : ''}` : '';
+  } else if (libTab === 'sprites') {
+    // Sprite sheets (assets/sprites/index.json, written by `npm run assets`), or a PNG from this device: tap one to slice it.
+    let list = []; try { list = await (await fetch('./assets/sprites/index.json', { cache: 'no-store' })).json(); } catch {}
+    if (seq !== libSeq) return;
+    items = [{ name: '＋ A sprite sheet from this device…', sub: 'PNG; it is kept inside the scene file', pick: () => {
+      const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/png,image/webp';
+      f.onchange = () => { const file = f.files[0]; if (!file) return; const r = new FileReader(); r.onload = () => openSlicer(r.result, file.name.replace(/\.\w+$/, '')); r.readAsDataURL(file); };
+      f.click();
+    } }];
+    for (const sh of filterNames(list.map(p => ({ name: p.split('/').pop().replace(/\.\w+$/, ''), path: p })), q))
+      items.push({ name: sh.name, sub: sh.path.split('/').slice(-2, -1)[0], thumb: sh.path, pick: () => openSlicer(sh.path, sh.name) });
+    $('libCount').textContent = playing ? 'Stop play to add things' : `${list.length} sprite sheet(s) — tap one to slice it into frames`;
   } else if (libTab === 'sounds') {
     // Sound files (assets/audio/index.json, written by `npm run assets`): ▶ hears it, a tap gives the selected object an
     // AudioSource playing it (set `on` in the inspector to tie it to an event — shoot, chunk, land …).
@@ -1211,6 +1224,48 @@ async function renderLib() {
       b.onclick = ev => { ev.stopPropagation(); it.act(); }; li.append(b); }
     ul.append(li);
   }
+}
+// ---- the sprite slicer: a sheet with its grid drawn over it, cols/rows, a height in metres, and the clips as text
+// ("run 2-5 10"). "Add" writes the asset variant (runtime/sprites.js) and drops one at the view centre with a SpriteAnimator.
+function openSlicer(src, name) {
+  if (playing) return;
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;z-index:50;background:#000c;display:flex;align-items:center;justify-content:center;padding:12px';
+  box.innerHTML = `<div style="background:#151a22;border:1px solid #2a3340;border-radius:12px;padding:12px;max-width:520px;width:100%;max-height:100%;overflow:auto;color:#dde">
+    <b>Slice “<span class="nm"></span>”</b><canvas style="position:static;display:block;width:100%;height:auto;max-height:40vh;object-fit:contain;image-rendering:pixelated;background:repeating-conic-gradient(#333 0 25%,#222 0 50%) 0 0/16px 16px;margin:8px 0;border-radius:6px"></canvas>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label>cols <input class="c" type="number" min="1" style="width:56px"></label><label>rows <input class="r" type="number" min="1" style="width:56px"></label>
+      <label>height m <input class="h" type="number" step="0.1" value="1.5" style="width:64px"></label><label>name <input class="n" style="width:110px"></label></div>
+    <div style="margin:8px 0 4px;font-size:13px;opacity:.8">Clips, one per line: name first-last fps (idle / run / jump / fall play by themselves)</div>
+    <textarea class="t" rows="5" style="width:100%;font:13px monospace;background:#0e1218;color:#dde;border:1px solid #2a3340;border-radius:6px"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="x">Cancel</button><button class="ok" style="background:var(--accent);color:#111">Add to scene</button></div></div>`;
+  document.body.append(box);
+  const q = s => box.querySelector(s), cv = q('canvas'), img = new Image();
+  q('.nm').textContent = name; q('.n').value = name.replace(/[^\w]/g, '_');
+  const draw = () => {
+    const cols = Math.max(1, +q('.c').value | 0), rows = Math.max(1, +q('.r').value | 0), k = Math.max(1, Math.floor(480 / img.width));
+    cv.width = img.width * k; cv.height = img.height * k; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0, cv.width, cv.height); g.strokeStyle = '#ffb84a'; g.fillStyle = '#ffb84a'; g.font = `${10 * Math.max(1, k / 2)}px sans-serif`;
+    const fw = cv.width / cols, fh = cv.height / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { g.strokeRect(c * fw + 0.5, r * fh + 0.5, fw - 1, fh - 1); g.fillText(r * cols + c, c * fw + 3, r * fh + 12 * Math.max(1, k / 2)); }
+  };
+  img.onload = () => {
+    const [c, r] = guessGrid(img.width, img.height); q('.c').value = c; q('.r').value = r;
+    const n = c * r; q('.t').value = clipText(n >= 8 ? { idle: [0, 1, 3], run: [2, 5, 10], jump: [6, 6, 1], fall: [7, 7, 1] } : { idle: [0, n - 1, 6] });
+    draw();
+  };
+  img.onerror = () => { q('.nm').textContent = name + ' — could not load'; };
+  img.src = src;
+  q('.c').oninput = q('.r').oninput = draw;
+  q('.x').onclick = () => box.remove();
+  q('.ok').onclick = async () => {
+    const id = (q('.n').value.trim() || 'sprite').replace(/[^\w]/g, '_'), cols = Math.max(1, +q('.c').value | 0), rows = Math.max(1, +q('.r').value | 0);
+    const variant = spriteVariant({ path: src, cols, rows, imgW: img.width, imgH: img.height, height: +q('.h').value || 1.5, clips: parseClipText(q('.t').value) });
+    record();
+    data.assets = { ...data.assets, [id]: { variants: { web: variant } } };
+    const e = addEntity(data, { asset: id }, viewDropPoint()); e.behaviors = [{ type: 'SpriteAnimator' }];
+    box.remove(); await refresh(); select(e.id); fillAdd();
+  };
 }
 var genBusy = '';
 async function generate(id, input) {

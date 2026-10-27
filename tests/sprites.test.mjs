@@ -44,3 +44,13 @@ test('SpriteAnimator: runs the run clip while moving and flips to the way he fac
   for (let i = 0; i < 5; i++) { pc.update(1 / 60); sa.update(1 / 60); }
   assert.ok(frames.at(-1) <= 1, 'back to idle');
 });
+
+test('slicer: grid guess, clip text both ways, the variant it writes', async () => {
+  const { guessGrid, parseClipText, clipText, spriteVariant } = await import('../runtime/sprites.js');
+  assert.deepEqual(guessGrid(128, 64), [4, 2]);
+  assert.deepEqual(guessGrid(100, 50), [2, 1]);
+  const c = parseClipText('idle 0-1 3\nrun 2-5 10\njump 6\nhit 8-9 12 once\nnonsense here');
+  assert.deepEqual(c, { idle: [0, 1, 3], run: [2, 5, 10], jump: [6, 6, 8], hit: [8, 9, 12, false] });
+  assert.deepEqual(parseClipText(clipText(c)), c);
+  assert.deepEqual(spriteVariant({ path: 'a.png', cols: 4, rows: 2, imgW: 256, imgH: 64, height: 2, clips: c }).size, [4, 2]);
+});

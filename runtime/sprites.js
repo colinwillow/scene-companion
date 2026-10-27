@@ -40,3 +40,26 @@ export function spriteRole({ grounded, vy = 0, speed = 0 }, clips) {
   if (!grounded) return (vy > 0 ? has('jump') : has('fall')) || has('jump') || has('fall') || has('idle') || Object.keys(clips)[0];
   return (speed > 0.1 && has('run')) || has('idle') || Object.keys(clips)[0];
 }
+
+// The editor's slicer. A first guess at the grid: square frames of a common size that give a sheet of about 8 frames.
+export function guessGrid(w, h) {
+  const sizes = [8, 16, 24, 32, 48, 64, 96, 128, 256].filter(f => w % f === 0 && h % f === 0);
+  if (!sizes.length) return [Math.max(1, Math.round(w / h)), 1];
+  const f = sizes.sort((a, b) => Math.abs(Math.log((w / a) * (h / a) / 8)) - Math.abs(Math.log((w / b) * (h / b) / 8)))[0];
+  return [w / f, h / f];
+}
+// Clips as text, one per line: "run 2-5 10" (name, frames, fps); "jump 6" is one frame; "hit 8-9 12 once" holds the last.
+export function parseClipText(text) {
+  const clips = {};
+  for (const line of String(text || '').split('\n')) {
+    const m = line.trim().match(/^([A-Za-z_][\w-]*)\s+(\d+)(?:\s*-\s*(\d+))?(?:\s+(\d+(?:\.\d+)?))?(\s+once)?$/);
+    if (m) clips[m[1]] = [+m[2], +(m[3] ?? m[2]), +(m[4] ?? 8), ...(m[5] ? [false] : [])];
+  }
+  return clips;
+}
+export const clipText = clips => Object.entries(clips || {}).map(([k, c]) => { const n = normClip(c); return `${k} ${n.from}${n.to > n.from ? '-' + n.to : ''} ${n.fps}${n.loop ? '' : ' once'}`; }).join('\n');
+// The asset variant the slicer writes: height in metres, width from the frame's own aspect.
+export function spriteVariant({ path, cols, rows, imgW, imgH, height = 1.5, clips, pixel = true }) {
+  const fw = imgW / cols, fh = imgH / rows;
+  return { sprite: path, frames: [cols, rows], size: [+(height * fw / fh).toFixed(3), +height], pixel, clips };
+}

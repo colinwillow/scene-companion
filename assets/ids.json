@@ -226,5 +226,9 @@
  "449e3e5c-b990": {
   "path": "assets/models/robot.glb",
   "sha": "0dc0053469e23ef8"
+ },
+ "4f08f9af-84c0": {
+  "path": "assets/sprites/blob/blob.png",
+  "sha": "7713575535a4758d"
  }
 }

@@ -13,6 +13,8 @@ const { registry: next, moved, added, gone } = reconcile(registry, files, () => 
 writeFileSync(REG, JSON.stringify(Object.fromEntries(Object.entries(next).sort((a, b) => a[1].path.localeCompare(b[1].path))), null, 1) + '\n');
 // the Library's Sounds tab reads this list (a folder can't be listed from a web page)
 writeFileSync('assets/audio/index.json', JSON.stringify(files.map(f => f.path).filter(p => /\.(mp3|ogg|wav)$/i.test(p)).map(p => './' + p).sort(), null, 1) + '\n');
+// …and its 2D tab reads this one: every sprite sheet under assets/sprites/
+writeFileSync('assets/sprites/index.json', JSON.stringify(files.map(f => f.path).filter(p => p.startsWith('assets/sprites/') && /\.(png|webp)$/i.test(p)).map(p => './' + p).sort(), null, 1) + '\n');
 let refs = 0;
 if (Object.keys(moved).length) {
   const jsons = ['scenes', 'prefabs', 'packs', 'assets'].filter(existsSync).flatMap(d => walk(d)).filter(p => p.endsWith('.json') && !p.endsWith('ids.json'));
