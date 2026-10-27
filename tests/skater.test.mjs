@@ -160,3 +160,15 @@ test('TrickScore: tricks build a combo, landing banks it × the trick count; a r
   sk.grounded = false; w.emit('landtrick', 'player', 'back'); w.emit('respawn');
   assert.equal(w.vars.combo, 0); assert.equal(w.vars.score, 220, 'lost, not banked'); assert.ok(huds.includes('BAILED'));
 });
+
+test('found ledges: with `ledges` on, a plain Solid box\'s top edge is a rail; off, it is not', async () => {
+  const data = on => ({ settings: { look: 'baked' }, assets: { blk: { variants: { web: { primitive: 'box', pivot: 'bottom', size: [6, 0.5, 1] } } }, body: { variants: { web: { primitive: 'box', size: [0.4, 1.7, 0.4] } } } },
+    entities: [
+      { id: 'player', asset: 'body', position: [-4, 1.2, 0.62], rotation: [0, 90, 0], behaviors: [{ type: 'Skater', params: { ledges: on } }] },
+      { id: 'blk', asset: 'blk', position: [0, 0, 0], behaviors: [{ type: 'Solid', params: { size: [6, 0.5, 1] } }] }] });
+  for (const on of [true, false]) {
+    let caught = 0;
+    await run(data(on), 1.5, (w, s, i) => { if (i === 0) { s.grounded = false; s.v = [6, 0, -0.3]; w.on('grind', () => caught++); } });
+    assert.equal(caught > 0, on, `ledges ${on}: caught ${caught}`);
+  }
+});

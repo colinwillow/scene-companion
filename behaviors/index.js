@@ -355,6 +355,8 @@ export class Skater extends Behavior {
     catchR:   { type: 'number', default: 0.6, min: 0.05, max: 3, step: 0.05 },
     minCos:   { type: 'number', default: 0.35, min: 0, max: 1, step: 0.05 },
     grindDrag:{ type: 'number', default: 0.08, min: 0, max: 3, step: 0.01 },
+    ledges:   { type: 'boolean', default: false },   // every Solid box's top edge is grindable (found ledges)
+    ledgeMin: { type: 'number', default: 0.2, min: 0, max: 5, step: 0.05 },   // m over the ground: lower edges are kerbs, not ledges
     tuckClip: { type: 'string', default: 'tuck' },       // held during a flip
     // the left flick ON THE GROUND (her r80/r84 map): up = boost, down = skid stop, sideways = swivel to fakie and back
     boost:    { type: 'number', default: 8, min: 0, max: 30, step: 0.5 },      // m/s added, spread over boostTime (a stroke, not a jolt)
@@ -374,7 +376,7 @@ export class Skater extends Behavior {
       push: 9, top: 20, roll: 0.052, brake: 1.5, grip: 30, ollie: 12.6, fakieAt: 2.2,
       idleClip: 'skate_idol_standing', rollClip: 'skate_idol_standing', pushClip: 'skate_push_standing', hardClip: 'skate_push_crouch',
       hardAt: 14, rateRef: 8, airClip: 'skate_ollie_air', backPush: '', backRoll: '', backIdle: '',
-      tuckClip: 'skate_ollie_air', grindLeft: 'skate_idol_crouch', grindRight: 'skate_idol_crouch',
+      tuckClip: 'skate_ollie_air', grindLeft: 'skate_idol_crouch', grindRight: 'skate_idol_crouch', ledges: true,
     },
   };
   start() {
@@ -507,7 +509,7 @@ export class Skater extends Behavior {
   // GRINDS. Caught on the way down: the frame's path (from → to) passes the bar's top within catchR in plan, at a glancing angle.
   catchRail(p, to) {
     const P = this.params, v = this.v; if (v[1] > 2) return false;
-    for (const rail of this.world.rails || []) {
+    for (const rail of P.ledges ? [...(this.world.rails || []), ...this.foundLedges()] : this.world.rails || []) {
       if (rail === this.lastRail && this.railCoolT > 0) continue;
       const [a, b] = rail.ends(), d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d); if (L < 1e-6) continue;
       const u = d.map(c => c / L), hsp = Math.hypot(v[0], v[2]);
@@ -527,6 +529,18 @@ export class Skater extends Behavior {
       return true;
     }
     return false;
+  }
+  // Found ledges (Shred World: "every box's top edge is a rail"): the top edges of every Solid box at least `ledgeMin` over the
+  // ground, as rail-shaped objects ({ ends() }). Kept per solid while it stays put, so the cooldown after a grind still knows it.
+  foundLedges() {
+    const cache = (this.ledgeCache ||= new Map()), out = [], P = this.params;
+    for (const solid of this.world.solids || []) {
+      const sh = walkShape(solid), key = `${sh.ref.join()}|${sh.maxY}`;
+      let c = cache.get(solid);
+      if (!c || c.key !== key) cache.set(solid, c = { key, edges: (sh.edges || []).filter(([a]) => a[1] - P.groundY >= P.ledgeMin).map(([a, b]) => ({ ledge: true, ends: () => [a, b] })) });
+      out.push(...c.edges);
+    }
+    return out;
   }
   stepGrind(dt, input) {
     const G = this.grind, P = this.params, p = this.entity.object3d.position;
@@ -609,7 +623,7 @@ export class TrickScore extends Behavior {
     this.c = 0; this.n = 0; this.ground = 0; this.tick = 0;
     const me = this.entity.id, W = this.world; W.vars ||= {}; W.vars[this.params.total] ??= 0; W.vars[this.params.combo] = 0;
     W.on('trick', (id, name) => { if (id !== me) return; if (name === 'BOOST') this.add('BOOST', this.params.boost); });
-    W.on('landtrick', (id, kind) => { if (id === me) this.add(kind === 'front' ? 'FRONT FLIP' : kind === 'back' ? 'BACK FLIP' : '360', /front|back/.test(kind) ? this.params.flip : this.params.spin); });
+    W.on('landtrick', (id, kind) => { if (id === me) this.add(kind === 'front' ? 'FRONT FLIP' : kind === 'back' ? 'BACK FLIP' : DeckTricks.KINDS[kind] ? kind.toUpperCase() : '360', /front|back/.test(kind) || DeckTricks.KINDS[kind] ? this.params.flip : this.params.spin); });
     W.on('grind', (id, side) => { if (id === me) this.add(side === 'right' ? 'RIGHT GRIND' : 'LEFT GRIND', this.params.grind); });
     W.on('vertair', id => { if (id === me) this.add('VERT AIR', this.params.vert); });
     W.on('respawn', () => this.lose());
@@ -722,6 +736,53 @@ export class Deck extends Behavior {
     rm.position.y = rm.userData.deckHome + (this.params.lift >= 0 ? this.params.lift : this.top);
   }
   destroy() { const rm = this.riderModel; if (rm?.userData.deckHome !== undefined) rm.position.y = rm.userData.deckHome; }
+}
+
+// Board tricks as pure geometry (Shred World's TRICK, docs/shredworld-extraction.md): on the board entity (beside `Deck`), a right
+// flick while the rider's Skater is in the air spins the deck under him — the flick read against his heading: forward = KICKFLIP
+// (a roll about the deck's long axis), back = 360 FLIP (roll and a full yaw), sideways = a 360 SHOVE-IT that way (yaw only).
+// He holds his air pose; the board does the work about its own middle. Touch down more than `land` of the way round and it is
+// landed ('landtrick' — TrickScore counts it); less and it is a BAIL ('bail': TrickScore loses the combo, the board snaps back).
+export class DeckTricks extends Behavior {
+  static schema = {
+    flip:  { type: 'number', default: 18, min: 1, max: 60, step: 0.5 },    // rad/s of roll: a kickflip in about 0.35 s
+    shove: { type: 'number', default: 16, min: 1, max: 60, step: 0.5 },    // rad/s of yaw: a 360 shove in about 0.39 s
+    land:  { type: 'number', default: 0.8, min: 0, max: 1, step: 0.05 },   // share of the way round that still lands
+    mid:   { type: 'number', default: 0.07, min: 0, max: 1, step: 0.01 },   // m: the height the board turns about (its middle)
+  };
+  static KINDS = { kickflip: [1, 0], '360 flip': [1, 1], 'shove-it': [0, 1] };   // [roll turns, yaw turns]
+  rider() { const r = this.world.getEntity?.(this.entity.parent); return r && r.behaviors?.find(b => b instanceof Skater); }
+  start() { this.trick = null; const o = this.entity.object3d; this.homeQ = o.quaternion.clone(); this.homeP = o.position.clone(); }
+  update(dt) {
+    const sk = this.rider(), input = this.world.input || {}, a = input.attack; if (!sk) return;
+    if (a && !sk.grounded && !sk.grind && !this.trick) {
+      input.attack = null;
+      const h = sk.heading, fwd = a[0] * Math.sin(h) + a[1] * Math.cos(h), side = a[0] * -Math.cos(h) + a[1] * Math.sin(h);   // his right is (-fz, fx)
+      const kind = Math.abs(fwd) >= Math.abs(side) ? (fwd >= 0 || (!a[0] && !a[1]) ? 'kickflip' : '360 flip') : 'shove-it';
+      this.trick = { kind, t: 0, sign: kind === 'shove-it' ? Math.sign(side) || 1 : 1 };
+      this.world.emit('trick', sk.entity.id, kind.toUpperCase());
+    }
+    const T = this.trick; if (!T) return;
+    T.t += dt;
+    const [nr, ny] = DeckTricks.KINDS[T.kind], P = this.params, done = Math.min(1, Math.max(nr ? T.t * P.flip / (2 * Math.PI) : 0, ny ? T.t * P.shove / (2 * Math.PI) : 0));
+    T.u = done;
+    if (sk.grounded || sk.grind) {                       // touched down: landed or bailed
+      if (done >= P.land) this.world.emit('landtrick', sk.entity.id, T.kind);
+      else { this.world.emit('bail', sk.entity.id, T.kind); sk.entity.behaviors?.find(b => b instanceof TrickScore)?.lose(); }
+      this.trick = null; T.u = 0;
+    }                                                  // round in the air: held there (a full turn = square again) until he lands
+  }
+  lateUpdate() {
+    const o = this.entity.object3d, T = this.trick, Q = o.quaternion.constructor, V = o.position.constructor;
+    if (!this.homeQ) return;
+    if (!T) { o.quaternion.copy(this.homeQ); o.position.copy(this.homeP); return; }
+    const [nr, ny] = DeckTricks.KINDS[T.kind], k = T.u * 2 * Math.PI;
+    const q = this.homeQ.clone().multiply(new Q().setFromAxisAngle(new V(0, 1, 0), ny * k * T.sign)).multiply(new Q().setFromAxisAngle(new V(0, 0, 1), nr * k));
+    o.quaternion.copy(q);
+    const up = new V(0, this.params.mid, 0);           // turn about the deck's middle, not its wheels
+    o.position.copy(this.homeP).add(up.clone().applyQuaternion(this.homeQ)).sub(up.applyQuaternion(q));
+  }
+  destroy() { if (this.homeQ) { this.entity.object3d.quaternion.copy(this.homeQ); this.entity.object3d.position.copy(this.homeP); } }
 }
 
 // Ledge grab (zap's LEDGE, docs/goblin-extraction.md): falling past the top edge of a block with the stick pushed INTO it
@@ -1829,6 +1890,6 @@ export class Reactions extends Behavior {
   }
 }
 
-for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
+for (const [name, cls] of Object.entries({ Spin, Bob, Patrol, Pickup, Health, MoveTo, Animator, Solid, CollisionMesh, PlayerController, WallRun, Ledge, Vault, Mount, Deck, DeckTricks, Dynamics, HandGrip, Bar, HighBar, Zoom, Duelist, Surface, Skater, Rail, FootIK, TailWave, TrickScore, Chase, Stompable, Melee, Squash, Footsteps, Trigger, Dormant, Spawner, Reactions })) {
   registerBehavior(name, cls);
 }

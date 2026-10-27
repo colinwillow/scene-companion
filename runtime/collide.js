@@ -164,6 +164,7 @@ export function topAt(b, x, z) {
 //   near: the closest point of the footprint (plan view) and whether (x, z) is inside it
 //   out:  for a point inside, the shortest move that puts a circle of radius r just outside
 //   top:  the surface height at a point inside the footprint; topNear: the highest surface under a circle (−∞: none)
+//   edges: the top edges of a box (each [[x,y,z],[x,y,z]]) — found ledges a skater can grind (none for a ramp or a dome)
 //   sloped: walkable curve or incline — stepped up onto (STEP_UP) instead of blocking like a box's side
 //   ref: a point that moves with the solid (riding moving platforms)
 export function walkShape(solid) {
@@ -171,7 +172,9 @@ export function walkShape(solid) {
   if (s.kind === 'box' || s.kind === 'ramp') {
     const b = s.box, R = b.slope ? b : null;
     const inFoot = (x, z, r) => { const cx = Math.max(b.minX, Math.min(x, b.maxX)), cz = Math.max(b.minZ, Math.min(z, b.maxZ)); return (x - cx) ** 2 + (z - cz) ** 2 < r * r; };
-    return { minY: b.minY, maxY: b.maxY, sloped: !!R, ref: [b.minX, b.maxY, b.minZ], box: b,
+    const ed = R ? [] : [[b.minX, b.minZ, b.maxX, b.minZ], [b.maxX, b.minZ, b.maxX, b.maxZ], [b.maxX, b.maxZ, b.minX, b.maxZ], [b.minX, b.maxZ, b.minX, b.minZ]]
+      .map(([x0, z0, x1, z1]) => [[x0, b.maxY, z0], [x1, b.maxY, z1]]);
+    return { minY: b.minY, maxY: b.maxY, sloped: !!R, ref: [b.minX, b.maxY, b.minZ], box: b, edges: ed,
       near: (x, z) => { const cx = Math.max(b.minX, Math.min(x, b.maxX)), cz = Math.max(b.minZ, Math.min(z, b.maxZ)); return { cx, cz, inside: cx === x && cz === z }; },
       out: (x, z, r) => [[b.minX - r - x, 0], [b.maxX + r - x, 0], [0, b.minZ - r - z], [0, b.maxZ + r - z]].sort((p, q) => Math.hypot(...p) - Math.hypot(...q))[0],
       top: (x, z) => topAt(b, x, z),
@@ -182,7 +185,9 @@ export function walkShape(solid) {
     const toL = (x, z) => { const dx = x - s.c[0], dz = z - s.c[2]; return [C * dx - S * dz, S * dx + C * dz]; };   // world → box frame
     const toW = (lx, lz) => [s.c[0] + C * lx + S * lz, s.c[2] - S * lx + C * lz];
     const maxY = s.c[1] + hy;
-    return { minY: s.c[1] - hy, maxY, sloped: false, ref: [s.c[0], maxY, s.c[2]],
+    const cs = [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]].map(([a, c]) => toW(a, c));
+    const edges = cs.map((q, i) => { const r = cs[(i + 1) % 4]; return [[q[0], maxY, q[1]], [r[0], maxY, r[1]]]; });
+    return { minY: s.c[1] - hy, maxY, sloped: false, ref: [s.c[0], maxY, s.c[2]], edges,
       near: (x, z) => { const [lx, lz] = toL(x, z), cx = Math.max(-hx, Math.min(lx, hx)), cz = Math.max(-hz, Math.min(lz, hz)); const [wx, wz] = toW(cx, cz); return { cx: wx, cz: wz, inside: cx === lx && cz === lz }; },
       out: (x, z, r) => { const [lx, lz] = toL(x, z); const [ox, oz] = [[-hx - r - lx, 0], [hx + r - lx, 0], [0, -hz - r - lz], [0, hz + r - lz]].sort((p, q) => Math.hypot(...p) - Math.hypot(...q))[0]; return [C * ox + S * oz, -S * ox + C * oz]; },
       top: () => maxY,
@@ -192,7 +197,7 @@ export function walkShape(solid) {
   const R = s.r, cx0 = s.kind === 'sphere' ? s.c[0] : s.a[0], cz0 = s.kind === 'sphere' ? s.c[2] : s.a[2];
   const capY = s.kind === 'sphere' ? s.c[1] : s.b[1], minY = (s.kind === 'sphere' ? s.c[1] : s.a[1]) - R;
   const dome = d => d < R ? capY + Math.sqrt(R * R - d * d) : -Infinity;
-  return { minY, maxY: capY + R, sloped: true, ref: [cx0, capY + R, cz0],
+  return { minY, maxY: capY + R, sloped: true, ref: [cx0, capY + R, cz0], edges: [],
     near: (x, z) => { const dx = x - cx0, dz = z - cz0, d = Math.hypot(dx, dz); return d < R ? { cx: x, cz: z, inside: true } : { cx: cx0 + dx / d * R, cz: cz0 + dz / d * R, inside: false }; },
     out: (x, z, r) => { const dx = x - cx0, dz = z - cz0, d = Math.hypot(dx, dz) || 1e-9, k = (R + r) / d - 1; return d < 1e-6 ? [R + r, 0] : [dx * k, dz * k]; },
     top: (x, z) => Math.max(dome(Math.hypot(x - cx0, z - cz0)), capY),

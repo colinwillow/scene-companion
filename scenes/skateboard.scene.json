@@ -59,6 +59,47 @@
           "glb": "./assets/models/colin/props/skateboard.glb"
         }
       }
+    },
+    "fun_boxes": {
+      "variants": {
+        "web": {
+          "glb": "./assets/models/colin/props/fun_boxes.glb"
+        }
+      }
+    },
+    "manual_pad": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            1.4,
+            0.45,
+            9
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#c9cfd8",
+          "roughness": 0.85
+        }
+      }
+    },
+    "block": {
+      "variants": {
+        "web": {
+          "primitive": "box",
+          "pivot": "bottom",
+          "size": [
+            2,
+            0.9,
+            6
+          ],
+          "texture": "sand",
+          "repeat": 1,
+          "color": "#b9c4d2",
+          "roughness": 0.85
+        }
+      }
     }
   },
   "entities": [
@@ -134,7 +175,8 @@
             "backIdle": "",
             "tuckClip": "skate_ollie_air",
             "grindLeft": "skate_idol_crouch",
-            "grindRight": "skate_idol_crouch"
+            "grindRight": "skate_idol_crouch",
+            "ledges": true
           }
         },
         {
@@ -156,6 +198,9 @@
               "params": {
                 "length": 0.8
               }
+            },
+            {
+              "type": "DeckTricks"
             }
           ]
         }
@@ -337,6 +382,67 @@
         -7,
         1.1,
         3
+      ]
+    },
+    {
+      "id": "fun_boxes",
+      "asset": "fun_boxes",
+      "position": [
+        28,
+        0,
+        -25
+      ],
+      "behaviors": [
+        {
+          "type": "Surface"
+        }
+      ]
+    },
+    {
+      "id": "manual_pad",
+      "asset": "manual_pad",
+      "position": [
+        -24,
+        0,
+        -12
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              1.4,
+              0.45,
+              9
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledge_block",
+      "asset": "block",
+      "position": [
+        -28,
+        0,
+        -22
+      ],
+      "rotation": [
+        0,
+        30,
+        0
+      ],
+      "behaviors": [
+        {
+          "type": "Solid",
+          "params": {
+            "size": [
+              2,
+              0.9,
+              6
+            ]
+          }
+        }
       ]
     }
   ],
