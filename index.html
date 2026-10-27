@@ -543,6 +543,7 @@ function renderPanel() {
     const glb = modelPath(assetOf(ent), world.characters);
     acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
       (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object">${blenderLabel()}</button>` : '') +
+      (glb && liveOn() && ent.anim ? `<button data-a="forge" title="Open this character in the Forge (retarget + tune clips with the motion library). Export “full” there, then ⇦ From Forge here.">→ Forge</button><button data-a="fromForge" title="Pick the GLB the Forge exported: it replaces this object's model (id and behaviors stay)">⇦ From Forge</button>` : '') +
       (glb && liveOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)">→ Blender: all ${e.prefab}</button>` : '');
     acts.onclick = async ev => {
       const btn = ev.target.closest('button'), a = btn?.dataset.a; if (!a) return;
@@ -555,6 +556,22 @@ function renderPanel() {
           btn.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
         } catch (err) { showErr('Send to Blender: ' + err.message); }
         setTimeout(() => (btn.innerHTML = a === 'blender' ? blenderLabel() : label), 3000);
+      }
+      if (a === 'forge') {
+        const abs = new URL(glb, location.href).pathname;
+        window.open(`./forge/forge.html?char=${encodeURIComponent(abs)}&lib=${encodeURIComponent(new URL(motionsBase(data.settings) + 'clips/', location.href).pathname)}`, '_blank');
+      }
+      if (a === 'fromForge') {
+        const pick = document.createElement('input'); pick.type = 'file'; pick.accept = '.glb,model/gltf-binary';
+        pick.onchange = async () => {
+          const f = pick.files[0]; if (!f) return;
+          try {   // same route as Blender's Send Back: saved under assets/models/bridge/, then swapped onto this object
+            const r = await (await fetch(`./bridge/return?id=${encodeURIComponent(e.id)}&scene=${encodeURIComponent(SCENE_URL)}`, { method: 'POST', body: await f.arrayBuffer() })).json();
+            if (r.error) throw new Error(r.error);
+            btn.textContent = `Saved ${r.saved.split('/').pop()} ✓`;
+          } catch (err) { showErr('From Forge: ' + err.message); }
+        };
+        pick.click();
       }
       if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await refresh(); select(c.id); }
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await refresh(); select(null); renderPanel(); }

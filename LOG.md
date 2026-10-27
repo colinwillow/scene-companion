@@ -76,3 +76,4 @@
 - 2026-10-27 — Reactions v1 — frame/struck/var triggers, hud/shake/end/load actions, Variables tab, node-graph view; 176 tests; checked headless (live session)
 - 2026-10-27 — Animation timeline v0 — scrub/play/loop/speed, frame readout, front/side/top views; checked headless (live session)
 - 2026-10-27 — Timeline edits — trim/rate/mask clip variants + frame events saved on the object, MCP add_clip_variant/add_frame_event, per-object rebuild for clip/event/motion changes; 180 tests; checked headless (live session)
+- 2026-10-27 — Forge round trip — /forge/ served from zap, → Forge / ⇦ From Forge in the inspector via the bridge return; checked headless (live session)
