@@ -40,6 +40,7 @@
   #err { position:fixed; left:8px; right:8px; top:calc(50px + env(safe-area-inset-top)); z-index:4; background:#5a1d1d; color:#ffd9d9; border-radius:10px; padding:10px; font:12px/1.4 ui-monospace,monospace; white-space:pre-wrap; }
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
+  #stats { position:fixed; right:calc(8px + env(safe-area-inset-right)); top:calc(52px + env(safe-area-inset-top)); z-index:5; pointer-events:none; font:600 12px/1.35 system-ui, sans-serif; color:#fff; background:#0009; padding:4px 8px; border-radius:8px; white-space:pre; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
@@ -58,6 +59,7 @@
 <div id="pauseMenu"><div>Paused</div><button id="resume">Resume</button><button id="restart" class="ghost">Restart</button></div>
 <div id="err" hidden></div>
 <div id="liveBadge" hidden>● LIVE</div>
+<div id="stats" hidden></div>
 <script>
 window.__errQueue=[];
 function showErr(m){const e=document.getElementById('err');e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;window.__errQueue.push(m);}
@@ -165,18 +167,37 @@ const colEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
 function drawColliders(dt) {
   if (!colView) return;
   if ((colT -= dt) > 0) return; colT = 0.5;
-  colView.clear();
+  colView.children.forEach(c => c.geometry.dispose()); colView.clear();
+  const E = colEdges.attributes.position, out = { wall: [], part: [] };        // every box's 12 edges into ONE buffer per colour
   for (const so of world.solids || []) {
-    const b = solidOutline(so), part = so.entity?.chunk || so.entity?.part;
-    const l = new THREE.LineSegments(colEdges, part ? colMat.part : colMat.wall);   // sc:overlay
-    l.position.fromArray(b.c); l.rotation.y = b.yaw; l.scale.set(b.half[0] * 2, b.half[1] * 2, b.half[2] * 2); l.renderOrder = 999;
-    colView.add(l);
+    const b = solidOutline(so), arr = out[so.entity?.chunk || so.entity?.part ? 'part' : 'wall'], C = Math.cos(b.yaw), S = Math.sin(b.yaw);
+    for (let i = 0; i < E.count; i++) {
+      const x = E.getX(i) * b.half[0] * 2, y = E.getY(i) * b.half[1] * 2, z = E.getZ(i) * b.half[2] * 2;
+      arr.push(b.c[0] + C * x + S * z, b.c[1] + y, b.c[2] - S * x + C * z);
+    }
+  }
+  for (const k of ['wall', 'part']) {
+    if (!out[k].length) continue;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out[k], 3));
+    const l = new THREE.LineSegments(g, colMat[k]); l.renderOrder = 999; l.frustumCulled = false; colView.add(l);   // sc:overlay
   }
 }
 $('cols').onclick = () => {
   if (colView) { colView.removeFromParent(); colView = null; $('cols').style.opacity = ''; return; }
   colView = new THREE.Group(); world.scene.add(colView); colT = 0; $('cols').style.opacity = 0.55;
 };
+// The cost of the frame, beside the collider view (the phone has no console): fps, draw calls, triangles, solids. Counted over
+// every pass (post-processing renders more than once), so it is reset by hand each frame.
+renderer.info.autoReset = false;
+let statT = 0;
+function showStats(dt) {
+  const el = $('stats'); el.hidden = !colView;
+  if (colView && (statT -= dt) <= 0) {
+    statT = 0.5; const r = renderer.info.render;
+    el.textContent = `${fps.fps | 0} fps\n${r.calls} draws\n${(r.triangles / 1000).toFixed(0)}k tris\n${(world.solids || []).length} solids`;
+  }
+  renderer.info.reset();
+}
 // Speech bubbles (Reactions' "say"): a small label that follows the speaker's head for a few seconds. HUD only (sc:overlay-free).
 const bubbles = new Map();
 function say(id, text) {
@@ -353,6 +374,7 @@ renderer.setAnimationLoop(() => {
   world.followFocus(focus);
   placeBubbles();
   drawColliders(dt);
+  showStats(dt);
   if (post) post.render(); else renderer.render(world.scene, camera);
 });
 </script>
