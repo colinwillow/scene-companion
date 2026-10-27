@@ -34,7 +34,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 
 ## Stage 4 — Play mode + live link
 - [x] Dev server with WebSocket: editor edits hot-patch a running game in another tab/phone — `npm run dev` (static + /live relay, prints LAN URLs); editor streams the scene; play.html patches transforms/params/animation in place and rebuilds on structural changes (`runtime/livepatch.js`, tested)
-- [ ] Live link polish: Bob keeps its old base height when an edit moves the object mid-play (re-read base on position patch); show a small 'live' badge on both pages
+- [ ] [IN PROGRESS 2026-10-27 00:00 UTC] Live link polish: Bob keeps its old base height when an edit moves the object mid-play (re-read base on position patch); show a small 'live' badge on both pages
 - [ ] Game reports state back (selection follows, errors, FPS)
 
 ## Stage 5 — MCP server
