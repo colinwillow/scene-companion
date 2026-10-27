@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint } from '../runtime/editing.js';
+import { nextId, addEntity, duplicateEntity, deleteEntity, setAsset, isDropSurface, dropPoint, isGround } from '../runtime/editing.js';
 
 const scene = () => ({
   assets: { crate: {}, tree_big: {} },
@@ -59,4 +59,11 @@ test('drop point: surface hit, else y=0 plane, else below the focus', () => {
   assert.deepEqual(dropPoint(null, [4, 0.0001, -5], [0, 3, 0]), [4, 0, -5]);
   assert.deepEqual(dropPoint(null, [4000, 0, 0], [1, 3, 2]), [1, 0, 2]);   // ray grazing the horizon
   assert.deepEqual(dropPoint(null, null, [1, 3, 2]), [1, 0, 2]);           // looking up at the sky
+});
+
+test('ground taps count as empty', () => {
+  assert.equal(isGround('ground', {}), true);
+  assert.equal(isGround('floor', { asset: 'ground_big' }), true);
+  assert.equal(isGround('plat_01', { asset: 'block', behaviors: [{ type: 'Solid' }] }), false);
+  assert.equal(isGround(null, null), false);
 });

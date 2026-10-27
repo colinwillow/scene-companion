@@ -24,7 +24,16 @@
   #grab::before { content:''; width:44px; height:5px; border-radius:3px; background:var(--dim); opacity:.7; }
   #panelBody { flex:1; overflow:auto; padding:0 14px calc(14px + env(safe-area-inset-bottom));
     touch-action: pan-y; -webkit-user-select:text; user-select:text; overscroll-behavior:contain; }
+  #panel.closed { display:none; }
+  #chip { position:fixed; z-index:3; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:4px;
+    max-width:calc(100vw - 120px); background:var(--panel); border:1px solid var(--accent); border-radius:999px; padding:4px 4px 4px 12px; }
+  #chip[hidden] { display:none; }
+  #chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  #chip button { flex:none; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:999px; padding:7px 11px; font:inherit; }
+  #chip #chipEdit { background:var(--accent); color:#111; border-color:var(--accent); }
   @media (orientation: landscape) and (min-width: 600px) {
+    #panel.closed { display:flex; }
+    #chip { display:none !important; }
     #panel { left:auto; top:0; height:auto; width:320px; border-top:none; border-radius:0; border-left:1px solid var(--line); padding-top:60px; }
     #grab { display:none; }
   }
@@ -87,7 +96,8 @@
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="motions">Motions</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
-<div id="panel"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
+<div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
+<div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
 
 <script>
 // Show errors on screen so problems are visible on a phone.
@@ -103,7 +113,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround } from './runtime/editing.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
 import { History } from './runtime/history.js';
 import { saveFile } from './runtime/github.js';
@@ -134,20 +144,30 @@ if (coarse) orbit.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTAT
 // ---- bottom-sheet inspector (portrait): drag the handle, it snaps to peek / half / full; tap cycles.
 const SNAPS = [0.11, 0.42, 0.85];          // fractions of the screen height
 let sheet = 1;
-function setSheet(i) { sheet = Math.max(0, Math.min(SNAPS.length - 1, i)); $('panel').style.setProperty('--sheet', SNAPS[sheet] * 100 + 'vh'); }
+function setSheet(i) { sheet = Math.max(0, Math.min(SNAPS.length - 1, i)); $('panel').style.setProperty('--sheet', SNAPS[sheet] * 100 + 'vh'); openSheet(true); }
+// Phones (portrait): the inspector starts closed and selecting doesn't open it — a name chip does (✎ Edit).
+// Landscape keeps its side panel. Closing: drag the handle down to the bottom, or tap it when full.
+const wideNow = () => matchMedia('(orientation: landscape) and (min-width: 600px)').matches;
+function openSheet(open) { $('panel').classList.toggle('closed', !open); updateChip(); }
+function updateChip() {
+  const show = !!selectedId && $('panel').classList.contains('closed');
+  $('chip').hidden = !show;
+  if (show) $('chipName').textContent = selectedId;
+}
 {
   const grab = $('grab'); let y0 = null, h0 = 0, cur = 0, moved = false;
   grab.addEventListener('pointerdown', e => { y0 = e.clientY; h0 = cur = SNAPS[sheet] * innerHeight; moved = false; grab.setPointerCapture(e.pointerId); $('panel').classList.add('dragging'); });
   grab.addEventListener('pointermove', e => {
     if (y0 === null) return;
     if (Math.abs(e.clientY - y0) > 6) moved = true;
-    cur = Math.max(60, Math.min(innerHeight * 0.9, h0 + y0 - e.clientY));
+    cur = Math.max(30, Math.min(innerHeight * 0.9, h0 + y0 - e.clientY));
     $('panel').style.setProperty('--sheet', cur + 'px');
   });
   const up = e => {
     if (y0 === null) return;
     $('panel').classList.remove('dragging');
-    if (!moved) setSheet((sheet + 1) % SNAPS.length);
+    if (!moved) { if (sheet === SNAPS.length - 1) openSheet(false); else setSheet(sheet + 1); }
+    else if (cur < innerHeight * 0.08) openSheet(false);
     else { const f = cur / innerHeight;
       setSheet(SNAPS.reduce((best, s, i) => Math.abs(s - f) < Math.abs(SNAPS[best] - f) ? i : best, 0)); }
     y0 = null;
@@ -156,7 +176,7 @@ function setSheet(i) { sheet = Math.max(0, Math.min(SNAPS.length - 1, i)); $('pa
 }
 
 let world, post, playing = false, selectedId = null, score = 0;
-let gizmo;
+let gizmo, selBox;
 $('look').value = data.settings.look || 'toon';
 
 async function rebuild() {
@@ -174,6 +194,9 @@ async function rebuild() {
   gizmo.addEventListener('objectChange', syncTransformToData);
   world.scene.add(gizmo.getHelper());
   gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]);
+  selBox = new THREE.BoxHelper(undefined, 0xff8a3d); selBox.raycast = () => {}; selBox.visible = false;   // sc:overlay
+  selBox.material.depthTest = false; selBox.renderOrder = 999;
+  world.scene.add(selBox);
   if (selectedId && !playing) select(selectedId);
   renderTree();
 }
@@ -192,7 +215,8 @@ function syncTransformToData() {
 function select(id) {
   selectedId = id;
   sendSelect?.();
-  if (id && sheet === 0) setSheet(1);              // peeking sheet opens to show the inspector
+  if (!id && !wideNow()) openSheet(false);         // deselecting gives the view back on phones
+  updateChip();
   const ent = world.getEntity(id);
   if (ent && !ent.data.light && !playing) gizmo?.attach(ent.object3d); else gizmo?.detach();   // gizmo is made at the end of the first rebuild
   renderPanel();
@@ -257,6 +281,8 @@ function frame(id) {
   camera.position.add(p.clone().sub(orbit.target));
   orbit.target.copy(p);
 }
+$('chipEdit').onclick = () => setSheet(1);
+$('chipX').onclick = () => select(null);
 $('list').onclick = () => { closeLib(); $('tree').classList.toggle('open'); $('list').classList.toggle('on', $('tree').classList.contains('open')); renderTree(); };
 $('treeSearch').oninput = renderTree;
 
@@ -387,8 +413,10 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (g) world.emit('moveTo', g.point.toArray());
     return;
   }
-  const id = hits.length ? entityIdOf(hits[0].object) : null;
-  select(id);
+  let id = hits.length ? entityIdOf(hits[0].object) : null;
+  const ent = id && world.getEntity(id);
+  if (ent && isGround(id, ent.resolved)) id = null;    // tapping the ground deselects quietly (pick it from ☰ List)
+  if (id !== selectedId) select(id);
 });
 const isGizmo = o => { while (o) { if (o.isTransformControlsRoot || o.type === 'TransformControlsGizmo' || o.type === 'TransformControlsPlane') return true; o = o.parent; } return false; };
 const entityIdOf = o => { while (o) { if (o.userData.entityId) return o.userData.entityId; o = o.parent; } return null; };
@@ -664,6 +692,8 @@ renderer.setAnimationLoop(() => {
   world.animate(dt);
   world.followFocus(orbit.target);
   if (playing) world.update(dt);
+  const selObj = !playing && world.getEntity(selectedId)?.object3d;   // highlight what's selected
+  if (selBox) { selBox.visible = !!selObj && !selObj.isLight; if (selBox.visible) selBox.setFromObject(selObj); }
   orbit.update();
   if (post) post.render(); else renderer.render(world.scene, camera);
 });

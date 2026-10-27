@@ -71,10 +71,15 @@ export function replaceModel(data, id, glb, assetDef) {
   return true;
 }
 
+// The ground counts as "empty" for tapping: a tap on it deselects instead of selecting it (pick it from ☰ List).
+export function isGround(id, resolved) {
+  return /^ground/.test(id || '') || (typeof resolved?.asset === 'string' && /^ground/.test(resolved.asset));
+}
+
 // Where "＋Add" drops things: the surfaces the screen-centre ray may land on — anything with a Solid behavior,
 // plus the ground (id or asset named ground*). resolved: the entity with its prefab merged in.
 export function isDropSurface(id, resolved) {
-  if (/^ground/.test(id) || (typeof resolved?.asset === 'string' && /^ground/.test(resolved.asset))) return true;
+  if (isGround(id, resolved)) return true;
   return (resolved?.behaviors || []).some(b => b.type === 'Solid');
 }
 
