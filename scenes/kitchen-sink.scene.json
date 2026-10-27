@@ -1448,6 +1448,111 @@
           }
         }
       ]
+    },
+    {
+      "id": "guard",
+      "prefab": "skeleton",
+      "position": [
+        16,
+        0,
+        9
+      ],
+      "removeBehaviors": [
+        "Chase"
+      ],
+      "behaviors": [
+        {
+          "type": "Reactions",
+          "params": {
+            "state": "idle",
+            "rules": [
+              {
+                "when": {
+                  "type": "near",
+                  "target": "player",
+                  "radius": 7
+                },
+                "if": {
+                  "state": "idle"
+                },
+                "do": [
+                  {
+                    "type": "go",
+                    "state": "chase"
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "type": "enter",
+                  "state": "chase"
+                },
+                "do": [
+                  {
+                    "type": "say",
+                    "text": "Stop right there!"
+                  },
+                  {
+                    "type": "move",
+                    "mode": "chase",
+                    "target": "player",
+                    "speed": 2.6
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "type": "leave",
+                  "target": "player",
+                  "radius": 13
+                },
+                "if": {
+                  "state": "chase"
+                },
+                "do": [
+                  {
+                    "type": "go",
+                    "state": "home"
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "type": "enter",
+                  "state": "home"
+                },
+                "do": [
+                  {
+                    "type": "say",
+                    "text": "\u2026and stay out."
+                  },
+                  {
+                    "type": "move",
+                    "mode": "home",
+                    "speed": 2
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "type": "near",
+                  "target": "player",
+                  "radius": 7
+                },
+                "if": {
+                  "state": "home"
+                },
+                "do": [
+                  {
+                    "type": "go",
+                    "state": "chase"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     }
   ],
   "prefabs": {

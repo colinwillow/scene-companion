@@ -139,3 +139,4 @@
 - 2026-10-27 — Camera entities part 1 — CameraRig (follow / fixed / zone / priority / shakeOn); 279 tests; checked headless (live session)
 - 2026-10-27 — Camera part 2 — rail mode, sticks follow the showing camera, editor markers for logic entities; 280 tests (live session)
 - 2026-10-27 — AI part 1 — NavGrid + Chase.navigate; 283 tests; checked headless (live session)
+- 2026-10-27 — AI part 2 — Reactions states (go / enter / if.state / move); kitchen-sink guard; 284 tests; checked headless (live session)

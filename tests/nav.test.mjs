@@ -35,3 +35,24 @@ test('Chase walks around a wall to reach its target (and with navigate off, walk
     else assert.equal(through, true, 'the old straight line goes through (Chase has no collision of its own)');
   }
 });
+
+test('Reactions as a state machine: idle → (near) chase round a wall → (leave) home; rules only run in their state', async () => {
+  const { Reactions } = await import('../behaviors/index.js');
+  const guard = { id: 'guard', behaviors: [], object3d: { position: { x: -3, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 } } };
+  const player = { id: 'player', object3d: { position: { x: 3, y: 0, z: 30 } } }, said = [];
+  const world = { vars: {}, solids: [box(0, 0, 1, 10)], on() {}, emit: (...a) => said.push(a), getEntity: id => (id === 'player' ? player : id === 'guard' ? guard : null) };
+  const rules = [
+    { when: { type: 'near', target: 'player', radius: 8 }, if: { state: 'idle' }, do: [{ type: 'go', state: 'chase' }] },
+    { when: { type: 'enter', state: 'chase' }, do: [{ type: 'move', mode: 'chase', target: 'player', speed: 3 }, { type: 'say', text: 'Hey!' }] },
+    { when: { type: 'leave', target: 'player', radius: 14 }, if: { state: 'chase' }, do: [{ type: 'go', state: 'home' }] },
+    { when: { type: 'enter', state: 'home' }, do: [{ type: 'move', mode: 'home', speed: 3 }] },
+  ];
+  const r = new Reactions(guard, { rules, state: 'idle' }, world); guard.behaviors.push(r); r.start();
+  const run = s => { for (let i = 0; i < s * 60; i++) r.update(1 / 60); };
+  run(1); assert.equal(r.mode, 'idle'); assert.deepEqual([guard.object3d.position.x, guard.object3d.position.z], [-3, 0]);
+  player.object3d.position.z = 0; run(0.2); assert.equal(r.mode, 'chase'); assert.ok(said.some(a => a[0] === 'say'));
+  run(6); const p = guard.object3d.position;
+  assert.ok(Math.hypot(p.x - 3, p.z) < 1.2, `caught up round the wall (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`);
+  player.object3d.position.z = 40; run(0.2); assert.equal(r.mode, 'home');
+  run(10); assert.ok(Math.hypot(p.x + 3, p.z) < 0.2, 'back home');
+});

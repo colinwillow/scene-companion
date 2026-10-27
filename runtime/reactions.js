@@ -2,7 +2,9 @@
 // the Reactions behavior runs them. One vocabulary table drives the behavior, the inspector's dropdowns, the validator
 // and the MCP tool, so adding a trigger or an action is one entry here plus its case in behaviors/index.js.
 //
-// A rule: { when: { type, …fields }, if: { once, cooldown, chance, var, op, value }, do: [{ type, …fields }, …] }
+// A rule: { when: { type, …fields }, if: { once, cooldown, chance, var, op, value, state }, do: [{ type, …fields }, …] }
+// States (an editable state machine): the behavior's `state` param is where it starts; `go` changes it, `enter` fires on arrival,
+// and a rule with `if.state` only runs in that state. `move` keeps the entity walking (chase / flee / home) until another move.
 
 // Field defaults also say each field's type (number / string / vec3 / boolean) to the editor.
 export const WHEN = {
@@ -15,6 +17,7 @@ export const WHEN = {
   frame:  { name: 'hit' },                     // a frame event in MY clip (character.json events, e.g. hit, foot)
   struck: {},                                  // I was hit by a Melee strike
   var:    { var: 'coins', op: '>=', value: 10 },   // a world variable starts meeting the test (fires once each time it becomes true)
+  enter:  { state: 'chase' },                  // I just went into this state (a `go` action) — the state machine's entry
 };
 export const DO = {
   play:    { clip: 'wave', layer: 'upper' },   // a clip or a role name (idle, attack, …); upper = the legs keep doing their thing
@@ -32,6 +35,8 @@ export const DO = {
   shake:   { amount: 0.3, seconds: 0.3 },            // camera shake (game page)
   end:     { text: 'You win!', sub: '', button: '', next: '' },   // the end screen (game page) — win or lose; sub: a line under it, button: its word, next: a scene to go to
   load:    { scene: './scenes/tiny-hop.scene.json' },   // go to another scene (game page)
+  go:      { state: 'chase' },                 // switch MY state (rules with `if.state` only run in theirs; `enter` fires next)
+  move:    { mode: 'chase', target: 'player', speed: 3 },   // keep moving: chase | flee | home | stop — round walls (runtime/nav.js)
 };
 export const OPS = ['>=', '>', '==', '!=', '<', '<='];
 

@@ -2573,8 +2573,12 @@ export class Spawner extends Behavior {
 // Edge-triggered: `near` fires when the target arrives, not every frame it stays. World variables live in world.vars
 // (seeded from settings.variables each Play).
 export class Reactions extends Behavior {
-  static schema = { rules: { type: 'rules', default: [] } };
-  start() { this.state = []; this.heard = {}; this.subscribed ||= new Set(); this.t = 0; this.started = false; this.world.vars ||= {}; }
+  static schema = { rules: { type: 'rules', default: [] }, state: { type: 'string', default: 'idle' } };   // state: where the state machine starts
+  start() {
+    this.state = []; this.heard = {}; this.subscribed ||= new Set(); this.t = 0; this.started = false; this.world.vars ||= {};
+    this.mode = this.params.state || 'idle'; this.entered = this.mode; this.moving = null; this.route = null; this.repath = 0;
+    const p = this.entity.object3d?.position; this.home = p ? [p.x, p.z] : [0, 0];
+  }
   onParamChanged() { this.state = []; }
   listen(name) {
     if (this.subscribed.has(name)) return; this.subscribed.add(name);
@@ -2593,6 +2597,7 @@ export class Reactions extends Behavior {
       case 'event': this.listen(w.name); return (this.heard[w.name] || []).some(args => !w.from || args[0] === w.from);
       case 'frame': this.listen(w.name); return (this.heard[w.name] || []).some(args => args[0] === this.entity.id);
       case 'struck': this.listen('struck'); return (this.heard.struck || []).some(args => args[1] === this.entity.id);
+      case 'enter': return this.entered === w.state;
       case 'var': { const ok = compare(this.world.vars?.[w.var] ?? 0, w.op || '>=', w.value ?? 0), was = st.ok ?? false; st.ok = ok; return ok && !was; }
       case 'near': case 'bumped': case 'leave': {
         const inside = this.dist(w.target) <= w.radius, was = st.inside ?? false; st.inside = inside;
@@ -2603,6 +2608,7 @@ export class Reactions extends Behavior {
   }
   allowed(rule, st) {
     const c = rule.if || {};
+    if (c.state && c.state !== this.mode) return false;
     if (c.once && st.done) return false;
     if (c.cooldown > 0 && this.t - (st.last ?? -Infinity) < c.cooldown) return false;
     if (c.var) { const v = this.world.vars[c.var] ?? 0; if (!compare(v, c.op || '>=', c.value ?? 0)) return false; }
@@ -2632,7 +2638,25 @@ export class Reactions extends Behavior {
       case 'shake': W.emit('shake', +a.amount || 0.3, +a.seconds || 0.3); break;
       case 'end': W.emit('end', String(a.text ?? ''), { sub: a.sub ? String(a.sub) : '', button: a.button ? String(a.button) : '', next: a.next ? String(a.next) : '' }); break;   // a win / lose screen: title, line under it, button, next scene
       case 'load': if (a.scene) W.emit('loadScene', String(a.scene)); break;
+      case 'go': if (a.state && a.state !== this.mode) { this.mode = String(a.state); this.nextEnter = this.mode; W.emit('state', me.id, this.mode); } break;
+      case 'move': this.moving = a.mode === 'stop' ? null : { mode: a.mode || 'chase', target: a.target || 'player', speed: +a.speed || 3 }; this.route = null; break;
     }
+  }
+  // the standing `move`: chase / flee / home, round the walls on the world's walk grid
+  walk(dt) {
+    const M = this.moving, o = this.entity.object3d, p = o.position; if (!M) return;
+    const t = this.world.getEntity(M.target)?.object3d?.position;
+    let goal = M.mode === 'home' ? this.home : t ? (M.mode === 'flee' ? [p.x + (p.x - t.x), p.z + (p.z - t.z)] : [t.x, t.z]) : null;
+    if (!goal) return;
+    if ((this.world.solids || []).length) {
+      const W = this.world, n = W.solids.length; if (!W.nav || W.nav.count !== n) W.nav = new NavGrid().build(W.solids);
+      if ((this.repath -= dt) <= 0 || !this.route?.length) { this.repath = 0.4; this.route = W.nav.path([p.x, p.z], goal) || [goal]; }
+      while (this.route.length > 1 && Math.hypot(this.route[0][0] - p.x, this.route[0][1] - p.z) < 0.3) this.route.shift();
+      goal = this.route[0];
+    }
+    const dx = goal[0] - p.x, dz = goal[1] - p.z, d = Math.hypot(dx, dz), stop = M.mode === 'chase' ? 0.9 : 0.05;
+    if (d <= stop && this.route?.length <= 1) return;
+    const k = Math.min(M.speed * dt, d) / d; p.x += dx * k; p.z += dz * k; setYaw(o, Math.atan2(dx, dz));
   }
   update(dt) {
     if (this.entity.dormant) return;
@@ -2645,6 +2669,8 @@ export class Reactions extends Behavior {
       for (const a of rule.do || []) this.act(a);
     });
     this.started = true; this.heard = {};
+    this.entered = this.nextEnter || null; this.nextEnter = null;   // `enter` fires on the frame after a `go`
+    if (!this.entity.defeated) this.walk(dt);
   }
 }
 
