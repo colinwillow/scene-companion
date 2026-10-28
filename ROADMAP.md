@@ -212,7 +212,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 *"How it looks — icons, the colours — make it feel fun and interesting and user-friendly, intuitive but also beautiful."*
 Every item: before/after screenshots (phone portrait + landscape, headless) in its LOG line, `npm run check` passing,
 nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/B on a switch rather than shipping a pick.
-- [ ] [IN PROGRESS] UI audit: screenshot every screen (editor portrait + landscape, inspector, Library tabs, scene picker, play HUD, pause, title card, VFX, Sprite bake, slicer) into docs/ui/audit/; docs/ui-audit.md lists what's confusing, ugly, cramped or inconsistent, ranked
+- [x] UI audit: screenshot every screen (editor portrait + landscape, inspector, Library tabs, scene picker, play HUD, pause, title card, VFX, Sprite bake, slicer) into docs/ui/audit/; docs/ui-audit.md lists what's confusing, ugly, cramped or inconsistent, ranked
 - [ ] Design system: one `ui/theme.css` shared by every page — colour tokens (a fun, warm palette with one accent per mode: edit / play / paint), type scale, spacing, radius, shadows, button + slider + toggle + card styles; every page switched over, nothing looks different-by-accident
 - [ ] Icon set: one consistent SVG icon sprite (rounded, chunky, friendly) replacing the emoji in every toolbar, a short word under each icon (Colin's rule from culture_war), long-press shows what it does
 - [ ] Editor layout for thumbs: the main tools in a bottom bar within thumb reach, fewer rows on top, the current mode (select / move / scatter / paint) obvious at a glance
