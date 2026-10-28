@@ -6,11 +6,17 @@
 <title>Sprite bake</title>
 <link rel="stylesheet" href="ui/theme.css">
 <script src="ui/theme.js"></script>
+<script src="ui/longpress.js" defer></script>
+<script src="ui/feel.js"></script>
 <style>
     html, body { margin:0; background:var(--bg); color:var(--text); font:14px var(--font); touch-action:manipulation; }
-  main { max-width:760px; margin:0 auto; padding:12px; }
+  main { max-width:900px; margin:0 auto; padding:14px; }
+  .thead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 8px; } .thead h1 { margin:0; font-size:20px; font-weight:900; }
+  .thead .back { text-decoration:none; color:var(--text); background:var(--raised); border:1px solid var(--line); border-radius:var(--r-md); padding:8px 10px; font-weight:800; }
+  main > .row:not(:last-child) { background:var(--panel-solid); border:1px solid var(--line); border-radius:var(--r-md); padding:8px 10px; }
+  #sheet { max-height:62vh; object-fit:contain; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
-  input, select, button { background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font:inherit; }
+  input, select, button { background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:var(--r-sm); padding:7px 9px; font:inherit; }
   button.go { background:var(--accent); color:var(--on-accent); }
   #sheet { width:100%; image-rendering:pixelated; background:repeating-conic-gradient(#333 0 25%,#222 0 50%) 0 0/16px 16px; border-radius:8px; }
   #msg { opacity:.8; white-space:pre-wrap; }
@@ -18,11 +24,11 @@
 </head>
 <body class="ui mode-edit">
 <main>
-  <h3 style="margin:4px 0">🎞 Sprite bake — a 3D character into a 2D sheet</h3>
+  <div class="thead"><a href="./index.html" class="ib side back" data-icon="edit" title="Back to the editor">Editor</a><h1>Sprite bake</h1><small class="dim">a 3D character into a 2D sheet</small></div>
   <div class="row"><label>character <select id="char"></select></label><label>size <select id="size"><option>64</option><option selected>128</option><option>256</option></select> px</label><label>frames/clip <input id="n" type="number" value="8" min="1" max="24" style="width:56px"></label></div>
-  <div class="row"><label>roles <input id="roles" value="idle, run, jump, fall" style="width:220px"></label><label>view <select id="view"><option value="side">side (faces right)</option><option value="front">front</option><option value="iso">¾</option></select></label><button class="go" id="bake">Bake</button></div>
+  <div class="row"><label>roles <input id="roles" value="idle, run, jump, fall" style="width:220px"></label><label>view <select id="view"><option value="side">side (faces right)</option><option value="front">front</option><option value="iso">¾</option></select></label><button class="go primary ib side" id="bake" data-icon="sparkle">Bake</button></div>
   <canvas id="sheet" width="8" height="8"></canvas>
-  <div class="row"><button id="dl" disabled>⬇ PNG</button><button id="save" disabled title="Needs npm run dev: writes assets/sprites/&lt;name&gt;/">💾 Save to project</button><span id="msg"></span></div>
+  <div class="row"><button id="dl" class="ib side" data-icon="receive" disabled title="Download the sheet as a PNG">PNG</button><button id="save" class="ib side" data-icon="save" disabled title="Needs npm run dev: writes assets/sprites/&lt;name&gt;/">Save to project</button><span id="msg"></span></div>
 </main>
 <script type="importmap">
 { "imports": {
@@ -32,6 +38,8 @@
 </script>
 <script type="module">
 import * as THREE from 'three';
+import { iconize } from './ui/icons.js';
+iconize(document);
 import { World } from './runtime/World.js';
 import { bakePlan } from './runtime/sprites.js';
 import './behaviors/index.js';
