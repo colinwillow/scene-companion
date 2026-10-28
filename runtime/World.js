@@ -34,7 +34,9 @@ function asBones(node) {
   return out;
 }
 
-const TIER_ORDER = { web: 0, desktop: 1 };
+const TIER_ORDER = { web: 0, desktop: 1, ultra: 2 };
+// How heavy a tier renders: web 0 (phones), desktop 1, ultra 2 (the desktop app's default). Asset variants fall back down.
+export const tierRank = t => TIER_ORDER[t] ?? 0;
 
 const GLTF_CACHE = new Map(), MOTION_CACHE = new Map();
 const SHARED = new WeakSet();   // geometries + materials owned by the caches: a World's dispose() must not free them
@@ -242,13 +244,14 @@ export class World {
     if (l.type === 'directional') {
       light = new THREE.DirectionalLight(l.color || '#ffffff', l.intensity ?? 2);
       light.castShadow = true;
-      const ultra = this.tier === 'desktop';
-      light.shadow.mapSize.set(ultra ? 2048 : 1024, ultra ? 2048 : 1024);
+      const rank = tierRank(this.tier), map = rank >= 2 ? 4096 : rank >= 1 ? 2048 : 1024;
+      light.shadow.mapSize.set(map, map);
       const r = l.shadowRadius ?? 14;   // metres covered around the camera focus
       Object.assign(light.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 80 });
       light.shadow.bias = -0.0004;
       light.shadow.normalBias = 0.03;
-      light.shadow.radius = ultra ? 4 : 2;
+      light.shadow.radius = rank >= 2 ? 5 : rank >= 1 ? 4 : 2;
+      light.shadow.blurSamples = rank >= 2 ? 16 : 8;     // ultra's soft (VSM) shadows: wider, smoother penumbra
       this.scene.add(light.target);
       this.shadowLights = [...(this.shadowLights || []), light];
       if (l.shadows === false) light.castShadow = false;

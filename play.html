@@ -107,7 +107,7 @@ import { solidOutline } from './runtime/collide.js';
 
 const $ = id => document.getElementById(id);
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/tiny-hop.scene.json';
-const TIER = new URLSearchParams(location.search).get('tier') || 'web';
+const TIER = new URLSearchParams(location.search).get('tier') || (() => { try { return localStorage.getItem('sc.tier'); } catch { return null; } })() || (window.__TAURI__ ? 'ultra' : 'web');   // ?tier=ultra, the editor's choice, else ultra in the desktop app
 $('edit').href = `./index.html?scene=${encodeURIComponent(SCENE_URL)}`;
 // 🎬 every example scene (scenes/index.json); opening play.html with no ?scene shows the list first
 fetch('./scenes/index.json').then(r => r.json()).then(list => {
@@ -359,7 +359,7 @@ async function start() {
   world.on('checkpoint', () => saveProgress());
   saveT = 0;
   world.on('loadScene', url => { location.search = `?scene=${encodeURIComponent(url)}`; });   // Footsteps varies the pitch (world.rng)
-  post = createPost(renderer, world.scene, camera, data.settings.post, TIER);
+  post = createPost(renderer, world.scene, camera, data.settings.post, TIER, world);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
   resize(); hud();
 }

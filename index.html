@@ -132,7 +132,7 @@
  <button id="scatter" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">🖌 Scatter</button>
   <button id="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">▦ Snap</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
-  <select id="tier" title="Quality tier"><option>web</option><option>desktop</option></select>
+  <select id="tier" title="Quality tier: web (phones) · desktop · ultra (soft shadows, reflections — the desktop app's default)"><option>web</option><option>desktop</option><option>ultra</option></select>
   <select id="add" title="Add an object"></select>
   <button id="undo" title="Undo (Ctrl+Z)" disabled>↶</button>
   <button id="redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
@@ -196,6 +196,8 @@ const $ = id => document.getElementById(id);
 // ---- the single source of truth: scene data
 const DESKTOP = window.__TAURI__ || null;   // running inside the desktop app: files can be written (desktop/src-tauri)
 const PROJECT = !!DESKTOP && /^project:|\/\/project\.localhost/.test(location.href);   // served from a project folder on this computer
+{ let t = null; try { t = localStorage.getItem('sc.tier'); } catch {}   // the quality tier: remembered, else ultra in the desktop app
+  $('tier').value = new URLSearchParams(location.search).get('tier') || t || (DESKTOP ? 'ultra' : 'web'); }
 // a project opened with no scene named opens its own first scene, not the bundled kitchen sink
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || (PROJECT && (await DESKTOP.core.invoke('list_project_scenes').catch(() => []))[0]) || './scenes/kitchen-sink.scene.json';
 // The scene picker: every example scene (scenes/index.json); choosing one reopens the editor on it.
@@ -297,7 +299,7 @@ async function rebuild() {
   }).catch(() => {}); }
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
-  post = createPost(renderer, world.scene, camera, data.settings.post, $('tier').value);
+  post = createPost(renderer, world.scene, camera, data.settings.post, $('tier').value, world);
   gizmo = new TransformControls(camera, renderer.domElement);
   if (coarse) gizmo.setSize(1.6);                 // fatter handles for fingers
   gizmo.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; if (e.value) record(); });
@@ -966,7 +968,7 @@ async function playToggle() {
 let modeIdx = 0;
 $('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; $('mode').textContent = ['Move', 'Rotate', 'Scale'][modeIdx]; gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
 $('look').onchange = async () => { record(); data.settings.look = $('look').value; world.setLook(data.settings.look); world.data = data; };
-$('tier').onchange = rebuild;
+$('tier').onchange = () => { try { localStorage.setItem('sc.tier', $('tier').value); } catch {} rebuild(); };   // remembered (play.html reads it too)
 // ---- save to GitHub (fine-grained token with Contents read/write, kept on this device only)
 function ghSettings(reset) {
   let cfg = null;

@@ -25,7 +25,10 @@
         "radius": 0.5,
         "threshold": 0.85
       },
-      "vignette": 0.25
+      "vignette": 0.25,
+      "reflect": [
+        "plaza"
+      ]
     },
     "controls": {
       "jumpTap": "right"
@@ -124,6 +127,18 @@
           "texture": "stone",
           "repeat": 4,
           "roughness": 0.85
+        },
+        "ultra": {
+          "primitive": "cylinder",
+          "size": [
+            9,
+            0.06,
+            9
+          ],
+          "texture": "stone",
+          "repeat": 4,
+          "roughness": 0.3,
+          "metalness": 0.05
         }
       }
     },

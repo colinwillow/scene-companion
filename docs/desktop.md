@@ -20,6 +20,13 @@ served from that folder: its scenes are listed with 📁, its models and prefabs
 back into the folder** (only `scenes/*.json` and `prefabs/*.json` can be written). The editor's own code always comes from
 the app, and anything the folder lacks (a model, the example scenes) falls back to the bundled copy.
 
+## Ultra quality
+The tier menu (and `play.html?tier=ultra`) has a third setting, **ultra** — the desktop app's default, remembered once picked:
+everything the desktop tier has, plus soft shadows (4096 variance shadow maps), 8× anti-aliasing, full-resolution ambient
+occlusion and bloom, and **screen-space reflections** on the objects a scene lists: `"post": { "reflect": ["plaza"] }`
+(the kitchen sink's plaza). An asset can carry an `ultra` variant (a glossier material, a richer model); web and desktop
+fall back to theirs. It is for a real GPU — on a phone it would be slow, which is why web stays the default there.
+
 ## What it adds over the web editor
 - `save_scene` / `list_scenes` / `load_scene` (no project: <Documents>/SceneCompanion/scenes), `open_project` /
   `list_project_scenes` / `write_project_file` and the `project:` protocol (desktop/src-tauri/src/main.rs): the editor checks

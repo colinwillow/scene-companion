@@ -162,3 +162,4 @@
 - 2026-10-28 — Desktop part 1 — Tauri 2 app (save/list/load scenes on disk), desktop:prepare, vendor-three shared; cargo build clean, the window launched under Xvfb with the editor offline (live session)
 - 2026-10-28 — Desktop part 2a — project folders (project: protocol, open/list/write), picker + Save in project mode, SC_SELFTEST; checked in the real app under Xvfb (live session)
 - 2026-10-28 — Desktop part 2b — Blender bridge inside the desktop app (bridge.rs), editor wiring, SC_SELFTEST=bridge; round trip checked in the real app (live session)
+- 2026-10-28 — Desktop part 3a — ultra tier (VSM 4096, 8x MSAA, full-res AO/bloom, SSR via post.reflect), tier remembered, desktop default; kitchen-sink plaza reflects; checked headless (live session)

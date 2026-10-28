@@ -116,12 +116,13 @@ export function applyLook(world, look) {
   }
 
   // Tier decides how heavy rendering gets.
-  const ultra = world.tier === 'desktop';
+  const rank = { desktop: 1, ultra: 2 }[world.tier] ?? 0;
   renderer.shadowMap.enabled = look !== 'baked';
-  renderer.shadowMap.type = ultra ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.shadowMap.type = rank >= 2 ? THREE.VSMShadowMap : rank >= 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.shadowMap.needsUpdate = true;
   // Filmic tone mapping for lit looks (AgX keeps saturated colours from blowing out).
   renderer.toneMapping = look === 'baked' ? THREE.NoToneMapping : THREE.AgXToneMapping;
   if (!world.skyEnv) renderer.toneMappingExposure = 1;
   toonGain.value = 1 / Math.max(renderer.toneMappingExposure, 0.1);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, ultra ? 2 : 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, rank >= 1 ? 2 : 1.5));
 }
