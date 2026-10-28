@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="ui/theme.css">
 <script src="ui/theme.js"></script>
 <script src="ui/longpress.js" defer></script>
+<script src="ui/feel.js"></script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
@@ -43,6 +44,10 @@
   #more[hidden] { display:none; }
   #more .mrow { display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; }
   #more .mrow select { width:130px; }
+  #more:not([hidden]), #sceneSheet:not([hidden]) .sbox, #libPrev:not([hidden]) { animation:popIn .18s var(--ease) both; }
+  #lib.open, #tree.open { animation:sheetDown .22s var(--ease) both; }
+  #chip:not([hidden]), #scatterBar:not([hidden]), #tileBar:not([hidden]) { animation:sheetUp .22s var(--ease) both; }
+  #sceneSheet:not([hidden]) { animation:fadeIn .18s both; }
   #more #save { min-height:44px; }
   .acts button.ib { padding:7px 4px; gap:3px; } .acts button.ib .iw { white-space:normal; text-align:center; }
       #panel { position:fixed; left:0; right:0; bottom:0; height:var(--sheet, 42vh); z-index:4; display:flex; flex-direction:column;
@@ -200,6 +205,9 @@
   <label class="mrow"><span>Look</span><select id="look" title="Look profile: toon, baked or pbr lighting"><option>toon</option><option>baked</option><option>pbr</option></select></label>
   <label class="mrow"><span>Quality</span><select id="tier" title="Quality tier: web (phones) · desktop · ultra (soft shadows, reflections — the desktop app's default)"><option>web</option><option>desktop</option><option>ultra</option></select></label>
   <label class="mrow"><span>Theme</span><select id="theme" title="UI theme (a taste switch): warm is the new look, classic is the look before Stage 9"><option value="warm">warm</option><option value="classic">classic</option></select></label>
+  <div class="mrow"><span>Buzz on tap</span><label class="toggle"><input type="checkbox" data-feel="haptics"><span></span></label></div>
+  <div class="mrow"><span>Click sounds</span><label class="toggle"><input type="checkbox" data-feel="clicks"><span></span></label></div>
+  <div class="mrow"><span>Motion</span><label class="toggle"><input type="checkbox" data-feel="motion"><span></span></label></div>
   <button id="save" class="ib side" data-icon="copy" title="Copy the scene JSON to the clipboard (to paste to Claude)">Copy JSON</button>
 </div>
 <div id="sceneSheet" hidden><div class="sbox sheet"><div class="shead"><b>Scenes</b><button id="sceneX" class="ib icon-only" data-icon="close" title="Close">Close</button></div><div id="sceneCards"></div></div></div>
@@ -233,7 +241,7 @@
 
 <script>
 // Show errors on screen so problems are visible on a phone.
-function showErr(m){const e=document.getElementById('err');if(!e)return;e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;}
+function showErr(m){const e=document.getElementById('err');window.scToast?.(String(m).split('\n')[0].slice(0,90),'bad');if(!e)return;e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;}
 addEventListener('error',e=>showErr(e.message));
 addEventListener('unhandledrejection',e=>showErr(String(e.reason?.message||e.reason)));
 const _warn=console.warn;console.warn=(...a)=>{_warn(...a);showErr(a.join(' '));};
@@ -792,8 +800,8 @@ function renderPanel() {
         };
         pick.click();
       }
-      if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await refresh(); select(c.id); }
-      if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await refresh(); select(null); renderPanel(); }
+      if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await refresh(); select(c.id); window.scToast?.(`Copied as ${c.id}`, 'ok'); }
+      if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await refresh(); select(null); renderPanel(); window.scToast?.(`Deleted ${e.id} — Undo brings it back`); }
     };
     iconize(acts); const bb = acts.querySelector('[data-a="blender"]'); if (bb && blenderOn) setIcon(bb, 'send', 'Blender', ' <span style="color:var(--ok)">●</span>');
     panel.append(acts);
@@ -1313,7 +1321,7 @@ async function addFrom(kind, name, ndc) {
   record();
   if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
   const e = kind === 'light' ? addLight(data, name, viewDropPoint()) : addEntity(data, { [kind]: name }, viewDropPoint(ndc));
-  await refresh(); select(e.id); fillAdd();
+  await refresh(); select(e.id); fillAdd(); window.scToast?.(`Added ${e.id}`, 'ok');
 }
 
 async function addCharacterFrom(i, ndc) {
@@ -1657,7 +1665,7 @@ $('lib').querySelector('.tabs').onclick = ev => {
 $('libSearch').oninput = renderLib;
 $('save').onclick = async () => {
   const json = JSON.stringify(data, null, 2);
-  try { await navigator.clipboard.writeText(json); setIcon($('save'), 'check', 'Copied'); }
+  try { await navigator.clipboard.writeText(json); setIcon($('save'), 'check', 'Copied'); window.scToast?.('Scene JSON copied — paste it to Claude', 'ok'); }
   catch { const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = SCENE_URL.split('/').pop(); a.click(); setIcon($('save'), 'check', 'Saved'); }

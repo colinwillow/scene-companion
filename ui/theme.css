@@ -125,3 +125,18 @@ a { color: var(--info); }
   background: var(--text); color: var(--bg); font: 600 13px/1.35 var(--font); box-shadow: var(--sh-2); pointer-events: none;
   animation: lp-in .14s var(--ease); }
 @keyframes lp-in { from { opacity: 0; transform: translateY(4px) scale(.96); } }
+
+/* ---- feel (ui/feel.js): toasts, panel motion, and the calm switch ---- */
+#toasts { position: fixed; left: 0; right: 0; bottom: calc(var(--dockH, 0px) + 64px + env(safe-area-inset-bottom)); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.toast { padding: 9px 16px; border-radius: var(--r-pill); background: var(--text); color: var(--bg); font: 800 14px var(--font); box-shadow: var(--sh-2); max-width: 86vw; text-align: center;
+  animation: toastIn .28s var(--ease) both; transition: opacity .3s, transform .3s; }
+.toast.ok { background: var(--ok); color: var(--on-ok); } .toast.bad { background: var(--bad); color: #2a0408; }
+.toast.out { opacity: 0; transform: translateY(8px) scale(.96); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(14px) scale(.9); } }
+@keyframes sheetUp { from { opacity: 0; transform: translateY(18px); } }
+@keyframes sheetDown { from { opacity: 0; transform: translateY(-12px); } }
+@keyframes popIn { from { opacity: 0; transform: scale(.94); } }
+@keyframes fadeIn { from { opacity: 0; } }
+.ui button, .btn { transition: transform .12s var(--ease), background .15s, border-color .15s, color .15s; }
+.calm *, .calm *::before, .calm *::after { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
