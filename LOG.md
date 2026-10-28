@@ -160,3 +160,4 @@
 - 2026-10-28 — Extensions part 2a — Library Extensions tab (Use / Remove per scene), extensions/index.json; checked headless (live session)
 - 2026-10-28 — Extensions part 2b — Worker sandbox (core / worker / host), permissions enforced inside it, Wobble sandboxed; 321 tests; checked headless in game + editor (live session)
 - 2026-10-28 — Desktop part 1 — Tauri 2 app (save/list/load scenes on disk), desktop:prepare, vendor-three shared; cargo build clean, the window launched under Xvfb with the editor offline (live session)
+- 2026-10-28 — Desktop part 2a — project folders (project: protocol, open/list/write), picker + Save in project mode, SC_SELFTEST; checked in the real app under Xvfb (live session)

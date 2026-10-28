@@ -13,7 +13,16 @@ The same editor and game in a native window: **offline** (three.js is bundled), 
 
 On a Mac the first launch of an unsigned app needs right-click › Open (signing needs an Apple Developer account).
 
+## Projects: work on a folder on your computer
+🎬 picker › **📁 Open project folder…** (or launch with `--project <folder>` / `SC_PROJECT=<folder>`). A project is any folder
+laid out like this repo — `scenes/`, `prefabs/`, `assets/` … — e.g. a clone of one of your game repos. The window is then
+served from that folder: its scenes are listed with 📁, its models and prefabs load from it, and **⇪ Save writes the scene
+back into the folder** (only `scenes/*.json` and `prefabs/*.json` can be written). The editor's own code always comes from
+the app, and anything the folder lacks (a model, the example scenes) falls back to the bundled copy.
+
 ## What it adds over the web editor
-- `save_scene` / `list_scenes` / `load_scene` (desktop/src-tauri/src/main.rs): the editor checks for `window.__TAURI__`
-  and uses them for ⇪ Save and the 🎬 picker; on the web nothing changes.
-- Next (roadmap Desktop part 2): open any project folder, the Library reading its assets, the Blender bridge without the dev server.
+- `save_scene` / `list_scenes` / `load_scene` (no project: <Documents>/SceneCompanion/scenes), `open_project` /
+  `list_project_scenes` / `write_project_file` and the `project:` protocol (desktop/src-tauri/src/main.rs): the editor checks
+  for `window.__TAURI__` and uses them for ⇪ Save and the 🎬 picker; on the web nothing changes.
+- `SC_SELFTEST=1` makes the editor report what it loaded (and a test save) on stdout and quit — how it is checked headless.
+- Next (roadmap Desktop part 2b): the Blender bridge without the dev server.

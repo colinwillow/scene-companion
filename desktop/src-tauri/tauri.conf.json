@@ -3,11 +3,30 @@
   "productName": "Scene Companion",
   "version": "0.9.0",
   "identifier": "com.colinwillow.scenecompanion",
-  "build": { "frontendDist": "../dist" },
+  "build": {
+    "frontendDist": "../dist"
+  },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{ "title": "Scene Companion", "url": "index.html", "width": 1280, "height": 820, "resizable": true }],
-    "security": { "csp": null }
+    "windows": [
+      {
+        "title": "Scene Companion",
+        "url": "index.html",
+        "width": 1280,
+        "height": 820,
+        "resizable": true,
+        "label": "main"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
   },
-  "bundle": { "active": true, "targets": "all", "icon": ["icons/icon.png"] }
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ]
+  }
 }

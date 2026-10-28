@@ -194,16 +194,30 @@ import './behaviors/index.js';
 const $ = id => document.getElementById(id);
 
 // ---- the single source of truth: scene data
-const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/kitchen-sink.scene.json';
 const DESKTOP = window.__TAURI__ || null;   // running inside the desktop app: files can be written (desktop/src-tauri)
+const PROJECT = !!DESKTOP && /^project:|\/\/project\.localhost/.test(location.href);   // served from a project folder on this computer
+// a project opened with no scene named opens its own first scene, not the bundled kitchen sink
+const SCENE_URL = new URLSearchParams(location.search).get('scene') || (PROJECT && (await DESKTOP.core.invoke('list_project_scenes').catch(() => []))[0]) || './scenes/kitchen-sink.scene.json';
 // The scene picker: every example scene (scenes/index.json); choosing one reopens the editor on it.
 fetch('./scenes/index.json').then(r => r.json()).then(list => {
   const sel = document.getElementById('scenePick'), here = SCENE_URL.replace(/^\.\//, '');
-  if (!SCENE_URL.startsWith('desktop:') && !list.some(s => s.file.replace(/^\.\//, '') === here)) list.unshift({ file: SCENE_URL, title: SCENE_URL.split('/').pop() });
+  if (!SCENE_URL.startsWith('desktop:') && !PROJECT && !list.some(s => s.file.replace(/^\.\//, '') === here)) list.unshift({ file: SCENE_URL, title: SCENE_URL.split('/').pop() });
   for (const s of list) { const o = new Option('🎬 ' + s.title, s.file); o.selected = s.file.replace(/^\.\//, '') === here; sel.append(o); }
-  // the desktop app (desktop/): scenes saved on this computer, listed above the examples
-  if (DESKTOP) DESKTOP.core.invoke('list_scenes').then(names => names.reverse().forEach(n => { const o = new Option('💾 ' + n, 'desktop:' + n); o.selected = SCENE_URL === 'desktop:' + n; sel.prepend(o); })).catch(() => {});
-  sel.onchange = () => { location.href = `./index.html?scene=${encodeURIComponent(sel.value)}`; };
+  // the desktop app (desktop/): a project folder's own scenes, or the scenes saved on this computer, above the examples;
+  // and "📁 Open project folder…" (the window is then served from that folder)
+  if (PROJECT) DESKTOP.core.invoke('list_project_scenes').then(paths => paths.reverse().forEach(f => {
+    if ([...sel.options].some(o => o.value.replace(/^\.\//, '') === f.replace(/^\.\//, ''))) return;
+    const o = new Option('📁 ' + f.split('/').pop().replace('.scene.json', ''), f); o.selected = f.replace(/^\.\//, '') === here; sel.prepend(o); })).catch(() => {});
+  else if (DESKTOP) DESKTOP.core.invoke('list_scenes').then(names => names.reverse().forEach(n => { const o = new Option('💾 ' + n, 'desktop:' + n); o.selected = SCENE_URL === 'desktop:' + n; sel.prepend(o); })).catch(() => {});
+  if (DESKTOP) sel.append(new Option('📁 Open project folder…', '__open__'));
+  sel.onchange = async () => {
+    if (sel.value === '__open__') {
+      try { const dir = await DESKTOP.dialog.open({ directory: true, title: 'A Scene Companion project (scenes/, assets/, prefabs/…)' });
+        if (dir) location.href = await DESKTOP.core.invoke('open_project', { path: dir }); } catch (e) { showErr('Open project: ' + e); }
+      return;
+    }
+    location.href = `./index.html?scene=${encodeURIComponent(sel.value)}`;
+  };
 }).catch(() => {});
 // In the desktop app a scene can come from this computer ("desktop:<name>", <Documents>/SceneCompanion/scenes)
 let loadedText = SCENE_URL.startsWith('desktop:') ? await DESKTOP.core.invoke('load_scene', { name: SCENE_URL.slice(8) })
@@ -266,6 +280,12 @@ async function rebuild() {
   window.__sc = { world, data, camera, orbit, rebuild }; // debug/test hook (headless checks, timing)
   await world.load(data);
   for (const m of world.extensionErrors || []) showErr(m);
+  if (DESKTOP && !rebuild.tested) { rebuild.tested = true; DESKTOP.core.invoke('selftest_wanted').then(async want => {   // SC_SELFTEST=1 (desktop/): report and quit
+    if (!want) return;
+    let save = null; try { save = PROJECT ? await DESKTOP.core.invoke('write_project_file', { rel: 'scenes/_selftest.scene.json', contents: JSON.stringify(data) }) : null; } catch (e) { save = 'ERR ' + e; }
+    DESKTOP.core.invoke('selftest_report', { report: JSON.stringify({ url: location.href, project: PROJECT, root: await DESKTOP.core.invoke('project_root'), scene: SCENE_URL,
+      entities: world.entities.size, options: [...document.getElementById('scenePick').options].map(o => o.text).slice(0, 4), save, errors: document.getElementById('err')?.textContent || '' }) });
+  }).catch(() => {}); }
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
   post = createPost(renderer, world.scene, camera, data.settings.post, $('tier').value);
@@ -932,6 +952,14 @@ function ghSettings(reset) {
   return cfg;
 }
 $('push').onclick = async () => {
+  if (PROJECT && !SCENE_URL.startsWith('desktop:')) {   // inside a project folder: the scene file is written back where it came from
+    const btn = $('push'), rel = new URL(SCENE_URL, location.href).pathname.replace(/^\/+/, '');
+    try { const where = await DESKTOP.core.invoke('write_project_file', { rel, contents: JSON.stringify(data, null, 2) + '\n' });
+      btn.textContent = 'Saved ✓'; btn.title = where; loadedText = JSON.stringify(data, null, 2) + '\n';
+    } catch (e) { showErr('Save: ' + e); btn.textContent = 'Not saved'; }
+    setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
+    return;
+  }
   if (DESKTOP) {                                    // the desktop app saves to <Documents>/SceneCompanion/scenes, no GitHub
     const btn = $('push'), name = SCENE_URL.startsWith('desktop:') ? SCENE_URL.slice(8) : SCENE_URL.split('/').pop();
     try { const where = await DESKTOP.core.invoke('save_scene', { name, json: JSON.stringify(data, null, 2) + '\n' });
