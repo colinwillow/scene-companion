@@ -21,6 +21,7 @@ const shots = [
   { name: 'editor-desktop', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: DESK },
   { name: 'editor-selected', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.evaluate(() => window.__sc.select('player')); } },
   { name: 'editor-more', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.click('#moreBtn'); } },
+  { name: 'editor-scenes', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.click('#sceneBtn'); await p.waitForTimeout(1200); } },
   { name: 'inspector', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.evaluate(() => window.__sc.select('player')); await p.click('#chipEdit').catch(() => {}); } },
   { name: 'inspector-behaviors', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.evaluate(() => window.__sc.select('player')); await p.click('#chipEdit').catch(() => {}); await p.evaluate(() => { document.getElementById('panel').style.setProperty('--sheet', '82vh'); const b = document.getElementById('panelBody'); b.scrollTop = b.querySelector('.beh')?.offsetTop - 10 || 0; }); await p.waitForTimeout(400); } },
   { name: 'inspector-landscape', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: LAND, act: async p => { await p.evaluate(() => window.__sc.select('player')); await p.click('#chipEdit').catch(() => {}); } },
