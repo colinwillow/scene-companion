@@ -217,7 +217,8 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [x] Icon set: one consistent SVG icon sprite (rounded, chunky, friendly) replacing the emoji in every toolbar, a short word under each icon (Colin's rule from culture_war), long-press shows what it does
 - [x] Editor layout for thumbs: the main tools in a bottom bar within thumb reach, fewer rows on top, the current mode (select / move / scatter / paint) obvious at a glance
 - [x] Inspector redesign, part 1: behavior cards with an icon + colour per kind, foldable (remembered), friendly names ("Player controller", "Jump speed"), toggles for on/off, slider values with units and sensible decimals
-- [ ] [IN PROGRESS] Inspector redesign, part 2: the common settings first (a "more settings" fold for the rest), a helpful no-selection state in the landscape/desktop side panel (it's an empty third of the screen today), position/rotation as nicer steppers
+- [x] Inspector redesign, part 2: common settings first (what the scene set + schema `common` + the first few; the rest under "More settings"), a friendly no-selection state with Library / List / Play shortcuts, friendly names in "+ Add behavior"
+- [ ] Inspector redesign, part 3: position / rotation / scale as nicer steppers (drag-to-scrub numbers, ± buttons), the object's name editable in the header
 - [ ] Library redesign: a grid of thumbnail cards, tab icons, drag (or tap) to place, a preview before adding
 - [ ] Scene picker + title cards: cards with a thumbnail of each scene, a one-line "try this", playful look
 - [ ] Play HUD polish: hearts / coins / timer as styled pills, stick skins, pause menu and end screen restyled, readable over any scene

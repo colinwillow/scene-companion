@@ -67,6 +67,14 @@
   .beh .bhead { all:unset; box-sizing:border-box; display:flex; align-items:center; gap:8px; width:100%; min-height:40px; cursor:pointer; color:var(--bc); }
   .beh .bhead b { flex:1; color:var(--text); font-size:15px; }
   .beh .bhead .ic { width:20px; height:20px; }
+  .empty { text-align:center; padding:18px 6px; }
+  .empty .emptyArt { width:64px; height:64px; margin:0 auto 10px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); }
+  .empty .emptyArt .ic { width:34px; height:34px; }
+  .empty h3 { font-size:17px; margin:0 0 4px; }
+  .emptyActs { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .emptyActs button { display:flex; align-items:center; gap:10px; min-height:46px; text-align:left; }
+  .beh details.more summary { cursor:pointer; color:var(--dim); font-weight:700; padding:6px 0 2px; list-style:none; }
+  .beh details.more summary::before { content:'▸ '; } .beh details.more[open] summary::before { content:'▾ '; }
   .beh .chev { color:var(--dim); transition:transform .18s; }
   .beh.closed { padding-bottom:4px; } .beh.closed > :not(.bhead) { display:none; } .beh.closed .chev { transform:rotate(-90deg); }
   .row { display:flex; align-items:center; gap:8px; margin:5px 0; }
@@ -679,7 +687,7 @@ const assetOf = ent => (typeof ent.resolved.asset === 'object' ? ent.resolved.as
 function renderPanel() {
   const panel = $('panelBody');
   const ent = world?.getEntity(selectedId);
-  if (!ent) { panel.innerHTML = `<p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p>`; return; }
+  if (!ent) { emptyPanel(panel); return; }
   const e = ent.data;
   const label = e.prefab ? `prefab: ${e.prefab} (edits here override only this one)` : e.asset ? 'asset: ' + (typeof e.asset === 'string' ? e.asset : 'inline') : 'light';
   panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div><div class="hint" id="liveIn"></div>`;
@@ -791,8 +799,16 @@ function renderPanel() {
       try { localStorage.setItem('sc.behClosed', JSON.stringify([...behClosed])); } catch {} };
     if (!Cls) { box.innerHTML += `<div class="hint">unknown behavior</div>`; panel.append(box); return; }
     const params = { ...Object.fromEntries(Object.entries(Cls.schema).map(([k, d]) => [k, d.default])), ...(b.params || {}) };
-    for (const [key, def] of Object.entries(Cls.schema)) {
-      if (def.type === 'hidden') continue;             // data the behavior's own tools edit (a tilemap's rows, fitted colliders)
+    // common settings first: what this scene set, what the schema marks `common`, then the first few; the rest fold away
+    const keys = Object.entries(Cls.schema).filter(([, d]) => d.type !== 'hidden').map(([k]) => k);   // hidden: the behavior's own tools edit it
+    const first = new Set(keys.filter(k => (b.params && k in b.params) || Cls.schema[k].common));
+    for (const k of keys) if (first.size < 5) first.add(k);
+    const rest = keys.filter(k => !first.has(k));
+    let more = null;
+    if (rest.length > 1) { more = document.createElement('details'); more.className = 'more';
+      more.innerHTML = `<summary>More settings <small>(${rest.length})</small></summary>`; }
+    for (const key of [...keys.filter(k => first.has(k)), ...rest]) {
+      const def = Cls.schema[key];
       const row = control(def.type === 'number' ? { ...def, _u: unitOf(key, def) } : def, params[key], v => {
         record(`param:${e.id}:${b.type}:${key}`);
         setOverride(e, b.type, key, v);                           // authored data (override if prefab)
@@ -800,18 +816,31 @@ function renderPanel() {
         ent.behaviors[i]?.onParamChanged(key, v);                 // live runtime
       });
       const lab = document.createElement('label'); lab.textContent = friendly(key); lab.title = key; row.prepend(lab);
-      box.append(row);
+      (more && !first.has(key) ? more : box).append(row);
     }
+    if (more) box.append(more);
     if (b.type === 'Tilemap' && !playing) { const pb = document.createElement('button'); setIcon(pb, 'brush', 'Paint tiles'); pb.classList.add('side'); pb.onclick = () => tilePaint(e.id); box.append(pb); }
     panel.append(box);
   });
 
   if (!playing) {
     const add = document.createElement('select'); add.className = 'add';
-    add.innerHTML = `<option value="">+ Add behavior…</option>` + behaviorNames().map(n => `<option>${n}</option>`).join('');
+    add.innerHTML = `<option value="">+ Add behavior…</option>` + behaviorNames().map(n => `<option value="${n}">${friendly(n)}</option>`).join('');
     add.onchange = async () => { if (!add.value) return; record(); (e.behaviors ||= []).push({ type: add.value, params: {} }); await rebuild(); };
     panel.append(add);
   }
+}
+
+// Nothing selected: a friendly start instead of an empty third of the screen (landscape / desktop side panel)
+function emptyPanel(panel) {
+  const n = (function count(l) { return (l || []).reduce((a, x) => a + 1 + count(x.children), 0); })(data?.entities);   // from the data: it's there before the world finishes loading
+  panel.innerHTML = `<div class="empty"><div class="emptyArt">${icon('target')}</div>
+    <h3>Tap something in the scene to edit it</h3>
+    <p class="hint">${n} object${n === 1 ? '' : 's'} here. Drag the arrows to move one; Play to try it.</p>
+    <div class="emptyActs"><button data-go="libBtn">${icon('library')}<span>Add from the Library</span></button>
+    <button data-go="list">${icon('list')}<span>Pick from the list</span></button>
+    <button data-go="play">${icon('play')}<span>Play the scene</span></button></div></div>`;
+  panel.querySelector('.emptyActs').onclick = ev => { const b = ev.target.closest('button'); if (b) $(b.dataset.go).click(); };
 }
 
 // ---- 🖌 Scatter brush: pick a prefab, drag on the ground/solids; instances land `gap` apart with a random turn
