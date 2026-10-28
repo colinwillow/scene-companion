@@ -160,6 +160,9 @@
       }
     }
   },
+  "extensions": [
+    "wobble@^1.0.0"
+  ],
   "entities": [
     {
       "id": "sun",
@@ -1550,6 +1553,23 @@
                 ]
               }
             ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "jelly_crate",
+      "asset": "crate",
+      "position": [
+        -4.5,
+        0,
+        1
+      ],
+      "behaviors": [
+        {
+          "type": "Wobble",
+          "params": {
+            "amount": 0.1
           }
         }
       ]

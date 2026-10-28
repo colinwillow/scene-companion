@@ -260,6 +260,7 @@ async function rebuild() {
   world = new World(renderer, { tier: $('tier').value });
   window.__sc = { world, data, camera, orbit, rebuild }; // debug/test hook (headless checks, timing)
   await world.load(data);
+  for (const m of world.extensionErrors || []) showErr(m);
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
   post = createPost(renderer, world.scene, camera, data.settings.post, $('tier').value);

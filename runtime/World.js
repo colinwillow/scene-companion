@@ -9,7 +9,10 @@ import { entityMotions, motionsBase, motionUrl } from './motions.js';
 import { raycast, sweep, overlap, lineClear } from './collide.js';
 import { bodyMasks, eventsCrossed, DEFAULT_MASK_ROOTS, mergeClipVariants, mergeEvents } from './animlayers.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
-import { getBehavior } from './registry.js';
+import { getBehavior, registerBehavior } from './registry.js';
+import { Behavior } from './Behavior.js';
+import { parseRef, satisfies, checkManifest } from './extensions.js';
+import { ENGINE } from './version.js';
 import { applyLook, applyLookTo } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
@@ -277,6 +280,7 @@ export class World {
       this.prefabs[name] = typeof url === 'string' ? await (await fetch(url)).json() : url;
     }
 
+    await this.loadExtensions(sceneData.extensions);
     for (const authored of sceneData.entities) await this.buildEntity(authored, null);
     this.look = st.look || 'toon';
 
@@ -289,6 +293,34 @@ export class World {
     this.startBehaviors(all);
     this.fitSkinnedBounds();
     this.ready = true;   // fully built (the editor ignores Play until then)
+  }
+
+  // A scene's extensions ("extensions": ["wobble", "id@^1.2.0"], runtime/extensions.js): each manifest checked against this
+  // engine and the range asked for, its entry imported and handed { Behavior, define } — define() registers only the names
+  // the manifest lists, and never over a built-in. Failures go to world.extensionErrors; the rest of the scene still loads.
+  async loadExtensions(refs = []) {
+    this.extensionErrors = [];
+    const base = this.extensionsBase || './extensions/', here = globalThis.location?.href || import.meta.url;
+    World.extOwned ||= new Map();                          // behavior name → extension id (the registry is shared)
+    for (const ref of refs || []) {
+      const { id, range } = parseRef(ref);
+      try {
+        const url = new URL(`${base}${id}/`, here), m = await (await fetch(new URL('extension.json', url))).json();
+        const bad = checkManifest(m, { engine: ENGINE }).filter(p => p.level === 'error').map(p => p.msg);
+        if (!satisfies(m.version, range)) bad.push(`version ${m.version} is not ${range}`);
+        if (bad.length) throw new Error(bad.join('; '));
+        const mod = await import(new URL(m.entry, url).href), defined = [];
+        await mod.default({ Behavior, helpers: {}, define: (name, cls) => {
+          if (!m.behaviors.includes(name)) throw new Error(`defines "${name}", which extension.json does not list`);
+          if (getBehavior(name) && World.extOwned.get(name) !== id) throw new Error(`"${name}" is already a behavior`);
+          if (!(cls?.prototype instanceof Behavior)) throw new Error(`"${name}" must extend the Behavior it is handed`);
+          if (!cls.name || cls.name !== name) Object.defineProperty(cls, 'name', { value: name });   // an anonymous class reads as its behavior
+          registerBehavior(name, cls); World.extOwned.set(name, id); defined.push(name);
+        } });
+        const missing = m.behaviors.filter(b => !defined.includes(b));
+        if (missing.length) throw new Error(`listed but never defined: ${missing.join(', ')}`);
+      } catch (e) { this.extensionErrors.push(`extension ${id}: ${e.message}`); console.warn(`Scene Companion: extension ${id}: ${e.message}`); }
+    }
   }
 
   attachBehaviors(ent) {

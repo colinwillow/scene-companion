@@ -52,7 +52,11 @@ function characterOf(f, path) {
   if (!c.reported.has(f)) { c.reported.add(f); for (const p of c.problems) (p.level === 'error' ? err : warn)(f, `${path}: ${p.msg}`); }
   return c.ch;
 }
-import { getBehavior } from '../runtime/registry.js';
+import { getBehavior, registerBehavior } from '../runtime/registry.js';
+import { Behavior } from '../runtime/Behavior.js';
+import { checkManifest, checkSource, parseRef, satisfies } from '../runtime/extensions.js';
+import { ENGINE } from '../runtime/version.js';
+import { pathToFileURL } from 'node:url';
 import { mergeEntity } from '../runtime/prefabs.js';
 import '../behaviors/index.js';
 
@@ -74,9 +78,35 @@ const err = (f, msg) => { errors++; console.error(`✗ ${f}: ${msg}`); };
 const checkTags = (f, who, tags) => { if (tags !== undefined && (!Array.isArray(tags) || !tags.every(t => typeof t === 'string' && /^[a-z0-9_-]+$/.test(t)))) err(f, `${who}: tags must be a list of lowercase words`); };
 const warn = (f, msg) => { warnings++; console.error(`⚠ ${f}: ${msg}`); };
 
+// Extensions (runtime/extensions.js): each manifest and its entry's source, then their behaviors registered so the scenes
+// that use them validate like built-ins. A scene must list the extension a behavior comes from (sceneExt, per scene).
+const EXT = {}, extOwner = {};
+let sceneExt = new Set();
+if (existsSync('extensions')) for (const id of readdirSync('extensions')) {
+  const mf = join('extensions', id, 'extension.json'); if (!existsSync(mf)) continue;
+  let m; try { m = JSON.parse(readFileSync(mf, 'utf8')); } catch (e) { err(mf, `not valid JSON: ${e.message}`); continue; }
+  const probs = checkManifest(m, { engine: ENGINE }); probs.forEach(p => (p.level === 'error' ? err : warn)(mf, p.msg));
+  if (m.id !== id) err(mf, `id "${m.id}" must match its folder "${id}"`);
+  const entry = join('extensions', id, m.entry || '');
+  if (!m.entry || !existsSync(entry)) { err(mf, `entry not found: ${m.entry}`); continue; }
+  const srcProbs = checkSource(m, readFileSync(entry, 'utf8')); srcProbs.forEach(p => err(entry, p.msg));
+  if (probs.some(p => p.level === 'error') || srcProbs.length) continue;
+  try {
+    const mod = await import(pathToFileURL(entry).href), got = [];
+    await mod.default({ Behavior, helpers: {}, define: (n, c) => {
+      if (!m.behaviors.includes(n)) throw new Error(`defines "${n}", not listed in extension.json`);
+      if (getBehavior(n)) throw new Error(`"${n}" is already a behavior`);
+      if (!(c?.prototype instanceof Behavior)) throw new Error(`"${n}" must extend the Behavior it is handed`);
+      registerBehavior(n, c); extOwner[n] = id; got.push(n); } });
+    const missing = m.behaviors.filter(b => !got.includes(b)); if (missing.length) err(entry, `listed but never defined: ${missing.join(', ')}`);
+    EXT[id] = m;
+  } catch (e) { err(entry, e.message); }
+}
+
 // Behavior params must exist in the schema and fit their type/range.
 function checkBehaviors(f, who, behaviors) {
   for (const b of behaviors || []) {
+    if (extOwner[b.type] && !sceneExt.has(extOwner[b.type])) err(f, `${who}: "${b.type}" comes from the extension "${extOwner[b.type]}" — add "extensions": ["${extOwner[b.type]}"] to the scene`);
     if (b.type === 'AudioSource' && b.params?.clip && !existsSync(b.params.clip.replace(/^\.\//, ''))) err(f, `${who}: AudioSource clip not found: ${b.params.clip}`);
     const Cls = getBehavior(b.type);
     if (!Cls) { err(f, `${who}: unknown behavior "${b.type}"`); continue; }
@@ -91,6 +121,13 @@ function checkBehaviors(f, who, behaviors) {
 for (const f of files) {
   const errorsBefore = errors;
   const scene = JSON.parse(readFileSync(f, 'utf8'));
+  sceneExt = new Set();
+  for (const ref of scene.extensions || []) {
+    const { id, range } = parseRef(ref);
+    if (!EXT[id]) err(f, `extension "${id}" not found (or did not pass its checks) in extensions/`);
+    else if (!satisfies(EXT[id].version, range)) err(f, `extension "${id}" is ${EXT[id].version}, the scene asks for ${range}`);
+    else sceneExt.add(id);
+  }
   const ids = new Set();
   const prefabs = {};
   for (const [name, url] of Object.entries(scene.prefabs || {})) {
