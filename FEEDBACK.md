@@ -19,3 +19,6 @@ Colin writes notes here after playtesting. Every build run reads this first and 
 
 - 2026-10-27 (Colin): "I've opened the scene companion a few times and it seems the exact same... I only see the original stuff. How do I open a different scene?" — Pages was up to date; there was simply no way to reach any scene but the kitchen sink (editor) / Tiny Hop (play) without typing `?scene=` in the address.
   - ✅ Done (live session, 19:20 / 19:46 UTC): the editor's first button is a 🎬 scene picker; play.html has a 🎬 button, and opening play.html with no `?scene` shows the list first (title + one line on what to try). `scenes/index.json` is the list, and validate now warns about any scene file missing from it. Unverified on a phone.
+
+- 2026-10-28 (Colin): "Another thing we should spend a bunch of iterations on is the UI / UX — how it looks, icons, the colours — make it feel fun and interesting and user-friendly, intuitive but also beautiful. Add that on the end."
+  - ✅ Added as **Stage 9** at the end of ROADMAP.md: 12 items (audit → design system → icons → thumb layout → inspector → Library → scene cards → HUD → feel → onboarding → tool pages → your review rounds). The loop reaches it after the remaining build items (Unity/Unreal export, extensions, desktop).

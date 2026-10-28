@@ -196,3 +196,20 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Generator plug-ins, part 1: a generator registry (runtime/generators.js) + dev-server `POST /gen/<id>` running image gen (OpenAI) into assets/generated/, key from env or the network proxy, `--dry` safe
 - [x] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
+
+## Stage 9 — UI / UX: fun, intuitive, beautiful (Colin, Oct 28: "spend a bunch of iterations on it")
+*"How it looks — icons, the colours — make it feel fun and interesting and user-friendly, intuitive but also beautiful."*
+Every item: before/after screenshots (phone portrait + landscape, headless) in its LOG line, `npm run check` passing,
+nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/B on a switch rather than shipping a pick.
+- [ ] UI audit: screenshot every screen (editor portrait + landscape, inspector, Library tabs, scene picker, play HUD, pause, title card, VFX, Sprite bake, slicer) into docs/ui/audit/; docs/ui-audit.md lists what's confusing, ugly, cramped or inconsistent, ranked
+- [ ] Design system: one `ui/theme.css` shared by every page — colour tokens (a fun, warm palette with one accent per mode: edit / play / paint), type scale, spacing, radius, shadows, button + slider + toggle + card styles; every page switched over, nothing looks different-by-accident
+- [ ] Icon set: one consistent SVG icon sprite (rounded, chunky, friendly) replacing the emoji in every toolbar, a short word under each icon (Colin's rule from culture_war), long-press shows what it does
+- [ ] Editor layout for thumbs: the main tools in a bottom bar within thumb reach, fewer rows on top, the current mode (select / move / scatter / paint) obvious at a glance
+- [ ] Inspector redesign: behavior cards with an icon + colour each, collapsible, friendly names ("Player controller" not `PlayerController`), nicer sliders with units, the common settings first
+- [ ] Library redesign: a grid of thumbnail cards, tab icons, drag (or tap) to place, a preview before adding
+- [ ] Scene picker + title cards: cards with a thumbnail of each scene, a one-line "try this", playful look
+- [ ] Play HUD polish: hearts / coins / timer as styled pills, stick skins, pause menu and end screen restyled, readable over any scene
+- [ ] Feel: tap feedback (press states, little bounces), smooth panel transitions, toasts instead of text dumps, optional haptics (navigator.vibrate) and UI click sounds, all on a switch
+- [ ] Onboarding + empty states: first-open tour as a few pointing hints (dismissable, not a wall of text), helpful empty Library / no-selection states, friendly error messages
+- [ ] Tool pages (VFX, Sprite bake, slicer, Generate) brought into the same look
+- [ ] Colin's review round: his notes from the phone become the next UI items (repeat this item as many times as he wants)
