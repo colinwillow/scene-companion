@@ -143,7 +143,7 @@
 <div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="ext">Extensions</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
 <div id="tileBar" hidden><span id="tilePal"></span><small id="tileHint">1 finger paints · 2 fingers orbit</small><button id="tileDone">Done</button></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
@@ -1229,6 +1229,26 @@ async function renderLib() {
         : { name, sub: `3D · ${m.prompt} — tap to add`, pick: () => addGenerated(m.path) });
     }
     $('libCount').textContent = genBusy ? `Generating… (${genBusy})` : gl ? `${gl.generators.length} generator(s)${gl.problems.length ? ' · skipped: ' + gl.problems.join('; ') : ''}` : '';
+  } else if (libTab === 'ext') {
+    // Extensions installed in extensions/ (extensions/index.json, written by `npm run assets`): Use adds one to this scene
+    // (data.extensions) and rebuilds, so its behaviors appear in "+ Add behavior"; Remove is refused while objects use them.
+    let list = []; try { list = await (await fetch('./extensions/index.json', { cache: 'no-store' })).json(); } catch {}
+    if (seq !== libSeq) return;
+    const on = new Set((data.extensions || []).map(r => r.split('@')[0]));
+    const usedBy = x => allEntities(data).filter(e => (e.behaviors || []).some(b => x.behaviors.includes(b.type))).length;
+    items = filterNames(list, q).map(x => {
+      const n = usedBy(x), using = on.has(x.id);
+      return { name: `${using ? '✓ ' : ''}${x.name || x.id}  v${x.version}`, sub: `${x.description}${x.behaviors.length ? ` · adds ${x.behaviors.join(', ')}` : ''}${x.permissions.length ? ` · ⚠ can ${x.permissions.join(', ')}` : ''}`,
+        btn: using ? 'Remove' : 'Use', act: async () => {
+          if (playing) return;
+          if (using && n) { $('libCount').textContent = `${n} object(s) still use ${x.behaviors.join(' / ')} — take it off them first`; return; }
+          record();
+          data.extensions = using ? (data.extensions || []).filter(r => r.split('@')[0] !== x.id) : [...(data.extensions || []), `${x.id}@^${x.version}`];
+          if (!data.extensions.length) delete data.extensions;
+          await rebuild(); renderLib();
+        } };
+    });
+    $('libCount').textContent = list.length ? `${list.length} extension(s) installed — Use adds its behaviors to this scene` : 'No extensions installed (extensions/<id>/ — see extensions/README.md)';
   } else if (libTab === 'sprites') {
     // Sprite sheets (assets/sprites/index.json, written by `npm run assets`), or a PNG from this device: tap one to slice it.
     let list = []; try { list = await (await fetch('./assets/sprites/index.json', { cache: 'no-store' })).json(); } catch {}

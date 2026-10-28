@@ -103,6 +103,12 @@ if (existsSync('extensions')) for (const id of readdirSync('extensions')) {
   } catch (e) { err(entry, e.message); }
 }
 
+if (existsSync('extensions')) {
+  let idx = []; try { idx = JSON.parse(readFileSync('extensions/index.json', 'utf8')).map(x => `${x.id}@${x.version}`).sort(); } catch {}
+  const have = Object.values(EXT).map(m => `${m.id}@${m.version}`).sort();
+  if (JSON.stringify(idx) !== JSON.stringify(have)) warn('extensions/index.json', 'out of date with the installed extensions — run `npm run assets`');
+}
+
 // Behavior params must exist in the schema and fit their type/range.
 function checkBehaviors(f, who, behaviors) {
   for (const b of behaviors || []) {

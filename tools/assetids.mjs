@@ -15,6 +15,10 @@ writeFileSync(REG, JSON.stringify(Object.fromEntries(Object.entries(next).sort((
 writeFileSync('assets/audio/index.json', JSON.stringify(files.map(f => f.path).filter(p => /\.(mp3|ogg|wav)$/i.test(p)).map(p => './' + p).sort(), null, 1) + '\n');
 // …and its 2D tab reads this one: every sprite sheet under assets/sprites/
 writeFileSync('assets/sprites/index.json', JSON.stringify(files.map(f => f.path).filter(p => p.startsWith('assets/sprites/') && /\.(png|webp)$/i.test(p)).map(p => './' + p).sort(), null, 1) + '\n');
+// …and its Extensions tab reads this: every installed extension's manifest (extensions/<id>/extension.json)
+if (existsSync('extensions')) writeFileSync('extensions/index.json', JSON.stringify(readdirSync('extensions').filter(d => existsSync(join('extensions', d, 'extension.json')))
+  .map(d => { try { const m = JSON.parse(readFileSync(join('extensions', d, 'extension.json'), 'utf8')); return { id: m.id, name: m.name, version: m.version, description: m.description || '', behaviors: m.behaviors || [], permissions: m.permissions || [] }; } catch { return null; } })
+  .filter(Boolean), null, 1) + '\n');
 let refs = 0;
 if (Object.keys(moved).length) {
   const jsons = ['scenes', 'prefabs', 'packs', 'assets'].filter(existsSync).flatMap(d => walk(d)).filter(p => p.endsWith('.json') && !p.endsWith('ids.json'));
