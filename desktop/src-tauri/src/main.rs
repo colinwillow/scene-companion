@@ -7,6 +7,8 @@
 // pages) always from the app, and anything the folder lacks falls back to the bundled examples.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod bridge;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -15,14 +17,14 @@ use tauri::{http, Manager};
 static PROJECT: Mutex<Option<PathBuf>> = Mutex::new(None);
 const APP_OWN: &[&str] = &["runtime/", "behaviors/", "vendor/", "index.html", "play.html", "vfx.html", "spritebake.html"];
 
-fn project() -> Option<PathBuf> { PROJECT.lock().unwrap().clone() }
+pub(crate) fn project() -> Option<PathBuf> { PROJECT.lock().unwrap().clone() }
 
 /// The page URL of a file served from the project, in this platform's form for a custom protocol.
 fn project_url(file: &str) -> String {
     if cfg!(any(windows, target_os = "android")) { format!("http://project.localhost/{file}") } else { format!("project://localhost/{file}") }
 }
 
-fn mime(path: &str) -> &'static str {
+pub(crate) fn mime(path: &str) -> &'static str {
     match path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str() {
         "html" => "text/html", "js" | "mjs" => "text/javascript", "json" => "application/json", "css" => "text/css",
         "glb" => "model/gltf-binary", "gltf" => "model/gltf+json", "bin" => "application/octet-stream", "wasm" => "application/wasm",
@@ -31,7 +33,7 @@ fn mime(path: &str) -> &'static str {
     }
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
@@ -46,7 +48,7 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// A path inside the project: relative, no "..", no drive letters. None if it would leave the folder.
-fn inside(root: &Path, rel: &str) -> Option<PathBuf> {
+pub(crate) fn inside(root: &Path, rel: &str) -> Option<PathBuf> {
     let rel = rel.trim_start_matches('/');
     if rel.is_empty() || rel.contains("..") || rel.contains(':') || rel.starts_with('\\') { return None; }
     Some(root.join(rel))
@@ -132,13 +134,24 @@ fn load_scene(app: tauri::AppHandle, name: String) -> Result<String, String> {
 }
 
 /// SC_SELFTEST=1: the editor reports what it saw (scene, objects, a test save) and the app prints it and exits.
+/// SC_SELFTEST=bridge: it also sends a model to "Blender" and waits for it to come back (a script plays the add-on).
 #[tauri::command]
-fn selftest_wanted() -> bool { std::env::var("SC_SELFTEST").is_ok() }
+fn selftest_wanted() -> Option<String> { std::env::var("SC_SELFTEST").ok() }
 #[tauri::command]
 fn selftest_report(app: tauri::AppHandle, report: String) {
     println!("SC_SELFTEST {report}");
     app.exit(0);
 }
+
+/// The editor's → Blender: queue a job for the add-on (the desktop bridge, bridge.rs).
+#[tauri::command]
+fn bridge_send(state: tauri::State<bridge::Shared>, job: serde_json::Value) -> Result<serde_json::Value, String> {
+    if project().is_none() { return Err("open a project folder first (🎬 › 📁) — the edited model is saved into it".into()); }
+    bridge::send(&state, project(), job)
+}
+/// Is the add-on polling? { blender: seconds since its last poll, queued }
+#[tauri::command]
+fn bridge_status(state: tauri::State<bridge::Shared>) -> serde_json::Value { bridge::status(&state) }
 
 fn main() {
     // `--project <dir>` or SC_PROJECT opens a folder at launch
@@ -161,7 +174,10 @@ fn main() {
                 None => respond(format!("not found: {path}").into_bytes(), "text/plain", 404),
             }
         })
+        .manage(bridge::Shared::default())
         .setup(move |app| {
+            let port = std::env::var("SC_BRIDGE_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080);
+            bridge::start(app.handle().clone(), app.state::<bridge::Shared>().inner().clone(), port);
             if let Some(dir) = start.clone() {
                 match open_project(dir) {
                     Ok(url) => { if let Some(w) = app.get_webview_window("main") { let _ = w.navigate(url.parse().unwrap()); } }
@@ -171,7 +187,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![save_scene, list_scenes, load_scene, open_project, project_root, list_project_scenes,
-            write_project_file, selftest_wanted, selftest_report])
+            write_project_file, selftest_wanted, selftest_report, bridge_send, bridge_status])
         .run(tauri::generate_context!())
         .expect("error while running Scene Companion");
 }

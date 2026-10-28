@@ -25,4 +25,7 @@ the app, and anything the folder lacks (a model, the example scenes) falls back 
   `list_project_scenes` / `write_project_file` and the `project:` protocol (desktop/src-tauri/src/main.rs): the editor checks
   for `window.__TAURI__` and uses them for ⇪ Save and the 🎬 picker; on the web nothing changes.
 - `SC_SELFTEST=1` makes the editor report what it loaded (and a test save) on stdout and quit — how it is checked headless.
-- Next (roadmap Desktop part 2b): the Blender bridge without the dev server.
+- **The Blender bridge without `npm run dev`** (desktop/src-tauri/src/bridge.rs): with a project open, the app answers the
+  add-on on `http://localhost:8080` itself — the add-on's default, so nothing to change in Blender. → Blender on an object
+  queues it; Send Back in Blender saves the edit into the project's `assets/models/bridge/` and the editor swaps it in.
+  (If `npm run dev` is already running on 8080 the app leaves the port to it. `SC_BRIDGE_PORT` picks another.)

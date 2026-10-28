@@ -282,9 +282,18 @@ async function rebuild() {
   for (const m of world.extensionErrors || []) showErr(m);
   if (DESKTOP && !rebuild.tested) { rebuild.tested = true; DESKTOP.core.invoke('selftest_wanted').then(async want => {   // SC_SELFTEST=1 (desktop/): report and quit
     if (!want) return;
+    let bridge = null;
+    if (want === 'bridge') {                     // → Blender and back, with a script standing in for the add-on
+      const ent = [...world.entities.values()].find(x => !x.inherited && modelPath(assetOf(x), world.characters));
+      const back = new Promise(ok => DESKTOP.event.listen('bridge-return', e => ok(e.payload)));
+      const sent = await bridgeSend({ id: ent.id, glb: modelPath(assetOf(ent), world.characters), scene: SCENE_URL }).catch(e => ({ error: String(e) }));
+      const got = await Promise.race([back, new Promise(r => setTimeout(() => r('timeout'), 60000))]);
+      await new Promise(r => setTimeout(r, 4000));      // onBridgeReturn's rebuild
+      bridge = { id: ent.id, sent, got, now: modelPath(assetOf(window.__sc.world.getEntity(ent.id)), window.__sc.world.characters) };
+    }
     let save = null; try { save = PROJECT ? await DESKTOP.core.invoke('write_project_file', { rel: 'scenes/_selftest.scene.json', contents: JSON.stringify(data) }) : null; } catch (e) { save = 'ERR ' + e; }
     DESKTOP.core.invoke('selftest_report', { report: JSON.stringify({ url: location.href, project: PROJECT, root: await DESKTOP.core.invoke('project_root'), scene: SCENE_URL,
-      entities: world.entities.size, options: [...document.getElementById('scenePick').options].map(o => o.text).slice(0, 4), save, errors: document.getElementById('err')?.textContent || '' }) });
+      entities: world.entities.size, bridge, options: [...document.getElementById('scenePick').options].map(o => o.text).slice(0, 4), save, errors: document.getElementById('err')?.textContent || '' }) });
   }).catch(() => {}); }
   world.on('score', p => { score += p; $('score').textContent = `★ ${score}`; });
   post?.dispose();
@@ -599,12 +608,31 @@ function rulesEditor(rules, onChange) {
   return wrap;
 }
 
+// An edited model back from Blender (the dev server's WebSocket, or the desktop app's "bridge-return" event).
+function onBridgeReturn(s) {
+  if (s.scene && !sameScene(s.scene, SCENE_URL)) return;
+  if (s.prefab) {                                                              // the prefab file changed: every instance
+    if (!data.prefabs?.[s.prefab]) return;
+    if (playing) { showErr(`Blender updated prefab ${s.prefab} — stop play to see it`); return; }
+    rebuild().then(() => renderPanel());
+    return;
+  }
+  const ent = world.getEntity(s.id);
+  if (!ent || playing) { showErr(`Blender sent back ${s.id} but ${playing ? 'the scene is playing — stop and send again' : 'it is not in this scene'}`); return; }
+  record();
+  if (replaceModel(data, s.id, s.glb, assetOf(ent), world.characters)) rebuild().then(() => { select(s.id); fillAdd(); });
+}
+if (PROJECT) DESKTOP.event?.listen('bridge-return', e => onBridgeReturn(e.payload)).catch(() => {});
+// the desktop app answers the add-on itself (desktop/src-tauri/src/bridge.rs) — the → Blender buttons work in a project
+const bridgeOn = () => liveOn() || PROJECT;
+const bridgeStatus = async () => PROJECT ? DESKTOP.core.invoke('bridge_status') : (await fetch('./bridge/status')).json();
+const bridgeSend = async job => PROJECT ? DESKTOP.core.invoke('bridge_send', { job }) : (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify(job) })).json();
 // Blender bridge: is the add-on polling the dev server? (checked every 3 s while live) — shown as a dot on → Blender
 let blenderOn = false;
 const blenderLabel = () => `→ Blender${blenderOn ? ' <span style="color:#3c6">●</span>' : ''}`;
 setInterval(async () => {
-  if (!liveOn()) return;
-  try { const st = await (await fetch('./bridge/status')).json(), on = st.blender !== null && st.blender < 5;
+  if (!bridgeOn()) return;
+  try { const st = await bridgeStatus(), on = st.blender !== null && st.blender < 5;
     if (on !== blenderOn) { blenderOn = on; const b = document.querySelector('button[data-a="blender"]'); if (b) b.innerHTML = blenderLabel(); }
   } catch {}
 }, 3000);
@@ -621,16 +649,16 @@ function renderPanel() {
     const acts = document.createElement('div'); acts.className = 'acts';
     const glb = modelPath(assetOf(ent), world.characters);
     acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
-      (glb && liveOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object">${blenderLabel()}</button>` : '') +
+      (glb && bridgeOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object">${blenderLabel()}</button>` : '') +
       (glb && liveOn() && ent.anim ? `<button data-a="forge" title="Open this character in the Forge (retarget + tune clips with the motion library). Export “full” there, then ⇦ From Forge here.">→ Forge</button><button data-a="fromForge" title="Pick the GLB the Forge exported: it replaces this object's model (id and behaviors stay)">⇦ From Forge</button>` : '') +
-      (glb && liveOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)">→ Blender: all ${e.prefab}</button>` : '');
+      (glb && bridgeOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)">→ Blender: all ${e.prefab}</button>` : '');
     acts.onclick = async ev => {
       const btn = ev.target.closest('button'), a = btn?.dataset.a; if (!a) return;
       if (a === 'blender' || a === 'blender-prefab') {
         const label = btn.innerHTML;
         try {
           const job = { id: e.id, glb, scene: SCENE_URL, ...(a === 'blender-prefab' ? { prefab: e.prefab } : {}) };
-          const r = await (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify(job) })).json();
+          const r = await bridgeSend(job).catch(e => ({ error: String(e) }));
           if (r.error) throw new Error(r.error);
           btn.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
         } catch (err) { showErr('Send to Blender: ' + err.message); }
@@ -1008,19 +1036,7 @@ var sendSelect, liveOn = () => false;
           e => ws.send(JSON.stringify({ type: 'cmd-result', id: s.id, ok: false, error: e.message })));
         return;
       }
-      if (s.type === 'bridge-return' && (!s.scene || sameScene(s.scene, SCENE_URL))) {   // edited model back from Blender
-        if (s.prefab) {                                                              // the prefab file changed: every instance
-          if (!data.prefabs?.[s.prefab]) return;
-          if (playing) { showErr(`Blender updated prefab ${s.prefab} — stop play to see it`); return; }
-          rebuild().then(() => renderPanel());
-          return;
-        }
-        const ent = world.getEntity(s.id);
-        if (!ent || playing) { showErr(`Blender sent back ${s.id} but ${playing ? 'the scene is playing — stop and send again' : 'it is not in this scene'}`); return; }
-        record();
-        if (replaceModel(data, s.id, s.glb, assetOf(ent), world.characters)) rebuild().then(() => { select(s.id); fillAdd(); });
-        return;
-      }
+      if (s.type === 'bridge-return') { onBridgeReturn(s); return; }
       if (s.type === 'pick' && sameScene(s.url, SCENE_URL)) {                     // tapped in a running game
         if (!s.id || world.getEntity(s.id)) { select(s.id); if (s.id) frame(s.id); }
         return;
