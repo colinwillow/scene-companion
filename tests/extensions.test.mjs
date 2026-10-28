@@ -36,9 +36,15 @@ test('the World loads a scene\'s extension and refuses a bad one', async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async url => { const p = new URL(url).pathname; return { ok: true, json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) }; };
   try {
+    const { createSandboxCore } = await import('../runtime/sandbox-core.js');
     const w = Object.create(World.prototype); w.extensionsBase = new URL('../extensions/', import.meta.url).href;
+    w.sandboxChannel = () => {        // Wobble is sandboxed; node has no Worker, so the same two halves in-process
+      const ch = { onmessage: null, postMessage: m => setImmediate(() => core.handle(structuredClone(m))) };
+      const core = createSandboxCore(m => setImmediate(() => ch.onmessage(structuredClone(m))), { globals: {} });
+      return ch;
+    };
     await w.loadExtensions(['wobble@^1.0.0', 'wobble@^2.0.0', 'nope']);
-    assert.ok(getBehavior('Wobble'), 'Wobble registered');
+    assert.ok(getBehavior('Wobble'), 'Wobble registered'); assert.equal(getBehavior('Wobble').sandboxed, true);
     assert.equal(w.extensionErrors.length, 2);
     assert.match(w.extensionErrors[0], /wobble: version 1\.0\.0 is not \^2\.0\.0/);
     assert.match(w.extensionErrors[1], /nope/);

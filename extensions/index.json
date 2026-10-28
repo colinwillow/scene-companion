@@ -3,7 +3,7 @@
   "id": "wobble",
   "name": "Wobble",
   "version": "1.0.0",
-  "description": "The example extension: makes anything jiggle like jelly — a springy squash and a sway, and a bigger wobble whenever the player jumps near it.",
+  "description": "The example extension: makes anything jiggle like jelly — a springy squash and a sway, and a bigger wobble whenever the player jumps near it. Runs sandboxed in a Worker, to show that path.",
   "behaviors": [
    "Wobble"
   ],

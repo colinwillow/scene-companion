@@ -158,3 +158,4 @@
 - 2026-10-28 — Ship part 3b — Unreal export (toUnreal, scene_companion_build.py, stub-run test), export-unity.mjs → export-engine.mjs; Ship anywhere done; 313 tests (live session)
 - 2026-10-28 — Extensions part 1 — extension packages (manifest, version ranges, permission scan), World.loadExtensions, validator checks, Wobble example in the kitchen sink; 317 tests; checked headless (live session)
 - 2026-10-28 — Extensions part 2a — Library Extensions tab (Use / Remove per scene), extensions/index.json; checked headless (live session)
+- 2026-10-28 — Extensions part 2b — Worker sandbox (core / worker / host), permissions enforced inside it, Wobble sandboxed; 321 tests; checked headless in game + editor (live session)

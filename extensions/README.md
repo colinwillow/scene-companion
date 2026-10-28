@@ -25,3 +25,11 @@ Rules (`npm run check` enforces them):
 - **engine:** the range of Scene Companion it works with (`^0.9.0`); a scene can pin a version: `"extensions": ["wobble@^1.0.0"]`.
 
 Turn one on in a scene: `"extensions": ["wobble"]` at the top of the scene file, then add the behavior to any object.
+
+## The sandbox
+An extension that asks for **any** permission — or says `"sandbox": true` — runs in its own Worker
+(`runtime/sandbox-*.js`). Its behaviors come back as stand-ins with the same names and settings, so a scene cannot tell
+the difference. What crosses: each object's position / rotation / scale, `world.input`, events both ways
+(`world.on` / `world.emit`), and last frame's positions through `world.getEntity(id)`. What it can't touch: the page,
+the renderer, the game's own objects, and any permission it didn't ask for (those globals are removed before its code
+runs). The cost: it is **one frame behind**, and rotation crosses as Euler angles. Wobble runs sandboxed to show the path.

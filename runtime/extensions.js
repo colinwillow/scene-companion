@@ -47,6 +47,7 @@ export function checkManifest(m, { engine } = {}) {
   if (!/^[\w./-]+\.js$/.test(m.entry || '') || /\.\./.test(m.entry || '')) err('entry: a .js file inside the extension');
   if (!Array.isArray(m.behaviors) || !m.behaviors.length) err('behaviors: the names it defines');
   else for (const b of m.behaviors) if (!/^[A-Z][A-Za-z0-9]*$/.test(b)) err(`behavior name "${b}": PascalCase`);
+  if (m.sandbox !== undefined && typeof m.sandbox !== 'boolean') err('sandbox: true or false');
   for (const p of m.permissions || []) if (!PERMISSIONS[p]) err(`unknown permission "${p}" (known: ${Object.keys(PERMISSIONS).join(', ')})`);
   return out;
 }

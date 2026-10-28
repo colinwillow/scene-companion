@@ -13,6 +13,7 @@ import { getBehavior, registerBehavior } from './registry.js';
 import { Behavior } from './Behavior.js';
 import { parseRef, satisfies, checkManifest } from './extensions.js';
 import { ENGINE } from './version.js';
+import { startSandbox, workerChannel } from './sandbox-host.js';
 import { applyLook, applyLookTo } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
@@ -309,7 +310,18 @@ export class World {
         const bad = checkManifest(m, { engine: ENGINE }).filter(p => p.level === 'error').map(p => p.msg);
         if (!satisfies(m.version, range)) bad.push(`version ${m.version} is not ${range}`);
         if (bad.length) throw new Error(bad.join('; '));
-        const mod = await import(new URL(m.entry, url).href), defined = [];
+        const defined = [];
+        // An extension that asks for any permission runs in a Worker (runtime/sandbox-*.js); its behaviors come back as
+        // proxies with the same names and schemas. `"sandbox": true` sandboxes one that asks for nothing too.
+        if (m.sandbox ?? (m.permissions || []).length > 0) {
+          const ch = (this.sandboxChannel || workerChannel)(); (this.sandboxes ||= []).push(ch);   // closed in dispose(): the editor rebuilds often
+          const pairs = await startSandbox(this, { url: new URL(m.entry, url).href, manifest: m, channel: ch });
+          for (const [name, Proxy] of pairs) {
+            if (getBehavior(name) && World.extOwned.get(name) !== id) throw new Error(`"${name}" is already a behavior`);
+            registerBehavior(name, Proxy); World.extOwned.set(name, id); defined.push(name);
+          }
+        } else {
+        const mod = await import(new URL(m.entry, url).href);
         await mod.default({ Behavior, helpers: {}, define: (name, cls) => {
           if (!m.behaviors.includes(name)) throw new Error(`defines "${name}", which extension.json does not list`);
           if (getBehavior(name) && World.extOwned.get(name) !== id) throw new Error(`"${name}" is already a behavior`);
@@ -317,6 +329,7 @@ export class World {
           if (!cls.name || cls.name !== name) Object.defineProperty(cls, 'name', { value: name });   // an anonymous class reads as its behavior
           registerBehavior(name, cls); World.extOwned.set(name, id); defined.push(name);
         } });
+        }
         const missing = m.behaviors.filter(b => !defined.includes(b));
         if (missing.length) throw new Error(`listed but never defined: ${missing.join(', ')}`);
       } catch (e) { this.extensionErrors.push(`extension ${id}: ${e.message}`); console.warn(`Scene Companion: extension ${id}: ${e.message}`); }
@@ -786,6 +799,7 @@ export class World {
   }
 
   dispose() {
+    for (const ch of this.sandboxes || []) ch.close?.(); this.sandboxes = [];
     for (const ent of this.entities.values()) ent.behaviors.forEach(b => b.destroy());
     this.scene.traverse(o => { if (o.geometry && !SHARED.has(o.geometry)) o.geometry.dispose(); [].concat(o.material || []).forEach(m => { if (!SHARED.has(m) && !m.userData?.shared) m.dispose(); }); });
     this.entities.clear();
