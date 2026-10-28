@@ -165,3 +165,4 @@
 - 2026-10-28 — Desktop part 3a — ultra tier (VSM 4096, 8x MSAA, full-res AO/bloom, SSR via post.reflect), tier remembered, desktop default; kitchen-sink plaza reflects; checked headless (live session)
 - 2026-10-28 — Desktop part 3b — WebGPU option (import-map switch, shim, WebGPU post); starts clean headless, picture unconfirmed here; follow-up item added (live session)
 - 2026-10-28 Stage 9: UI audit — 27 screenshots in docs/ui/audit/ (npm run ui:shots), 18 ranked problems in docs/ui-audit.md.
+- 2026-10-28 Stage 9: design system — ui/theme.css (tokens: warm palette, edit/play/paint accents, type scale, spacing, radii, shadows; button/field/slider/toggle/card/pill styles) + ui/theme.js (warm | classic switch: editor bar select, ?theme=, sc.theme). Editor, play, VFX, Sprite bake, thumbs switched over; brush modes turn the accent violet. Before: docs/ui/audit/, after: docs/ui/theme-after.jpg (headless, unverified on a phone).

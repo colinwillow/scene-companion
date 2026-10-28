@@ -8,7 +8,7 @@ import { vendorThree, localThree } from './vendor-three.mjs';
 const OUT = 'desktop/dist';
 rmSync(OUT, { recursive: true, force: true }); mkdirSync(OUT, { recursive: true });
 const pages = ['index.html', 'play.html', 'vfx.html', 'spritebake.html'].filter(existsSync);
-const dirs = ['runtime', 'behaviors', 'vendor', 'scenes', 'prefabs', 'assets', 'extensions', 'thumbs', 'packs', 'parks'].filter(existsSync);
+const dirs = ['runtime', 'ui', 'behaviors', 'vendor', 'scenes', 'prefabs', 'assets', 'extensions', 'thumbs', 'packs', 'parks'].filter(existsSync);
 for (const d of dirs) cpSync(d, join(OUT, d), { recursive: true });
 for (const p of pages) writeFileSync(join(OUT, p), localThree(readFileSync(p, 'utf8')));
 const code = [...pages, ...['runtime', 'behaviors'].flatMap(d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => join(d, f)))];

@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Scene Companion</title>
+<link rel="stylesheet" href="ui/theme.css">
+<script src="ui/theme.js"></script>
 <style>
-  :root { color-scheme: dark; --bg:#12161d; --panel:#1b212bee; --line:#2c3542; --text:#e8edf3; --dim:#8b97a6; --accent:#ff8a3d; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
-    font: 14px/1.35 system-ui, -apple-system, sans-serif; overflow:hidden;
+    font: 14px/1.35 var(--font); overflow:hidden;
     touch-action: none; -webkit-user-select:none; user-select:none; overscroll-behavior:none; }
   canvas { display:block; position:fixed; inset:0; width:100%; height:100%; touch-action:none; }
   #bar { position:fixed; top:env(safe-area-inset-top); left:env(safe-area-inset-left); right:env(safe-area-inset-right); display:flex; gap:6px; padding:8px; flex-wrap:wrap; z-index:2; }
@@ -16,7 +17,7 @@
     border-radius:10px; padding:8px 11px; font:inherit; }
   #bar select { max-width:88px; }
   #bar #scenePick { max-width:230px; font-weight:700; }
-  #bar button.on { background:var(--accent); color:#111; border-color:var(--accent); }
+  #bar button.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   #score { margin-left:auto; padding:8px 11px; background:var(--panel); border-radius:10px; }
   #panel { position:fixed; left:0; right:0; bottom:0; height:var(--sheet, 42vh); z-index:2; display:flex; flex-direction:column;
     background:var(--panel); border-top:1px solid var(--line); border-radius:16px 16px 0 0; transition:height .22s ease; }
@@ -33,12 +34,12 @@
   #tl[hidden] { display:none; }
   #tl .tlRow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; color:var(--dim); }
   #tl .tlRow b { color:var(--text); } #tl select { max-width:42vw; }
-  #tl button.on { background:var(--accent); color:#111; } #tlScrub { width:100%; touch-action:none; }
+  #tl button.on { background:var(--accent); color:var(--on-accent); } #tlScrub { width:100%; touch-action:none; }
   #tl .tlViews { margin-left:auto; display:flex; gap:4px; }
   @media (orientation: landscape) and (min-width: 600px) { #tl { left:280px; } }
   #chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
-  #chip button { flex:none; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:999px; padding:7px 11px; font:inherit; }
-  #chip #chipEdit { background:var(--accent); color:#111; border-color:var(--accent); }
+  #chip button { flex:none; background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:7px 11px; font:inherit; }
+  #chip #chipEdit { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   @media (orientation: landscape) and (min-width: 600px) {
     #panel.closed { display:flex; }
     #chip { display:none !important; }
@@ -52,30 +53,30 @@
   .row { display:flex; align-items:center; gap:8px; margin:5px 0; }
   .row label { width:92px; color:var(--dim); flex:none; }
   .row input[type=range] { flex:1; }
-  .row input[type=number], .row input[type=text] { width:64px; background:#0e1218; color:var(--text);
+  .row input[type=number], .row input[type=text] { width:64px; background:var(--field); color:var(--text);
     border:1px solid var(--line); border-radius:6px; padding:4px; font:inherit; }
   .row output { width:44px; text-align:right; }
-  select.add { width:100%; margin-top:6px; padding:8px; background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; }
+  select.add { width:100%; margin-top:6px; padding:8px; background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:8px; }
   .acts { display:flex; gap:8px; margin:8px 0; }
   .parentRow { display:flex; gap:8px; align-items:center; margin:0 0 8px; color:var(--dim); font-size:13px; }
-  .parentRow select { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
-  .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
+  .parentRow select { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
+  .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
   #lib .tabs { display:flex; gap:6px; margin-bottom:6px; overflow-x:auto; scrollbar-width:none; }
-  #lib .tabs button { flex:1 0 auto; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; }
-  #lib .tabs button.on { background:var(--accent); color:#111; }
+  #lib .tabs button { flex:1 0 auto; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
+  #lib .tabs button.on { background:var(--accent); color:var(--on-accent); }
   #tree, #lib { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:38vh; display:none; flex-direction:column;
     background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; }
   #tree.open, #lib.open { display:flex; }
-  #tree input, #lib input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; margin-bottom:6px; -webkit-user-select:text; user-select:text; }
+  #tree input, #lib input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; margin-bottom:6px; -webkit-user-select:text; user-select:text; }
   #tree ul, #lib ul { list-style:none; margin:0; padding:0; overflow:auto; touch-action:pan-y; flex:1; }
   #tree li, #lib li { padding:9px 8px; border-radius:8px; display:flex; gap:8px; align-items:baseline; cursor:pointer; }
-  #tree li.sel { background:var(--accent); color:#111; }
+  #tree li.sel { background:var(--accent); color:var(--on-accent); }
   #lib li.thumb { align-items:center; padding:5px 8px; }
-  #lib li img { width:44px; height:44px; flex:none; border-radius:9px; background:#262e40; object-fit:contain; }
+  #lib li img { width:44px; height:44px; flex:none; border-radius:9px; background:var(--raised); object-fit:contain; }
   #lib li.locked { opacity:.45; cursor:not-allowed; }
-  #lib li .packbtn { margin-left:auto; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:#0e1218; color:var(--text); font:inherit; font-size:12px; font-weight:400; }
+  #lib li .packbtn { margin-left:auto; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; font-size:12px; font-weight:400; }
   #lib li.head { cursor:default; font-weight:700; padding-top:12px; border-bottom:1px solid var(--line); border-radius:0; }
-  #tree li.sel small { color:#111a; }
+  #tree li.sel small { color:#0009; }
   #tree li.dragging { opacity:.55; outline:2px dashed var(--accent); }
   #treeList.dragmode { touch-action:none; }
   #tree li.drop { outline:2px solid var(--accent); background:#ffffff14; }
@@ -86,20 +87,20 @@
     #tree, #lib { right:auto; width:260px; top:0; bottom:0; max-height:none; padding-top:60px; border-bottom:none; border-right:1px solid var(--line); }
   }
   #scatterBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
-    display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid #3ddc84; border-radius:14px; padding:6px 8px; }
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid var(--paint); border-radius:14px; padding:6px 8px; }
   #scatterBar[hidden] { display:none; }
   #tileBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
-    display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:#151a22ee; border:1px solid var(--line); border-radius:12px; padding:8px; }
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px; }
   #tileBar[hidden] { display:none; }
   #tilePal { display:flex; gap:6px; flex-wrap:wrap; }
-  #tilePal button { width:40px; height:40px; border-radius:8px; border:2px solid var(--line); image-rendering:pixelated; font-size:18px; color:var(--text); background-color:#0e1218; }
+  #tilePal button { width:40px; height:40px; border-radius:8px; border:2px solid var(--line); image-rendering:pixelated; font-size:18px; color:var(--text); background-color:var(--field); }
   #tilePal button.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
-  #scatterBar select { background:#0e1218; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px; font:inherit; max-width:150px; }
+  #scatterBar select { background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px; font:inherit; max-width:150px; }
   #scatterBar small { color:var(--dim); }
   #scatterBar label { display:flex; gap:4px; align-items:center; }
-  #scatterBar input[type=range] { width:84px; accent-color:#3ddc84; }
-  #scatterBar.erase { border-color:#ff5d5d; }
-  #scatterBar.erase input[type=range] { accent-color:#ff5d5d; }
+  #scatterBar input[type=range] { width:84px; --fill:var(--paint); }
+  #scatterBar.erase { border-color:var(--bad); }
+  #scatterBar.erase input[type=range] { --fill:var(--bad); }
   .rules { display:flex; flex-direction:column; gap:6px; width:100%; }
   .rule { border:1px solid var(--line); border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:4px; }
   .ruleRow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; }
@@ -108,11 +109,11 @@
   .ruleFields { display:contents; } .ruleFields label { display:flex; gap:3px; align-items:center; color:var(--dim); }
   .ruleAdd { align-self:flex-start; font-size:12px; }
   .graphBox { overflow:auto; max-height:40vh; border:1px solid var(--line); border-radius:8px; padding:4px; }
-  .rulegraph .n { fill:#1a2230; stroke:var(--line); } .rulegraph .when { stroke:#5ab0ff; } .rulegraph .if { stroke:#f5c04a; } .rulegraph .do { stroke:#3ddc84; }
-  .rulegraph .t { fill:var(--text); font:700 12px system-ui,sans-serif; } .rulegraph .s { fill:var(--dim); font:10px system-ui,sans-serif; }
+  .rulegraph .n { fill:var(--raised); stroke:var(--line); } .rulegraph .when { stroke:var(--info); } .rulegraph .if { stroke:var(--warn); } .rulegraph .do { stroke:var(--ok); }
+  .rulegraph .t { fill:var(--text); font:700 12px var(--font); } .rulegraph .s { fill:var(--dim); font:10px var(--font); }
   .rulegraph .w { fill:none; stroke:var(--dim); stroke-width:1.5; }
   #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
-    font:700 11px/1 system-ui, sans-serif; letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
+    font:700 11px/1 var(--font); letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
 <script type="importmap">
@@ -122,7 +123,7 @@
 } }
 </script>
 </head>
-<body>
+<body class="ui mode-edit">
 <div id="bar">
   <select id="scenePick" title="Open another scene"></select>
   <button id="list" title="All objects">☰ List</button>
@@ -132,6 +133,7 @@
  <button id="scatter" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">🖌 Scatter</button>
   <button id="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">▦ Snap</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
+  <select id="theme" title="UI theme (a taste switch): warm is the new look, classic is the look before Stage 9"><option value="warm">warm</option><option value="classic">classic</option></select>
   <select id="tier" title="Quality tier: web (phones) · desktop · ultra (soft shadows, reflections — the desktop app's default)"><option>web</option><option>desktop</option><option>ultra</option></select>
   <select id="add" title="Add an object"></select>
   <button id="undo" title="Undo (Ctrl+Z)" disabled>↶</button>
@@ -140,7 +142,7 @@
   <button id="push" title="Commit this scene to GitHub">⇪ Save</button>
   <span id="score">★ 0</span>
 </div>
-<div id="err" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3;background:#5a1d1d;color:#ffd9d9;border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap"></div>
+<div id="err" class="errbox" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="ext">Extensions</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
@@ -198,6 +200,8 @@ const DESKTOP = window.__TAURI__ || null;   // running inside the desktop app: f
 const PROJECT = !!DESKTOP && /^project:|\/\/project\.localhost/.test(location.href);   // served from a project folder on this computer
 { let t = null; try { t = localStorage.getItem('sc.tier'); } catch {}   // the quality tier: remembered, else ultra in the desktop app
   $('tier').value = new URLSearchParams(location.search).get('tier') || t || (DESKTOP ? 'ultra' : 'web'); }
+$('theme').value = window.scTheme?.get() || 'warm';   // UI theme switch (ui/theme.js remembers it)
+$('theme').onchange = () => window.scTheme?.set($('theme').value);
 // a project opened with no scene named opens its own first scene, not the bundled kitchen sink
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || (PROJECT && (await DESKTOP.core.invoke('list_project_scenes').catch(() => []))[0]) || './scenes/kitchen-sink.scene.json';
 // The scene picker: every example scene (scenes/index.json); choosing one reopens the editor on it.
@@ -787,7 +791,7 @@ $('scatter').onclick = () => {
   if (playing) return;
   scatterOn = !scatterOn;
   if (stroke) cancelStroke();
-  $('scatter').classList.toggle('on', scatterOn); $('scatterBar').hidden = !scatterOn;
+  $('scatter').classList.toggle('on', scatterOn); $('scatterBar').hidden = !scatterOn; paintMode();
   // keep the orbit controls on so two fingers still orbit/zoom; only the one-finger / left-button drag is the brush's
   orbit.touches.ONE = scatterOn ? -1 : savedNav.touch;
   orbit.mouseButtons.LEFT = scatterOn ? -1 : savedNav.mouse;
@@ -881,10 +885,12 @@ function tilePaint(id) {
     if (k === tileKey) b.classList.add('on');
     $('tilePal').append(b);
   }
-  $('tileBar').hidden = false; openSheet(false);
+  $('tileBar').hidden = false; openSheet(false); paintMode();
   orbit.touches.ONE = -1; orbit.mouseButtons.LEFT = -1;
 }
-function tileStop() { tileOn = null; tileStroke = null; $('tileBar').hidden = true; orbit.touches.ONE = savedNav.touch; orbit.mouseButtons.LEFT = savedNav.mouse; }
+// the accent follows the mode: orange editing, violet while a brush (scatter / tiles) is out
+function paintMode() { document.body.classList.toggle('mode-paint', !$('scatterBar').hidden || !$('tileBar').hidden); }
+function tileStop() { tileOn = null; tileStroke = null; $('tileBar').hidden = true; paintMode(); orbit.touches.ONE = savedNav.touch; orbit.mouseButtons.LEFT = savedNav.mouse; }
 $('tileDone').onclick = tileStop;
 window.__scTile = { tilePaint, tileStop };   // test hook (headless checks)
 function tileAt(e) {

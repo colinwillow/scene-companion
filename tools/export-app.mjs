@@ -31,7 +31,7 @@ if (existsSync('assets/fx')) for (const f of readdirSync('assets/fx')) take(`ass
 
 const ownCode = ['play.html', ...['runtime', 'behaviors'].flatMap(d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => join(d, f)))];
 mkdirSync(www, { recursive: true });
-for (const d of ['runtime', 'behaviors', 'vendor']) cpSync(d, join(www, d), { recursive: true });
+for (const d of ['runtime', 'behaviors', 'vendor', 'ui']) cpSync(d, join(www, d), { recursive: true });
 const addonCount = vendorThree(www, ownCode);
 for (const f of files) { mkdirSync(join(www, dirname(f)), { recursive: true }); copyFileSync(f, join(www, f)); }
 writeFileSync(join(www, 'scenes/index.json'), JSON.stringify([{ file: './' + rel(scenePath), title, note: '' }], null, 1) + '\n');

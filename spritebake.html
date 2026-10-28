@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Sprite bake</title>
+<link rel="stylesheet" href="ui/theme.css">
+<script src="ui/theme.js"></script>
 <style>
-  :root { --bg:#0e1218; --panel:#151a22; --line:#2a3340; --text:#dde3ea; --accent:#ff8a3d; }
-  html, body { margin:0; background:var(--bg); color:var(--text); font:14px system-ui, sans-serif; touch-action:manipulation; }
+    html, body { margin:0; background:var(--bg); color:var(--text); font:14px var(--font); touch-action:manipulation; }
   main { max-width:760px; margin:0 auto; padding:12px; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
-  input, select, button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font:inherit; }
-  button.go { background:var(--accent); color:#111; }
+  input, select, button { background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font:inherit; }
+  button.go { background:var(--accent); color:var(--on-accent); }
   #sheet { width:100%; image-rendering:pixelated; background:repeating-conic-gradient(#333 0 25%,#222 0 50%) 0 0/16px 16px; border-radius:8px; }
   #msg { opacity:.8; white-space:pre-wrap; }
 </style>
 </head>
-<body>
+<body class="ui mode-edit">
 <main>
   <h3 style="margin:4px 0">🎞 Sprite bake — a 3D character into a 2D sheet</h3>
   <div class="row"><label>character <select id="char"></select></label><label>size <select id="size"><option>64</option><option selected>128</option><option>256</option></select> px</label><label>frames/clip <input id="n" type="number" value="8" min="1" max="24" style="width:56px"></label></div>

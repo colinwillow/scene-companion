@@ -1,8 +1,10 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Thumbnail studio</title>
-<style>html,body{margin:0;background:#1b2130;color:#cfd6e4;font:14px system-ui,sans-serif;touch-action:manipulation}
-#out{display:flex;flex-wrap:wrap;gap:8px;padding:12px}#out figure{margin:0;text-align:center}#out img{width:128px;height:128px;background:#262e40;border-radius:12px}</style>
+<link rel="stylesheet" href="ui/theme.css">
+<script src="ui/theme.js"></script>
+<style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px var(--font);touch-action:manipulation}
+#out{display:flex;flex-wrap:wrap;gap:8px;padding:12px}#out figure{margin:0;text-align:center}#out img{width:128px;height:128px;background:var(--raised);border-radius:var(--r-md)}</style>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",

@@ -4,20 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>VFX Workspace — Scene Companion</title>
+<link rel="stylesheet" href="ui/theme.css">
+<script src="ui/theme.js"></script>
 <style>
-  html, body { margin:0; height:100%; background:#12161d; color:#fff; font:600 14px/1.3 system-ui, -apple-system, sans-serif; touch-action:manipulation; -webkit-user-select:none; user-select:none; overscroll-behavior:none; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:600 14px/1.3 var(--font); touch-action:manipulation; -webkit-user-select:none; user-select:none; overscroll-behavior:none; }
   body { display:flex; flex-direction:column; }
   #stage { flex:1 1 45%; min-height:200px; position:relative; }
   #stage canvas { position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
-  #panel { flex:1 1 55%; overflow:auto; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); background:#1b212b; }
+  #panel { flex:1 1 55%; overflow:auto; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); background:var(--panel-solid); }
   @media (orientation: landscape) { body { flex-direction:row; } #stage { flex:1 1 60%; } #panel { flex:0 0 340px; } }
   .row { display:flex; align-items:center; gap:8px; margin:6px 0; }
-  .row label { width:92px; color:#c9d3e0; font-weight:600; }
+  .row label { width:92px; color:var(--dim); font-weight:600; }
   .row input[type=range] { flex:1; }
   .row output { width:52px; text-align:right; color:#9ff4ff; font-variant-numeric:tabular-nums; }
-  select, input[type=text], button { font:inherit; border-radius:8px; border:none; padding:8px 10px; }
-  button { background:#3ddc84; color:#0b3d1f; font-weight:800; }
-  button.ghost { background:#2b3442; color:#fff; }
+  select, input[type=text], button { font:inherit; border-radius:var(--r-sm); padding:8px 10px; }
+  button { background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:800; }
+  button.ghost { background:var(--raised); color:var(--text); border-color:var(--line); }
   #msg { color:#9ff4ff; min-height:1.3em; }
   h1 { font-size:16px; margin:4px 0 8px; }
   a { color:#9ff4ff; }
@@ -29,7 +31,7 @@
 } }
 </script>
 </head>
-<body>
+<body class="ui mode-edit">
 <div id="stage"></div>
 <div id="panel">
   <h1>VFX workspace <a href="./index.html" style="float:right;font-weight:600">Editor</a></h1>
