@@ -279,7 +279,7 @@ async function rebuild() {
   gizmo?.detach();
   world?.dispose();
   world = new World(renderer, { tier: $('tier').value });
-  window.__sc = { world, data, camera, orbit, rebuild }; // debug/test hook (headless checks, timing)
+  window.__sc = { world, data, camera, orbit, rebuild, select }; // debug/test hook (headless checks, timing)
   await world.load(data);
   for (const m of world.extensionErrors || []) showErr(m);
   if (DESKTOP && !rebuild.tested) { rebuild.tested = true; DESKTOP.core.invoke('selftest_wanted').then(async want => {   // SC_SELFTEST=1 (desktop/): report and quit
