@@ -36,3 +36,8 @@ fall back to theirs. It is for a real GPU — on a phone it would be slow, which
   add-on on `http://localhost:8080` itself — the add-on's default, so nothing to change in Blender. → Blender on an object
   queues it; Send Back in Blender saves the edit into the project's `assets/models/bridge/` and the editor swaps it in.
   (If `npm run dev` is already running on 8080 the app leaves the port to it. `SC_BRIDGE_PORT` picks another.)
+
+## WebGPU (experimental)
+`play.html?renderer=webgpu` (any tier; best with ultra) runs the game on three's WebGPU renderer where the browser has WebGPU,
+otherwise it quietly stays on WebGL. Not carried over yet: the sky, particles, the toon look and reflections. It starts
+cleanly in tests but has not been looked at on a real GPU — treat it as a preview.

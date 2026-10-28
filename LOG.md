@@ -163,3 +163,4 @@
 - 2026-10-28 — Desktop part 2a — project folders (project: protocol, open/list/write), picker + Save in project mode, SC_SELFTEST; checked in the real app under Xvfb (live session)
 - 2026-10-28 — Desktop part 2b — Blender bridge inside the desktop app (bridge.rs), editor wiring, SC_SELFTEST=bridge; round trip checked in the real app (live session)
 - 2026-10-28 — Desktop part 3a — ultra tier (VSM 4096, 8x MSAA, full-res AO/bloom, SSR via post.reflect), tier remembered, desktop default; kitchen-sink plaza reflects; checked headless (live session)
+- 2026-10-28 — Desktop part 3b — WebGPU option (import-map switch, shim, WebGPU post); starts clean headless, picture unconfirmed here; follow-up item added (live session)

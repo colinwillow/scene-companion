@@ -338,7 +338,7 @@ async function start() {
   await world.load(scene);
   for (const m of world.extensionErrors || []) showErr(m);   // an extension that did not load: say which and why
   world.instanceStatic();                     // repeated static props → one InstancedMesh per part (draw calls)
-  window.__sc = { world, data, audio, get particles() { return particles; }, get trails() { return trails; }, get live() { return liveStatus; } };
+  window.__sc = { world, data, audio, renderer, camera, get particles() { return particles; }, get trails() { return trails; }, get live() { return liveStatus; } };
   player = world.getEntity('player');
   coinsTotal = [...world.entities.values()].filter(e => e.behaviors.some(b => b.constructor.name === 'Pickup')).length;
   audio.stop();
