@@ -113,3 +113,15 @@ a { color: var(--info); }
 .pill { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 4px 10px; border-radius: var(--r-pill); background: var(--panel); border: 1px solid var(--line); font-weight: 700; }
 .dim { color: var(--dim); }
 .errbox { background: var(--err-bg); color: var(--err-text); border-radius: var(--r-md); padding: 10px; font: 12px/1.4 var(--mono); white-space: pre-wrap; }
+
+/* ---- icons (ui/icons.js): icon on top, one short word under it ---- */
+.ic { width: 22px; height: 22px; flex: none; display: block; }
+.ib { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1; -webkit-touch-callout: none; }
+.ib .iw { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+.ib.icon-only .iw { display: none; }
+.ib.side { flex-direction: row; gap: 6px; }
+.ib.side .iw { font-size: inherit; }
+.lp-tip { position: fixed; z-index: 99; max-width: min(320px, 86vw); padding: 8px 12px; border-radius: var(--r-md);
+  background: var(--text); color: var(--bg); font: 600 13px/1.35 var(--font); box-shadow: var(--sh-2); pointer-events: none;
+  animation: lp-in .14s var(--ease); }
+@keyframes lp-in { from { opacity: 0; transform: translateY(4px) scale(.96); } }

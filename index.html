@@ -6,6 +6,7 @@
 <title>Scene Companion</title>
 <link rel="stylesheet" href="ui/theme.css">
 <script src="ui/theme.js"></script>
+<script src="ui/longpress.js" defer></script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
@@ -15,7 +16,9 @@
   #bar { position:fixed; top:env(safe-area-inset-top); left:env(safe-area-inset-left); right:env(safe-area-inset-right); display:flex; gap:6px; padding:8px; flex-wrap:wrap; z-index:2; }
   #bar button, #bar select { background:var(--panel); color:var(--text); border:1px solid var(--line);
     border-radius:10px; padding:8px 11px; font:inherit; }
-  #bar select { max-width:88px; }
+  #bar select { max-width:88px; align-self:center; }
+  #bar button.ib { padding:5px 7px; min-width:50px; }
+  .acts button.ib { padding:7px 4px; gap:3px; } .acts button.ib .iw { white-space:normal; text-align:center; }
   #bar #scenePick { max-width:230px; font-weight:700; }
   #bar button.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   #score { margin-left:auto; padding:8px 11px; background:var(--panel); border-radius:10px; }
@@ -126,28 +129,28 @@
 <body class="ui mode-edit">
 <div id="bar">
   <select id="scenePick" title="Open another scene"></select>
-  <button id="list" title="All objects">☰ List</button>
-  <button id="libBtn" title="Libraries: characters, props, motions">📚 Library</button>
-  <button id="play">▶ Play</button>
-  <button id="mode" title="Gizmo mode">Move</button>
- <button id="scatter" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">🖌 Scatter</button>
-  <button id="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">▦ Snap</button>
+  <button id="list" data-icon="list" title="All objects in the scene, as a tree">List</button>
+  <button id="libBtn" data-icon="library" title="Libraries: characters, props, kit, motions, sounds, 2D…">Library</button>
+  <button id="play" data-icon="play" title="Play the scene (Stop puts everything back)">Play</button>
+  <button id="mode" data-icon="move" title="Gizmo: tap to cycle Move → Turn → Size">Move</button>
+ <button id="scatter" data-icon="brush" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">Scatter</button>
+  <button id="snap" data-icon="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">Snap</button>
   <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
   <select id="theme" title="UI theme (a taste switch): warm is the new look, classic is the look before Stage 9"><option value="warm">warm</option><option value="classic">classic</option></select>
   <select id="tier" title="Quality tier: web (phones) · desktop · ultra (soft shadows, reflections — the desktop app's default)"><option>web</option><option>desktop</option><option>ultra</option></select>
   <select id="add" title="Add an object"></select>
-  <button id="undo" title="Undo (Ctrl+Z)" disabled>↶</button>
-  <button id="redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
-  <button id="save" title="Copy the scene JSON">Copy</button>
-  <button id="push" title="Commit this scene to GitHub">⇪ Save</button>
+  <button id="undo" data-icon="undo" title="Undo (Ctrl+Z)" disabled>Undo</button>
+  <button id="redo" data-icon="redo" title="Redo (Ctrl+Shift+Z)" disabled>Redo</button>
+  <button id="save" data-icon="copy" title="Copy the scene JSON to the clipboard (to paste to Claude)">Copy</button>
+  <button id="push" data-icon="save" title="Save: commit this scene to GitHub (in the desktop app: to disk / the project)">Save</button>
   <span id="score">★ 0</span>
 </div>
 <div id="err" class="errbox" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
 <div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="ext">Extensions</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
-<div id="tileBar" hidden><span id="tilePal"></span><small id="tileHint">1 finger paints · 2 fingers orbit</small><button id="tileDone">Done</button></div>
-<div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" title="Paint or erase instances of this prefab">🖌 Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
+<div id="tileBar" hidden><span id="tilePal"></span><small id="tileHint">1 finger paints · 2 fingers orbit</small><button id="tileDone" class="ib side" data-icon="check" title="Stop painting tiles">Done</button></div>
+<div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" class="ib side" data-icon="brush" title="Paint or erase instances of this prefab">Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
   <div class="tlRow"><b id="tlWho"></b><select id="tlClip"></select><button id="tlPlay">⏸</button><button id="tlLoop" class="on" title="Loop">🔁</button>
     <select id="tlSpeed" title="Speed"><option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
@@ -158,7 +161,7 @@
     <select id="tlMask" title="Which part of the body the new clip moves"><option value="">whole body</option><option value="upper">upper body</option><option value="lower">lower body</option></select>
     <button id="tlEvent" title="Add a frame event here (e.g. hit, foot)">＋ event</button><button id="tlSave" title="Save these settings as a new clip on this object">Save variant</button><span id="tlTrim"></span></div>
 </div>
-<div id="chip" hidden><span id="chipName"></span><button id="chipEdit" title="Open the inspector">✎ Edit</button><button id="chipX" title="Deselect">✕</button></div>
+<div id="chip" hidden><span id="chipName"></span><button id="chipEdit" class="ib side" data-icon="edit" title="Open the inspector">Edit</button><button id="chipX" class="ib side icon-only" data-icon="close" title="Deselect">Close</button></div>
 <div id="panel" class="closed"><div id="grab" title="Drag or tap to resize"></div><div id="panelBody"><p class="hint">Tap an object to inspect it. Drag the gizmo to move it. Press Play to run the scene.</p></div></div>
 
 <script>
@@ -173,6 +176,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
+import { setIcon, iconize } from './ui/icons.js';
+iconize(document);   // every [data-icon] button gets its icon + word (Stage 9 icon set)
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
@@ -635,11 +640,10 @@ const bridgeStatus = async () => PROJECT ? DESKTOP.core.invoke('bridge_status') 
 const bridgeSend = async job => PROJECT ? DESKTOP.core.invoke('bridge_send', { job }) : (await fetch('./bridge/send', { method: 'POST', body: JSON.stringify(job) })).json();
 // Blender bridge: is the add-on polling the dev server? (checked every 3 s while live) — shown as a dot on → Blender
 let blenderOn = false;
-const blenderLabel = () => `→ Blender${blenderOn ? ' <span style="color:#3c6">●</span>' : ''}`;
 setInterval(async () => {
   if (!bridgeOn()) return;
   try { const st = await bridgeStatus(), on = st.blender !== null && st.blender < 5;
-    if (on !== blenderOn) { blenderOn = on; const b = document.querySelector('button[data-a="blender"]'); if (b) b.innerHTML = blenderLabel(); }
+    if (on !== blenderOn) { blenderOn = on; const b = document.querySelector('button[data-a="blender"]'); if (b) setIcon(b, 'send', 'Blender', blenderOn ? ' <span style="color:var(--ok)">●</span>' : ''); }
   } catch {}
 }, 3000);
 // The asset an entity shows: prefab merged, scene asset key looked up.
@@ -654,10 +658,10 @@ function renderPanel() {
   if (!playing) {
     const acts = document.createElement('div'); acts.className = 'acts';
     const glb = modelPath(assetOf(ent), world.characters);
-    acts.innerHTML = `<button data-a="dup">⧉ Duplicate</button><button data-a="del">🗑 Delete</button>` +
-      (glb && bridgeOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object">${blenderLabel()}</button>` : '') +
-      (glb && liveOn() && ent.anim ? `<button data-a="forge" title="Open this character in the Forge (retarget + tune clips with the motion library). Export “full” there, then ⇦ From Forge here.">→ Forge</button><button data-a="fromForge" title="Pick the GLB the Forge exported: it replaces this object's model (id and behaviors stay)">⇦ From Forge</button>` : '') +
-      (glb && bridgeOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)">→ Blender: all ${e.prefab}</button>` : '');
+    acts.innerHTML = `<button data-a="dup" data-icon="copy" title="Duplicate: a copy beside it">Duplicate</button><button data-a="del" data-icon="delete" title="Delete this object (undo brings it back)">Delete</button>` +
+      (glb && bridgeOn() ? `<button data-a="blender" title="Open this model in Blender (Scene Companion add-on${blenderOn ? ', connected' : ', not connected'}); Send Back replaces it on this object" data-icon="send" data-word="Blender">Blender</button>` : '') +
+      (glb && liveOn() && ent.anim ? `<button data-a="forge" title="Open this character in the Forge (retarget + tune clips with the motion library). Export “full” there, then Import here." data-icon="forge">Forge</button><button data-a="fromForge" data-icon="receive" title="Import from the Forge: pick the GLB it exported; it replaces this object's model (id and behaviors stay)">Import</button>` : '') +
+      (glb && bridgeOn() && e.prefab && !e.asset ? `<button data-a="blender-prefab" title="Send Back updates prefabs/${e.prefab}.prefab.json, so every ${e.prefab} changes (not undoable)" data-icon="send" data-word="All ${e.prefab}">All ${e.prefab}</button>` : '');
     acts.onclick = async ev => {
       const btn = ev.target.closest('button'), a = btn?.dataset.a; if (!a) return;
       if (a === 'blender' || a === 'blender-prefab') {
@@ -666,9 +670,9 @@ function renderPanel() {
           const job = { id: e.id, glb, scene: SCENE_URL, ...(a === 'blender-prefab' ? { prefab: e.prefab } : {}) };
           const r = await bridgeSend(job).catch(e => ({ error: String(e) }));
           if (r.error) throw new Error(r.error);
-          btn.textContent = r.blender ? 'Sent ✓' : 'Queued — start the bridge in Blender';
+          setIcon(btn, r.blender ? 'check' : 'send', r.blender ? 'Sent' : 'Queued'); if (!r.blender) btn.title = 'Queued — start the bridge in Blender';
         } catch (err) { showErr('Send to Blender: ' + err.message); }
-        setTimeout(() => (btn.innerHTML = a === 'blender' ? blenderLabel() : label), 3000);
+        setTimeout(() => { btn.innerHTML = label; }, 3000);
       }
       if (a === 'forge') {
         const abs = new URL(glb, location.href).pathname;
@@ -689,6 +693,7 @@ function renderPanel() {
       if (a === 'dup') { record(); const c = duplicateEntity(data, e.id, duplicateOffset(e.id)); await refresh(); select(c.id); }
       if (a === 'del' && confirm(`Delete ${e.id}?`)) { record(); deleteEntity(data, e.id); selectedId = null; await refresh(); select(null); renderPanel(); }
     };
+    iconize(acts); const bb = acts.querySelector('[data-a="blender"]'); if (bb && blenderOn) setIcon(bb, 'send', 'Blender', ' <span style="color:var(--ok)">●</span>');
     panel.append(acts);
     const at = findEntity(data, e.id);
     if (at) {                                       // nesting: pick a parent; it stays where it is in the world
@@ -742,7 +747,7 @@ function renderPanel() {
     const row = document.createElement('div'); row.className = 'row';
     row.innerHTML = `<label>animation</label><select class="add" style="margin:0">${ent.anim.clips.map(c => `<option ${c === (e.animation || ent.anim.current) ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
     row.querySelector('select').onchange = ev => { record(); e.animation = ev.target.value; ent.anim.play(ev.target.value); };
-    if (!playing) { const tb = document.createElement('button'); tb.textContent = '▶ Timeline'; tb.title = 'Scrub this clip, look from the front / side / top';
+    if (!playing) { const tb = document.createElement('button'); setIcon(tb, 'timeline', 'Timeline'); tb.title = 'Scrub this clip, look from the front / side / top';
       tb.onclick = () => openTimeline(e.id); row.append(tb); }
     panel.append(row);
   }
@@ -799,7 +804,7 @@ $('scatter').onclick = () => {
 };
 $('scMode').onclick = () => {
   eraseMode = !eraseMode;
-  $('scMode').textContent = eraseMode ? '🧽 Erase' : '🖌 Paint';
+  setIcon($('scMode'), eraseMode ? 'erase' : 'brush', eraseMode ? 'Erase' : 'Paint');
   $('scatterBar').classList.toggle('erase', eraseMode);
   $('scHint').textContent = eraseMode ? '1 finger erases · 2 fingers orbit' : '1 finger paints · 2 fingers orbit';
 };
@@ -961,7 +966,7 @@ $('play').onclick = async () => {
 async function playToggle() {
   if (scatterOn) $('scatter').onclick();                // the brush is an edit-mode tool
   playing = !playing;
-  $('play').textContent = playing ? '■ Stop' : '▶ Play';
+  setIcon($('play'), playing ? 'stop' : 'play', playing ? 'Stop' : 'Play');
   $('play').classList.toggle('on', playing);
   $('add').disabled = playing;
   $('undo').disabled = playing || !hist.canUndo; $('redo').disabled = playing || !hist.canRedo;
@@ -972,7 +977,7 @@ async function playToggle() {
   renderPanel();
 }
 let modeIdx = 0;
-$('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; $('mode').textContent = ['Move', 'Rotate', 'Scale'][modeIdx]; gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
+$('mode').onclick = () => { modeIdx = (modeIdx + 1) % 3; setIcon($('mode'), ['move', 'rotate', 'scale'][modeIdx], ['Move', 'Turn', 'Size'][modeIdx]); gizmo.setMode(['translate', 'rotate', 'scale'][modeIdx]); };
 $('look').onchange = async () => { record(); data.settings.look = $('look').value; world.setLook(data.settings.look); world.data = data; };
 $('tier').onchange = () => { try { localStorage.setItem('sc.tier', $('tier').value); } catch {} rebuild(); };   // remembered (play.html reads it too)
 // ---- save to GitHub (fine-grained token with Contents read/write, kept on this device only)
@@ -991,37 +996,37 @@ $('push').onclick = async () => {
   if (PROJECT && !SCENE_URL.startsWith('desktop:')) {   // inside a project folder: the scene file is written back where it came from
     const btn = $('push'), rel = new URL(SCENE_URL, location.href).pathname.replace(/^\/+/, '');
     try { const where = await DESKTOP.core.invoke('write_project_file', { rel, contents: JSON.stringify(data, null, 2) + '\n' });
-      btn.textContent = 'Saved ✓'; btn.title = where; loadedText = JSON.stringify(data, null, 2) + '\n';
-    } catch (e) { showErr('Save: ' + e); btn.textContent = 'Not saved'; }
-    setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
+      setIcon(btn, 'check', 'Saved'); btn.title = where; loadedText = JSON.stringify(data, null, 2) + '\n';
+    } catch (e) { showErr('Save: ' + e); setIcon(btn, 'check', 'Not saved'); }
+    setTimeout(() => setIcon(btn, 'save', 'Save'), 2000);
     return;
   }
   if (DESKTOP) {                                    // the desktop app saves to <Documents>/SceneCompanion/scenes, no GitHub
     const btn = $('push'), name = SCENE_URL.startsWith('desktop:') ? SCENE_URL.slice(8) : SCENE_URL.split('/').pop();
     try { const where = await DESKTOP.core.invoke('save_scene', { name, json: JSON.stringify(data, null, 2) + '\n' });
-      btn.textContent = 'Saved ✓'; btn.title = where;
+      setIcon(btn, 'check', 'Saved'); btn.title = where;
       if (!SCENE_URL.startsWith('desktop:')) history.replaceState(null, '', `?scene=${encodeURIComponent('desktop:' + name)}`);   // it is that file now
-    } catch (e) { showErr('Save: ' + e); btn.textContent = 'Not saved'; }
-    setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
+    } catch (e) { showErr('Save: ' + e); setIcon(btn, 'check', 'Not saved'); }
+    setTimeout(() => setIcon(btn, 'save', 'Save'), 2000);
     return;
   }
   const cfg = ghSettings(); if (!cfg) return;
   const path = new URL(SCENE_URL, location.href).pathname.replace(/^.*?(scenes\/)/, '$1');
   const text = JSON.stringify(data, null, 2) + '\n';
-  const btn = $('push'); btn.textContent = 'Saving…'; btn.disabled = true;
+  const btn = $('push'); setIcon(btn, 'check', 'Saving…'); btn.disabled = true;
   try {
     let r = await saveFile({ ...cfg, path, text, expectText: loadedText, message: `Edit ${path.split('/').pop()} in Scene Companion` });
     if (r.conflict && confirm(`${path} changed on GitHub since you opened it (maybe Claude pushed). Overwrite it with your version?`))
       r = await saveFile({ ...cfg, path, text, force: true, message: `Edit ${path.split('/').pop()} in Scene Companion` });
-    if (r.saved || r.unchanged) { loadedText = text; btn.textContent = r.saved ? 'Saved ✓' : 'No changes'; }
-    else btn.textContent = 'Not saved';
+    if (r.saved || r.unchanged) { loadedText = text; setIcon(btn, 'check', r.saved ? 'Saved' : 'No changes'); }
+    else setIcon(btn, 'check', 'Not saved');
   } catch (e) {
-    btn.textContent = 'Save failed';
+    setIcon(btn, 'check', 'Save failed');
     showErr(e.message);
     if (/\b(401|403)\b/.test(e.message)) try { localStorage.removeItem('sc.github'); } catch {}   // ask for a new token next time
   }
   btn.disabled = false;
-  setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
+  setTimeout(() => setIcon(btn, 'save', 'Save'), 2000);
 };
 
 function flashLive() { const b = $('liveBadge'); b.classList.add('flash'); clearTimeout(flashLive.t); flashLive.t = setTimeout(() => b.classList.remove('flash'), 300); }
@@ -1467,11 +1472,11 @@ $('lib').querySelector('.tabs').onclick = ev => {
 $('libSearch').oninput = renderLib;
 $('save').onclick = async () => {
   const json = JSON.stringify(data, null, 2);
-  try { await navigator.clipboard.writeText(json); $('save').textContent = 'Copied ✓'; }
+  try { await navigator.clipboard.writeText(json); setIcon($('save'), 'check', 'Copied'); }
   catch { const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = SCENE_URL.split('/').pop(); a.click(); $('save').textContent = 'Saved ✓'; }
-  setTimeout(() => ($('save').textContent = 'Copy'), 1500);
+    a.download = SCENE_URL.split('/').pop(); a.click(); setIcon($('save'), 'check', 'Saved'); }
+  setTimeout(() => setIcon($('save'), 'copy', 'Copy'), 1500);
 };
 
 // ---- ▶ Timeline: scrub / play / loop / speed one clip on the selected character, and look at it from the front, side
