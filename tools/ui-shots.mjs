@@ -20,6 +20,7 @@ const shots = [
   { name: 'editor-landscape', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: LAND },
   { name: 'editor-desktop', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: DESK },
   { name: 'editor-selected', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.evaluate(() => window.__sc.select('player')); } },
+  { name: 'editor-more', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.click('#moreBtn'); } },
   { name: 'inspector', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE, act: async p => { await p.evaluate(() => window.__sc.select('player')); await p.click('#chipEdit').catch(() => {}); } },
   { name: 'inspector-landscape', url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: LAND, act: async p => { await p.evaluate(() => window.__sc.select('player')); await p.click('#chipEdit').catch(() => {}); } },
   ...['characters', 'props', 'kit', 'motions', 'sounds', 'generate', 'sprites', 'ext', 'vars'].map(t => ({ name: `library-${t}`, url: 'index.html?scene=scenes/kitchen-sink.scene.json', view: PHONE,

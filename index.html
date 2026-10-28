@@ -13,16 +13,26 @@
     font: 14px/1.35 var(--font); overflow:hidden;
     touch-action: none; -webkit-user-select:none; user-select:none; overscroll-behavior:none; }
   canvas { display:block; position:fixed; inset:0; width:100%; height:100%; touch-action:none; }
-  #bar { position:fixed; top:env(safe-area-inset-top); left:env(safe-area-inset-left); right:env(safe-area-inset-right); display:flex; gap:6px; padding:8px; flex-wrap:wrap; z-index:2; }
-  #bar button, #bar select { background:var(--panel); color:var(--text); border:1px solid var(--line);
-    border-radius:10px; padding:8px 11px; font:inherit; }
-  #bar select { max-width:88px; align-self:center; }
-  #bar button.ib { padding:5px 7px; min-width:50px; }
+  /* thumb layout (Stage 9): one short row on top (scene + undo/redo/save/more), the tools in a dock at the bottom */
+  :root { --barH: 58px; --dockH: 66px; }
+  .tbar button, .tbar select, .tbar label.ib { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:var(--r-md); font:inherit; }
+  .tbar button.ib, .tbar label.ib { padding:5px 4px; min-width:48px; min-height:48px; position:relative; }
+  .tbar button.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  #bar { position:fixed; top:env(safe-area-inset-top); left:env(safe-area-inset-left); right:env(safe-area-inset-right); height:var(--barH); display:flex; gap:5px; padding:5px 8px; align-items:center; z-index:2; }
+  #bar #scenePick { flex:1 1 auto; min-width:0; max-width:260px; height:44px; padding:0 26px 0 10px; font-weight:800; margin-right:auto; }
+  #dock { position:fixed; left:0; right:0; bottom:0; z-index:2; display:flex; justify-content:center; gap:4px;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom)); background:var(--panel); border-top:3px solid var(--accent); border-radius:var(--r-lg) var(--r-lg) 0 0; box-shadow:var(--sh-2); }
+  #dock > * { flex:1 1 0; max-width:72px; }
+  #dock #play { border-radius:var(--r-lg); }
+  #addBtn select { position:absolute; inset:0; width:100%; height:100%; opacity:0; padding:0; border:0; }
+  #score { position:fixed; z-index:2; right:calc(8px + env(safe-area-inset-right)); top:calc(var(--barH) + 4px + env(safe-area-inset-top)); font-size:var(--fs-sm); }
+  #more { position:fixed; z-index:7; right:calc(8px + env(safe-area-inset-right)); top:calc(var(--barH) + 4px + env(safe-area-inset-top)); width:min(280px, calc(100vw - 16px)); padding:10px; display:flex; flex-direction:column; gap:8px; }
+  #more[hidden] { display:none; }
+  #more .mrow { display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; }
+  #more .mrow select { width:130px; }
+  #more #save { min-height:44px; }
   .acts button.ib { padding:7px 4px; gap:3px; } .acts button.ib .iw { white-space:normal; text-align:center; }
-  #bar #scenePick { max-width:230px; font-weight:700; }
-  #bar button.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
-  #score { margin-left:auto; padding:8px 11px; background:var(--panel); border-radius:10px; }
-  #panel { position:fixed; left:0; right:0; bottom:0; height:var(--sheet, 42vh); z-index:2; display:flex; flex-direction:column;
+      #panel { position:fixed; left:0; right:0; bottom:0; height:var(--sheet, 42vh); z-index:4; display:flex; flex-direction:column;
     background:var(--panel); border-top:1px solid var(--line); border-radius:16px 16px 0 0; transition:height .22s ease; }
   #panel.dragging { transition:none; }
   #grab { flex:none; height:26px; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:grab; }
@@ -30,7 +40,7 @@
   #panelBody { flex:1; overflow:auto; padding:0 14px calc(14px + env(safe-area-inset-bottom));
     touch-action: pan-y; -webkit-user-select:text; user-select:text; overscroll-behavior:contain; }
   #panel.closed { display:none; }
-  #chip { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; bottom:calc(14px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:4px;
+  #chip { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; bottom:calc(var(--dockH) + 10px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:4px;
     max-width:calc(100vw - 150px); background:var(--panel); border:1px solid var(--accent); border-radius:999px; padding:4px 4px 4px 12px; }
   #chip[hidden] { display:none; }
   #tl { position:fixed; z-index:6; left:8px; right:8px; bottom:calc(8px + env(safe-area-inset-bottom)); background:var(--panel, #11161dee); border:1px solid var(--line); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:6px; }
@@ -46,7 +56,8 @@
   @media (orientation: landscape) and (min-width: 600px) {
     #panel.closed { display:flex; }
     #chip { display:none !important; }
-    #panel { left:auto; top:0; height:auto; width:320px; border-top:none; border-radius:0; border-left:1px solid var(--line); padding-top:60px; }
+    #panel { left:auto; top:0; height:auto; width:320px; border-top:none; border-radius:0; border-left:1px solid var(--line); padding-top:12px; z-index:3; }
+    #bar { right:320px; } #dock { right:320px; } #score, #more { right:328px; }
     #grab { display:none; }
   }
   #panel h3 { margin:0 0 6px; font-size:15px; }
@@ -64,7 +75,7 @@
   .parentRow { display:flex; gap:8px; align-items:center; margin:0 0 8px; color:var(--dim); font-size:13px; }
   .parentRow select { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
   .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
-  #lib .tabs { display:flex; gap:6px; margin-bottom:6px; overflow-x:auto; scrollbar-width:none; }
+  #lib .tabs { flex:none; display:flex; gap:6px; margin-bottom:6px; overflow-x:auto; scrollbar-width:none; }
   #lib .tabs button { flex:1 0 auto; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
   #lib .tabs button.on { background:var(--accent); color:var(--on-accent); }
   #tree, #lib { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:38vh; display:none; flex-direction:column;
@@ -87,12 +98,12 @@
   #tree li small, #lib li small { color:var(--dim); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #tree .count, #lib .count { color:var(--dim); font-size:12px; margin:0 0 4px 2px; }
   @media (orientation: landscape) and (min-width: 600px) {
-    #tree, #lib { right:auto; width:260px; top:0; bottom:0; max-height:none; padding-top:60px; border-bottom:none; border-right:1px solid var(--line); }
+    #tree, #lib { right:auto; width:260px; top:var(--barH); bottom:var(--dockH); max-height:none; border-bottom:none; border-right:1px solid var(--line); }
   }
-  #scatterBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
+  #scatterBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(var(--dockH) + 10px + env(safe-area-inset-bottom));
     display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid var(--paint); border-radius:14px; padding:6px 8px; }
   #scatterBar[hidden] { display:none; }
-  #tileBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(14px + env(safe-area-inset-bottom));
+  #tileBar { position:fixed; z-index:3; left:0; right:0; margin:0 auto; width:max-content; max-width:calc(100vw - 24px); bottom:calc(var(--dockH) + 10px + env(safe-area-inset-bottom));
     display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px; }
   #tileBar[hidden] { display:none; }
   #tilePal { display:flex; gap:6px; flex-wrap:wrap; }
@@ -115,7 +126,7 @@
   .rulegraph .n { fill:var(--raised); stroke:var(--line); } .rulegraph .when { stroke:var(--info); } .rulegraph .if { stroke:var(--warn); } .rulegraph .do { stroke:var(--ok); }
   .rulegraph .t { fill:var(--text); font:700 12px var(--font); } .rulegraph .s { fill:var(--dim); font:10px var(--font); }
   .rulegraph .w { fill:none; stroke:var(--dim); stroke-width:1.5; }
-  #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
+  #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(var(--dockH) + 8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
     font:700 11px/1 var(--font); letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
@@ -127,23 +138,28 @@
 </script>
 </head>
 <body class="ui mode-edit">
-<div id="bar">
+<div id="bar" class="tbar">
   <select id="scenePick" title="Open another scene"></select>
-  <button id="list" data-icon="list" title="All objects in the scene, as a tree">List</button>
-  <button id="libBtn" data-icon="library" title="Libraries: characters, props, kit, motions, sounds, 2D…">Library</button>
-  <button id="play" data-icon="play" title="Play the scene (Stop puts everything back)">Play</button>
-  <button id="mode" data-icon="move" title="Gizmo: tap to cycle Move → Turn → Size">Move</button>
- <button id="scatter" data-icon="brush" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">Scatter</button>
-  <button id="snap" data-icon="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">Snap</button>
-  <select id="look" title="Look profile"><option>toon</option><option>baked</option><option>pbr</option></select>
-  <select id="theme" title="UI theme (a taste switch): warm is the new look, classic is the look before Stage 9"><option value="warm">warm</option><option value="classic">classic</option></select>
-  <select id="tier" title="Quality tier: web (phones) · desktop · ultra (soft shadows, reflections — the desktop app's default)"><option>web</option><option>desktop</option><option>ultra</option></select>
-  <select id="add" title="Add an object"></select>
   <button id="undo" data-icon="undo" title="Undo (Ctrl+Z)" disabled>Undo</button>
   <button id="redo" data-icon="redo" title="Redo (Ctrl+Shift+Z)" disabled>Redo</button>
-  <button id="save" data-icon="copy" title="Copy the scene JSON to the clipboard (to paste to Claude)">Copy</button>
   <button id="push" data-icon="save" title="Save: commit this scene to GitHub (in the desktop app: to disk / the project)">Save</button>
-  <span id="score">★ 0</span>
+  <button id="moreBtn" data-icon="more" title="More: look, quality, theme, copy the scene JSON">More</button>
+</div>
+<span id="score" class="pill">★ 0</span>
+<div id="more" class="sheet" hidden>
+  <label class="mrow"><span>Look</span><select id="look" title="Look profile: toon, baked or pbr lighting"><option>toon</option><option>baked</option><option>pbr</option></select></label>
+  <label class="mrow"><span>Quality</span><select id="tier" title="Quality tier: web (phones) · desktop · ultra (soft shadows, reflections — the desktop app's default)"><option>web</option><option>desktop</option><option>ultra</option></select></label>
+  <label class="mrow"><span>Theme</span><select id="theme" title="UI theme (a taste switch): warm is the new look, classic is the look before Stage 9"><option value="warm">warm</option><option value="classic">classic</option></select></label>
+  <button id="save" class="ib side" data-icon="copy" title="Copy the scene JSON to the clipboard (to paste to Claude)">Copy JSON</button>
+</div>
+<div id="dock" class="tbar">
+  <button id="list" data-icon="list" title="All objects in the scene, as a tree">List</button>
+  <button id="libBtn" data-icon="library" title="Libraries: characters, props, kit, motions, sounds, 2D…">Library</button>
+  <label id="addBtn" class="ib" title="Add an object where you're looking"><span data-icon="add">Add</span><select id="add" title="Add an object"></select></label>
+  <button id="mode" data-icon="move" title="Gizmo: tap to cycle Move → Turn → Size">Move</button>
+  <button id="scatter" data-icon="brush" title="Scatter brush: drag on the ground to paint a prefab (trees, rocks, grass)">Scatter</button>
+  <button id="snap" data-icon="snap" title="Grid snap: 0.5 m moves, 15° turns, 0.25 scale steps">Snap</button>
+  <button id="play" class="primary" data-icon="play" title="Play the scene (Stop puts everything back)">Play</button>
 </div>
 <div id="err" class="errbox" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3"></div>
 <div id="liveBadge" hidden>● LIVE</div>
@@ -178,6 +194,9 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
 import { setIcon, iconize } from './ui/icons.js';
 iconize(document);   // every [data-icon] button gets its icon + word (Stage 9 icon set)
+// ⋯ More: the settings that are not tools (look, quality, theme, copy JSON) live in a small sheet, not in the toolbar
+document.getElementById('moreBtn').onclick = ev => { ev.stopPropagation(); const m = document.getElementById('more'); m.hidden = !m.hidden; document.getElementById('moreBtn').classList.toggle('on', !m.hidden); };
+addEventListener('pointerdown', ev => { const m = document.getElementById('more'); if (!m.hidden && !ev.target.closest('#more, #moreBtn')) { m.hidden = true; document.getElementById('moreBtn').classList.remove('on'); } }, true);
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
 import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
@@ -213,7 +232,7 @@ const SCENE_URL = new URLSearchParams(location.search).get('scene') || (PROJECT 
 fetch('./scenes/index.json').then(r => r.json()).then(list => {
   const sel = document.getElementById('scenePick'), here = SCENE_URL.replace(/^\.\//, '');
   if (!SCENE_URL.startsWith('desktop:') && !PROJECT && !list.some(s => s.file.replace(/^\.\//, '') === here)) list.unshift({ file: SCENE_URL, title: SCENE_URL.split('/').pop() });
-  for (const s of list) { const o = new Option('🎬 ' + s.title, s.file); o.selected = s.file.replace(/^\.\//, '') === here; sel.append(o); }
+  for (const s of list) { const o = new Option(s.title, s.file); o.selected = s.file.replace(/^\.\//, '') === here; sel.append(o); }
   // the desktop app (desktop/): a project folder's own scenes, or the scenes saved on this computer, above the examples;
   // and "📁 Open project folder…" (the window is then served from that folder)
   if (PROJECT) DESKTOP.core.invoke('list_project_scenes').then(paths => paths.reverse().forEach(f => {
@@ -967,6 +986,7 @@ async function playToggle() {
   if (scatterOn) $('scatter').onclick();                // the brush is an edit-mode tool
   playing = !playing;
   setIcon($('play'), playing ? 'stop' : 'play', playing ? 'Stop' : 'Play');
+  document.body.classList.toggle('mode-play', playing); document.body.classList.toggle('mode-edit', !playing);   // the accent says which mode you're in
   $('play').classList.toggle('on', playing);
   $('add').disabled = playing;
   $('undo').disabled = playing || !hist.canUndo; $('redo').disabled = playing || !hist.canRedo;
