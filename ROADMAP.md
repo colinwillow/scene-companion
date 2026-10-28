@@ -202,7 +202,8 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
   - [x] Desktop part 1: desktop/ — a Tauri 2 app (src-tauri: save_scene / list_scenes / load_scene into <Documents>/SceneCompanion/scenes), `npm run desktop:prepare` (editor + game + assets into desktop/dist with three vendored, tools/vendor-three.mjs shared with the app export), the editor's ⇪ Save writes to disk and the 🎬 picker lists 💾 saved scenes when it finds window.__TAURI__ (play.html loads them too), placeholder icon, docs/desktop.md. Checked: `cargo build` clean (0 warnings) on Linux, the app launched under a virtual display showing the editor + kitchen sink offline; the save / reload round trip checked in the browser with a stand-in __TAURI__
-  - [ ] Desktop part 2: open a project folder (native picker), the Library and assets read from it, Blender bridge without the dev server
+  - [ ] [IN PROGRESS] Desktop part 2a: open a project folder (native picker, or `--project <dir>` / SC_PROJECT at launch): the window is served from it (a `project:` protocol — the folder's scenes / assets / prefabs, the editor's own code from the app, anything missing falls back to the bundled examples) and ⇪ Save writes the scene back into that folder
+  - [ ] Desktop part 2b: the Blender bridge without the dev server (the app answers the add-on's /bridge/* on localhost itself)
   - [ ] Desktop part 3: Ultra tier — WebGPU renderer, HDRI lighting, soft shadows, SSAO, bloom, reflections, one toggle
 
 ## Stage 9 — UI / UX: fun, intuitive, beautiful (Colin, Oct 28: "spend a bunch of iterations on it")
