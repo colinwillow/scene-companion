@@ -124,6 +124,9 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Bounties: post a request with a reward, creators deliver privately or publicly, payouts via a payments provider
 - [ ] Marketplace: paid asset packs + level packs next to the free library
 - [ ] Extensions: behaviors/tools/skills as installable, versioned packages (manifest + engine range + permissions), run sandboxed (worker exposing only the entity/world API), quality-gated like assets; core changes as reviewed PRs + versioned releases projects can pin
+  - [ ] [IN PROGRESS] Extensions part 1 (local): `extensions/<id>/extension.json` (id, version, engine range, entry, behaviors, permissions) + an entry that registers behaviors through an API it is handed (no imports); scenes list `extensions: ["id@range"]`, the World loads them; the validator checks manifests, version ranges and that the source only uses the permissions it declares; an example extension in the kitchen sink
+  - [ ] Extensions part 2: run an extension's behaviors sandboxed in a Worker (only the entity/world API crosses), the editor's Library lists installed extensions with on/off per scene
+  - [ ] Extensions part 3 (needs accounts): publish / browse / install from the shared library, pinned versions
 
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
 Goal: the kitchen-sink scene should look alive, closer to a modern engine than a debug view. Web tier stays phone-friendly; desktop tier goes all out.
