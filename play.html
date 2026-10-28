@@ -70,7 +70,7 @@
   window.SC_WEBGPU = gpu;
   const webgl = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js', webgpu = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js';
   const im = document.createElement('script'); im.type = 'importmap';
-  im.textContent = JSON.stringify({ imports: { three: gpu ? webgpu : webgl, 'three/webgpu': webgpu, 'three/tsl': webgpu, 'three/addons/': 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/' } });
+  im.textContent = JSON.stringify({ imports: { three: gpu ? './runtime/three-webgpu-shim.js' : webgl, 'three/webgpu': webgpu, 'three/tsl': webgpu, 'three/addons/': 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/' } });
   document.currentScript.after(im); }
 </script>
 </head>
