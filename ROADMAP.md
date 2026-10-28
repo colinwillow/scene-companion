@@ -201,6 +201,9 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Generator plug-ins, part 1: a generator registry (runtime/generators.js) + dev-server `POST /gen/<id>` running image gen (OpenAI) into assets/generated/, key from env or the network proxy, `--dry` safe
 - [x] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
+  - [ ] [IN PROGRESS] Desktop part 1: a Tauri 2 app (desktop/) — the editor and play page offline in a native window (three vendored), and Save writes the scene file straight to disk (a `save_scene` command, editor detects the desktop app); `npm run desktop:prepare` + docs/desktop.md (build on Mac / Windows / Linux)
+  - [ ] Desktop part 2: open a project folder (native picker), the Library and assets read from it, Blender bridge without the dev server
+  - [ ] Desktop part 3: Ultra tier — WebGPU renderer, HDRI lighting, soft shadows, SSAO, bloom, reflections, one toggle
 
 ## Stage 9 — UI / UX: fun, intuitive, beautiful (Colin, Oct 28: "spend a bunch of iterations on it")
 *"How it looks — icons, the colours — make it feel fun and interesting and user-friendly, intuitive but also beautiful."*
