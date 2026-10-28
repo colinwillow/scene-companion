@@ -18,5 +18,15 @@ and textures that sit beside a GLB (Kenney's `Textures/colormap.png`) are copied
 Unverified (no Unity here): the C# has not been compiled; the mirror axis is glTFast's (X) — if every model comes in
 facing or standing mirrored, it is one line in `runtime/engines.js` (`unityPos` / `unityQuat`). Light brightness is a guess.
 
-## Unreal
-Not built yet (next): a Python editor script that imports the GLBs and places the actors.
+## Unreal 5.3+
+1. `npm run export:unreal scenes/<scene>.scene.json` → `export/unreal/<scene>/SceneCompanion/`
+2. Copy that folder anywhere on your computer (it does not need to be inside the project).
+3. In Unreal: Edit › Plugins — make sure **Python Editor Script Plugin** is on (restart if you turned it on).
+4. Tools › **Execute Python Script…** → pick `SceneCompanion/scene_companion_build.py`. It imports every GLB under
+   `/Game/SceneCompanion/<scene>/` and places the level in the open map: models, basic shapes with a coloured material,
+   lights, hidden collision boxes for Solids, a camera. Every actor is tagged `sc:<id>`; behaviors go to `<scene>.behaviors.json`.
+
+Units and axes: Unreal is Z-up in centimetres; the exporter maps the game's (x, y, z) metres to Unreal's (z, x, y) × 100,
+the same mapping Epic's own glTF code uses. Checked by running the script against a stand-in `unreal` module (positions,
+children, collider heights, scales); **not run inside Unreal** — if models come in turned or mirrored, it is `ueVec` /
+`ueQuat` in `runtime/engines.js`. A GLB with several meshes is placed as each of its meshes at the object's transform.

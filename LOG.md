@@ -155,3 +155,4 @@
 - 2026-10-28 — Ship part 1 — Godot 4 export (runtime/godot.js, tools/export-godot.mjs, tools/undraco.mjs); 309 tests; undraco checked vertex-identical in three; NOT opened in Godot (running a downloaded binary was refused here) (live session)
 - 2026-10-28 — Ship part 2 — Capacitor export (tools/export-app.mjs), docs/ship-app.md, glbExternal (textures beside GLBs) for both exporters; offline load checked headless (live session)
 - 2026-10-28 — Ship part 3a — Unity export (runtime/engines.js, tools/export-unity.mjs, tools/unity/*.cs, tools/scene-resolve.mjs shared by the exporters), docs/ship-engines.md; 312 tests; C# not compiled (no Unity here) (live session)
+- 2026-10-28 — Ship part 3b — Unreal export (toUnreal, scene_companion_build.py, stub-run test), export-unity.mjs → export-engine.mjs; Ship anywhere done; 313 tests (live session)

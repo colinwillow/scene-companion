@@ -34,3 +34,32 @@ test('toUnity mirrors X like glTFast: a mirrored quaternion still turns the mirr
   const [n] = toUnity({ nodes: [{ name: 'x', parent: -1, pos: [1, 0, 0], quat: [0, 0, 0, 1], scale: [1, 1, 1], solids: [], behaviors: [{ type: 'Spin' }] }] });
   assert.equal(n.behaviors, '[{"type":"Spin"}]'); assert.deepEqual(n.pos, [-1, 0, 0]);
 });
+
+test('Unreal: Z-up centimetres, and the editor script runs end to end against a stand-in unreal module', async t => {
+  const { toUnreal, ueVec, ueQuat } = await import('../runtime/engines.js');
+  assert.deepEqual(ueVec([1, 2, 3], 100), [300, 100, 200]);
+  // a +90° turn about three's Y (up) is a +90° turn about Unreal's Z (up)
+  assert.deepEqual(ueQuat(quatXYZ([0, 90, 0])).map(v => +v.toFixed(4)), [0, 0, 0.7071, 0.7071]);
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, readFileSync, writeFileSync, copyFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
+  try { execFileSync('python3', ['--version']); } catch { t.skip('no python3'); return; }
+  const dir = mkdtempSync(join(tmpdir(), 'ue-'));
+  const { nodes } = { nodes: toUnreal(flatNodes([
+    { id: 'player', position: [0, 0, 6], variant: { glb: './zap.glb', height: 2 } },
+    { id: 'plat', position: [2.5, 0, 2], variant: { primitive: 'box', size: [2, 0.5, 2], color: '#ff8800' }, behaviors: [{ type: 'Solid', params: { size: [2, 0.5, 2] } }],
+      children: [{ id: 'coin', position: [0, 1, 0], rotation: [0, 90, 0], variant: { primitive: 'sphere', size: [0.5, 0.5, 0.5] } }] },
+    { id: 'sun', light: { type: 'directional', intensity: 2 }, position: [5, 10, 5] },
+  ], { measure: () => ({ minY: 0, height: 1 }) })) };
+  writeFileSync(join(dir, 'zap.glb'), 'x');
+  writeFileSync(join(dir, 't.sc.json'), JSON.stringify({ name: 't', player: 'player', nodes }));
+  copyFileSync(new URL('../tools/unreal/scene_companion_build.py', import.meta.url), join(dir, 'scene_companion_build.py'));
+  execFileSync('python3', [join(dir, 'scene_companion_build.py')], { env: { ...process.env, PYTHONPATH: new URL('./fixtures/unreal_stub', import.meta.url).pathname, SC_SPAWNS: join(dir, 's.json') } });
+  const S = JSON.parse(readFileSync(join(dir, 's.json'), 'utf8')), by = l => S.find(s => s.label === l);
+  assert.deepEqual(by('player').loc, [600, 0, 0]); assert.deepEqual(by('player').scale, [2, 2, 2]);
+  assert.deepEqual(by('plat').loc, [200, 250, 0]);
+  assert.deepEqual(by('plat_collider').loc, [200, 250, 25]); assert.equal(by('plat_collider').hidden, true);
+  assert.deepEqual(by('coin').loc, [200, 250, 100]);                     // a child lands at its parent + its own offset
+  assert.ok(by('sun') && by('SceneCompanion_Camera'));
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 't.behaviors.json'), 'utf8')).plat, [{ type: 'Solid', params: { size: [2, 0.5, 2] } }]);
+});

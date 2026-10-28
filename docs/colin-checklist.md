@@ -46,5 +46,5 @@ those go straight into Supabase › Edge Functions › Secrets.
 - [ ] Steps: docs/ship-app.md
 
 ## 7. Unity / Unreal / Godot export — nothing needed from you
-- Godot and Unity exports are done (docs/ship-engines.md); Unreal is my next build
+- Godot, Unity and Unreal exports are done (docs/ship-engines.md)
 - Optional, to help test: install Godot 4.3+ (free), Unity Personal (free) or Unreal (free) on your computer, open an export and tell me what looks wrong

@@ -44,3 +44,16 @@ export function toUnity({ nodes }) {
     solids: n.solids.map(s => ({ center: unityPos(s.center), size: s.size })),
     behaviors: JSON.stringify(n.behaviors) }));
 }
+
+// Unreal is Z-up, centimetres, X forward. Epic's own glTF code maps glTF (x, y, z) ↔ Unreal (z, x, y) — a cyclic swap, so
+// a rotation keeps its sense: a quaternion's vector part swaps the same way and w stays. ×100 for centimetres.
+// (Its glTF importer does the same to the meshes, and to metres → cm, so a model's own scale is not multiplied.)
+export const ueVec = ([x, y, z], k = 1) => [z * k, x * k, y * k];
+export const ueQuat = ([x, y, z, w]) => [z, x, y, w];
+export function toUnreal({ nodes }) {
+  return nodes.map(n => ({ ...n, pos: ueVec(n.pos, 100), quat: ueQuat(n.quat), scale: ueVec(n.scale),
+    ...(n.model ? { model: { ...n.model, scale: ueVec(n.model.scale), offset: ueVec(n.model.offset, 100) } } : {}),
+    ...(n.primitive ? { primitive: { ...n.primitive, size: ueVec(n.primitive.size), lift: n.primitive.lift * 100 } } : {}),
+    solids: n.solids.map(s => ({ center: ueVec(s.center, 100), size: ueVec(s.size) })),
+    behaviors: JSON.stringify(n.behaviors) }));
+}

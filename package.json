@@ -19,7 +19,8 @@
     "quality": "node tools/quality.mjs",
     "export:godot": "node tools/export-godot.mjs",
     "export:app": "node tools/export-app.mjs",
-    "export:unity": "node tools/export-unity.mjs"
+    "export:unity": "node tools/export-engine.mjs",
+    "export:unreal": "node tools/export-engine.mjs --unreal"
   },
   "devDependencies": {
     "three": "^0.170.0",
