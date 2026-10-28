@@ -85,6 +85,12 @@
   .beh .bhead { all:unset; box-sizing:border-box; display:flex; align-items:center; gap:8px; width:100%; min-height:40px; cursor:pointer; color:var(--bc); }
   .beh .bhead b { flex:1; color:var(--text); font-size:15px; }
   .beh .bhead .ic { width:20px; height:20px; }
+  .tour { position:fixed; inset:0; z-index:80; }
+  .tourSpot { position:fixed; border-radius:var(--r-lg); box-shadow:0 0 0 9999px #0d0812b0, 0 0 0 3px var(--accent); transition:all .25s var(--ease); pointer-events:none; }
+  .tourTip { position:fixed; background:var(--text); color:var(--bg); border-radius:var(--r-lg); padding:12px 14px; box-shadow:var(--sh-2); animation:popIn .2s var(--ease) both; }
+  .tourTip p { margin:0 0 10px; font:700 15px/1.35 var(--font); }
+  .tourRow { display:flex; align-items:center; gap:8px; } .tourRow small { margin-right:auto; opacity:.6; font-weight:700; }
+  .tourRow button { min-height:40px; } .tourRow .ghost { color:var(--bg); border-color:#0002; }
   .empty { text-align:center; padding:18px 6px; }
   .empty .emptyArt { width:64px; height:64px; margin:0 auto 10px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); }
   .empty .emptyArt .ic { width:34px; height:34px; }
@@ -208,6 +214,7 @@
   <div class="mrow"><span>Buzz on tap</span><label class="toggle"><input type="checkbox" data-feel="haptics"><span></span></label></div>
   <div class="mrow"><span>Click sounds</span><label class="toggle"><input type="checkbox" data-feel="clicks"><span></span></label></div>
   <div class="mrow"><span>Motion</span><label class="toggle"><input type="checkbox" data-feel="motion"><span></span></label></div>
+  <button id="tourAgain" class="ib side" data-icon="sparkle" title="Show the first-open tips again">Show tips again</button>
   <button id="save" class="ib side" data-icon="copy" title="Copy the scene JSON to the clipboard (to paste to Claude)">Copy JSON</button>
 </div>
 <div id="sceneSheet" hidden><div class="sbox sheet"><div class="shead"><b>Scenes</b><button id="sceneX" class="ib icon-only" data-icon="close" title="Close">Close</button></div><div id="sceneCards"></div></div></div>
@@ -241,7 +248,9 @@
 
 <script>
 // Show errors on screen so problems are visible on a phone.
-function showErr(m){const e=document.getElementById('err');window.scToast?.(String(m).split('\n')[0].slice(0,90),'bad');if(!e)return;e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;}
+// errors: the full text in the red box (for Claude), a plain-words toast for a person
+function friendlyErr(m){m=String(m);if(/Failed to fetch|NetworkError|Load failed/i.test(m))return"Couldn't reach a file — is the dev server running?";if(/\b404\b|not found/i.test(m))return"A file wasn't found — check its name or path";if(/\b(401|403)\b/.test(m))return"GitHub said no — the token may have expired";if(/JSON/i.test(m))return"A file isn't valid JSON — a comma or bracket is off";return m.split('\n')[0].slice(0,90);}
+function showErr(m){const e=document.getElementById('err');window.scToast?.(friendlyErr(m),'bad');if(!e)return;e.hidden=false;e.textContent+=(e.textContent?'\n':'')+m;}
 addEventListener('error',e=>showErr(e.message));
 addEventListener('unhandledrejection',e=>showErr(String(e.reason?.message||e.reason)));
 const _warn=console.warn;console.warn=(...a)=>{_warn(...a);showErr(a.join(' '));};
@@ -522,6 +531,9 @@ function renderTree() {
     };
     ul.append(li);
   }
+  if (!shown.length) { const li = document.createElement('li'); li.className = 'head'; li.innerHTML = '<span></span><small></small>';
+    li.firstChild.textContent = q ? `Nothing matches “${q}”` : 'This scene is empty'; li.lastChild.textContent = q ? 'search looks at ids, prefabs, assets and behaviors' : 'add something from the Library';
+    ul.append(li); }
   ul.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
 // ☰ List drag to re-parent: long-press a row (works with a thumb — HTML drag-and-drop doesn't on iOS), drag it onto
@@ -915,6 +927,40 @@ function emptyPanel(panel) {
     <button data-go="list">${icon('list')}<span>Pick from the list</span></button>
     <button data-go="play">${icon('play')}<span>Play the scene</span></button></div></div>`;
   panel.querySelector('.emptyActs').onclick = ev => { const b = ev.target.closest('button'); if (b) $(b.dataset.go).click(); };
+}
+
+// ---- first-open tips: a few pointing hints, one at a time (Next / Skip), never a wall of text. Once per device
+// (sc.toured); More › Show tips again replays them. Off under automation (navigator.webdriver) so screenshots stay clean.
+const TOUR = [
+  { at: null, text: 'Welcome! Tap anything in the scene to pick it, then drag its arrows to move it.' },
+  { at: '#libBtn', text: 'The Library: characters, props and level pieces. Tap one to preview it, or hold and drag it into the scene.' },
+  { at: '#mode', text: 'Move, Turn or Size — tap to switch what the arrows do.' },
+  { at: '#play', text: 'Play your scene any time. Stop puts everything back.' },
+  { at: '#moreBtn', text: 'Look, quality, theme and feel live here. Hold any button to see what it does.' },
+];
+function tour(i = 0) {
+  document.querySelector('.tour')?.remove();
+  if (i >= TOUR.length) { try { localStorage.setItem('sc.toured', '1'); } catch {} return; }
+  const st = TOUR[i], el = st.at && document.querySelector(st.at), r = el?.getBoundingClientRect();
+  const wrap = document.createElement('div'); wrap.className = 'tour';
+  wrap.innerHTML = `<div class="tourSpot"></div><div class="tourTip"><p></p><div class="tourRow"><small>${i + 1} / ${TOUR.length}</small><button class="ghost tskip">Skip</button><button class="primary tnext">${i + 1 < TOUR.length ? 'Next' : 'Got it'}</button></div></div>`;
+  wrap.querySelector('p').textContent = st.text;
+  const spot = wrap.querySelector('.tourSpot'), tip = wrap.querySelector('.tourTip');
+  if (r) Object.assign(spot.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
+  else Object.assign(spot.style, { left: '50%', top: '45%', width: '0px', height: '0px' });
+  document.body.append(wrap);
+  const below = !r || r.top < innerHeight / 2, tw = Math.min(300, innerWidth - 24);
+  tip.style.width = tw + 'px';
+  tip.style.left = Math.max(12, Math.min(innerWidth - tw - 12, (r ? r.left + r.width / 2 : innerWidth / 2) - tw / 2)) + 'px';
+  if (below) tip.style.top = (r ? r.bottom + 14 : innerHeight * 0.45 + 14) + 'px'; else tip.style.bottom = innerHeight - r.top + 14 + 'px';
+  tip.classList.add(below ? 'below' : 'above');
+  wrap.querySelector('.tnext').onclick = () => tour(i + 1);
+  wrap.querySelector('.tskip').onclick = () => tour(TOUR.length);
+}
+$('tourAgain').onclick = () => { $('more').hidden = true; $('moreBtn').classList.remove('on'); tour(0); };
+if (!navigator.webdriver && !new URLSearchParams(location.search).has('selftest')) {
+  let seen = null; try { seen = localStorage.getItem('sc.toured'); } catch {}
+  if (!seen) setTimeout(() => tour(0), 1200);
 }
 
 // ---- 🖌 Scatter brush: pick a prefab, drag on the ground/solids; instances land `gap` apart with a random turn
@@ -1519,6 +1565,8 @@ async function renderLib() {
     $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to preview, hold and drag onto the scene to place`;
   }
   if (seq !== libSeq) return;
+  if (!items.length) items = [{ header: true, name: q ? `Nothing matches “${q}”` : 'Nothing here yet',   // a friendly empty state, never a blank list
+    sub: q ? 'try a shorter or different word' : ({ characters: 'add a character.json folder under assets/, or install a pack', props: 'prefabs/ and the scene\'s models show up here', kit: 'level kit pieces come from packs — see the Packs tab', sounds: 'drop .mp3 / .ogg files in assets/audio and run npm run assets', ext: 'see extensions/README.md' }[libTab] || '') }];
   const grid = ['characters', 'props', 'kit'].includes(libTab);   // things you place: a card grid with a preview
   ul.classList.toggle('grid', grid); libPreview(null);
   ul.innerHTML = '';
