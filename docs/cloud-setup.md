@@ -1,5 +1,7 @@
 # Cloud setup — what Colin needs to create (blocks the tier 1–3 roadmap items)
 
+> The step-by-step version with tick boxes is **docs/colin-checklist.md**.
+
 Build runs can't make accounts, so these items wait on a few minutes of setup from Colin. Once the values below are
 in `settings/cloud.json` (public keys only, never secrets), the next run can build against them.
 
