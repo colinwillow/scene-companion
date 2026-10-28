@@ -85,6 +85,9 @@
   .beh .bhead { all:unset; box-sizing:border-box; display:flex; align-items:center; gap:8px; width:100%; min-height:40px; cursor:pointer; color:var(--bc); }
   .beh .bhead b { flex:1; color:var(--text); font-size:15px; }
   .beh .bhead .ic { width:20px; height:20px; }
+  #panel h3.nameRow { display:flex; align-items:center; gap:6px; font-size:18px; font-weight:900; }
+  #panel h3.nameRow .rn { min-height:32px; padding:4px 6px; } #panel h3.nameRow .rn .ic { width:18px; height:18px; }
+  #panel h3.nameRow .nmEdit { flex:1; font:800 17px var(--font); padding:6px 8px; }
   .tour { position:fixed; inset:0; z-index:80; }
   .tourSpot { position:fixed; border-radius:var(--r-lg); box-shadow:0 0 0 9999px #0d0812b0, 0 0 0 3px var(--accent); transition:all .25s var(--ease); pointer-events:none; }
   .tourTip { position:fixed; background:var(--text); color:var(--bg); border-radius:var(--r-lg); padding:12px 14px; box-shadow:var(--sh-2); animation:popIn .2s var(--ease) both; }
@@ -269,7 +272,7 @@ document.getElementById('moreBtn').onclick = ev => { ev.stopPropagation(); const
 addEventListener('pointerdown', ev => { const m = document.getElementById('more'); if (!m.hidden && !ev.target.closest('#more, #moreBtn')) { m.hidden = true; document.getElementById('moreBtn').classList.remove('on'); } }, true);
 import { getBehavior, behaviorNames } from './runtime/registry.js';
 import { setOverride } from './runtime/prefabs.js';
-import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter } from './runtime/editing.js';
+import { addEntity, duplicateEntity, deleteEntity, setAsset, modelPath, replaceModel, isDropSurface, dropPoint, isGround, snapXZ, GRID, addLight, setLightValue, LIGHT_FIELDS, scatterPoints, scatterEntity, jitterOptions, scatterEraseIds, eraseRadius, addCharacter, renameEntity } from './runtime/editing.js';
 import { clipRoles, characterEntries } from './runtime/character.js';
 import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runtime/packs.js';
 import { findEntity, allEntities, descendantIds, reparent } from './runtime/tree.js';
@@ -776,7 +779,25 @@ function renderPanel() {
   if (!ent) { emptyPanel(panel); return; }
   const e = ent.data;
   const label = e.prefab ? `prefab: ${e.prefab} (edits here override only this one)` : e.asset ? 'asset: ' + (typeof e.asset === 'string' ? e.asset : 'inline') : 'light';
-  panel.innerHTML = `<h3>${e.id}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div><div class="hint" id="liveIn"></div>`;
+  panel.innerHTML = `<h3 class="nameRow"><span class="nm"></span>${playing || ent.inherited ? '' : `<button class="rn ib icon-only" data-icon="edit" title="Rename (every reference to it follows)">Rename</button>`}</h3><div class="hint">${label}${playing ? ' · playing (edits apply live, reset on Stop)' : ''}</div><div class="hint" id="liveIn"></div>`;
+  panel.querySelector('.nm').textContent = e.id;
+  const rn = panel.querySelector('.rn');
+  if (rn) { iconize(panel.querySelector('h3')); rn.onclick = () => {   // rename in place: Enter or leaving the field keeps it, Esc cancels
+    const h = panel.querySelector('h3'), inp = document.createElement('input'); inp.type = 'text'; inp.value = e.id; inp.className = 'nmEdit';
+    h.replaceChildren(inp); inp.focus(); inp.select();
+    let done = false;
+    const commit = async keep => {
+      if (done) return; done = true;
+      const v = inp.value.trim();
+      if (!keep || v === e.id) { renderPanel(); return; }
+      record(); const r = renameEntity(data, e.id, v);
+      if (!r.ok) { window.scToast?.(r.error, 'bad'); renderPanel(); return; }
+      selectedId = v; await refresh(); select(v);
+      window.scToast?.(`Renamed to ${v}${r.refs ? ` — ${r.refs} reference${r.refs === 1 ? '' : 's'} updated` : ''}`, 'ok');
+    };
+    inp.onkeydown = ev => { if (ev.key === 'Enter') commit(true); if (ev.key === 'Escape') commit(false); };
+    inp.onblur = () => commit(true);
+  }; }
   if (!playing) {
     const acts = document.createElement('div'); acts.className = 'acts';
     const glb = modelPath(assetOf(ent), world.characters);

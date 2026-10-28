@@ -219,7 +219,7 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [x] Inspector redesign, part 1: behavior cards with an icon + colour per kind, foldable (remembered), friendly names ("Player controller", "Jump speed"), toggles for on/off, slider values with units and sensible decimals
 - [x] Inspector redesign, part 2: common settings first (what the scene set + schema `common` + the first few; the rest under "More settings"), a friendly no-selection state with Library / List / Play shortcuts, friendly names in "+ Add behavior"
 - [x] Inspector redesign, part 3: X / Y / Z steppers (coloured axis letters you drag sideways to scrub, or type), capitalised field labels
-- [ ] Inspector: rename an object from its header (needs every reference updated: parents, rules, prefab overrides — do it as a runtime/editing.js op with tests)
+- [x] Inspector: rename an object from its header (needs every reference updated: parents, rules, prefab overrides — do it as a runtime/editing.js op with tests)
 - [x] Library redesign: a grid of thumbnail cards, tab icons, drag (or tap) to place, a preview before adding
 - [x] Scene picker + title cards: cards with a thumbnail of each scene, a one-line "try this", playful look
 - [x] The editor's scene picker uses the same thumbnail cards (a scene button in the top bar opens them; desktop and project scenes come along)

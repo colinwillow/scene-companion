@@ -196,3 +196,36 @@ export function addCharacter(data, name, path, point) {
   e.behaviors = [{ type: 'Animator', params: {} }];
   return e;
 }
+
+// Fields whose strings name a file, model, prefab or clip — never an object — even when the words match
+const NOT_IDS = new Set(['asset', 'prefab', 'character', 'model', 'file', 'path', 'url', 'src', 'animation', 'clip', 'type', 'kind', 'motions']);
+// Rename an entity and every reference to it: any string anywhere in the scene that IS the old id (a behavior's
+// target, a rule's who/what, a camera follow…), and `{old}` / `{old.field}` inside text templates (HudLabel).
+// Children's ids are their own and stay. → { ok, refs } or { ok: false, error } (bad name / taken / not found).
+export function renameEntity(data, oldId, newId) {
+  newId = String(newId || '').trim();
+  if (!/^[A-Za-z][\w-]{0,63}$/.test(newId)) return { ok: false, error: 'use letters, numbers, _ or - (start with a letter)' };
+  const hit = findEntity(data, oldId);
+  if (!hit) return { ok: false, error: `no object called ${oldId}` };
+  if (newId === oldId) return { ok: true, refs: 0 };
+  if (allEntities(data).some(e => e.id === newId)) return { ok: false, error: `${newId} is already taken` };
+  const target = hit.entity, ents = new Set(allEntities(data));
+  let refs = 0;
+  const esc = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), tpl = new RegExp(`\\{${esc}(?=[.}])`, 'g');
+  const fix = v => {
+    if (typeof v === 'string') {
+      if (v === oldId) { refs++; return newId; }
+      if (v.includes('{' + oldId)) { const out = v.replace(tpl, () => { refs++; return '{' + newId; }); return out; }
+      return v;
+    }
+    if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = fix(v[i]); return v; }
+    if (v && typeof v === 'object') {
+      for (const k of Object.keys(v)) { if ((k === 'id' && ents.has(v)) || NOT_IDS.has(k)) continue; v[k] = fix(v[k]); }   // an entity's own id, or a field naming a model/prefab/clip, is not a reference
+      return v;
+    }
+    return v;
+  };
+  for (const k of Object.keys(data)) if (k !== 'assets' && k !== 'prefabs') data[k] = fix(data[k]);
+  target.id = newId;
+  return { ok: true, refs };
+}

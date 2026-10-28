@@ -112,3 +112,25 @@ test('scatter: jitter slider + erase brush only removes that prefab near the str
   assert.deepEqual(scatterEraseIds(d, 'tree', [[0.2, 0, 0], [5.2, 0, 0]], 0.9), ['tree_01', 'tree_02']);
   assert.equal(eraseRadius(0.75), 0.6); assert.equal(eraseRadius(6), 3.6);
 });
+
+import { renameEntity } from '../runtime/editing.js';
+test('renameEntity renames and follows every reference', () => {
+  const data = { entities: [
+    { id: 'hero', asset: 'hero', behaviors: [{ type: 'HudLabel', params: { text: 'HP {hero.health} / {heroic}' } }], children: [{ id: 'hat' }] },
+    { id: 'cam', behaviors: [{ type: 'CameraRig', params: { target: 'hero' } }, { type: 'Reactions', params: { rules: [{ when: 'touch', who: 'hero', do: 'say', text: 'hero' }] } }] },
+  ], settings: { camera: { follow: 'hero' } }, assets: { hero: './hero.glb' } };
+  const r = renameEntity(data, 'hero', 'zap');
+  assert.equal(r.ok, true);
+  assert.equal(data.entities[0].id, 'zap');
+  assert.equal(data.entities[0].children[0].id, 'hat');
+  assert.equal(data.entities[1].behaviors[0].params.target, 'zap');
+  assert.equal(data.entities[1].behaviors[1].params.rules[0].who, 'zap');
+  assert.equal(data.settings.camera.follow, 'zap');
+  assert.equal(data.entities[0].behaviors[0].params.text, 'HP {zap.health} / {heroic}');
+  assert.equal(data.assets.hero, './hero.glb');            // asset keys are not object ids
+  assert.equal(data.entities[0].asset, 'hero');            // …and neither is an asset reference
+  assert.equal(r.refs, 5);
+  assert.equal(renameEntity(data, 'zap', 'cam').ok, false);  // taken
+  assert.equal(renameEntity(data, 'zap', '9 lives').ok, false);
+  assert.equal(renameEntity(data, 'nobody', 'x').ok, false);
+});
