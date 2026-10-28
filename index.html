@@ -62,14 +62,20 @@
   }
   #panel h3 { margin:0 0 6px; font-size:15px; }
   #panel .hint { color:var(--dim); }
-  .beh { border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin:8px 0; }
-  .beh b { display:block; margin-bottom:4px; color:var(--accent); }
+  .beh { --bc:var(--accent); border:1px solid var(--line); border-left:4px solid var(--bc); border-radius:var(--r-md); padding:4px 10px 8px; margin:8px 0; background:color-mix(in srgb, var(--bc) 7%, transparent); }
+  .beh input[type=range] { --fill:var(--bc); }
+  .beh .bhead { all:unset; box-sizing:border-box; display:flex; align-items:center; gap:8px; width:100%; min-height:40px; cursor:pointer; color:var(--bc); }
+  .beh .bhead b { flex:1; color:var(--text); font-size:15px; }
+  .beh .bhead .ic { width:20px; height:20px; }
+  .beh .chev { color:var(--dim); transition:transform .18s; }
+  .beh.closed { padding-bottom:4px; } .beh.closed > :not(.bhead) { display:none; } .beh.closed .chev { transform:rotate(-90deg); }
   .row { display:flex; align-items:center; gap:8px; margin:5px 0; }
   .row label { width:92px; color:var(--dim); flex:none; }
   .row input[type=range] { flex:1; }
+  .row input[type=text] { flex:1; min-width:0; }
   .row input[type=number], .row input[type=text] { width:64px; background:var(--field); color:var(--text);
     border:1px solid var(--line); border-radius:6px; padding:4px; font:inherit; }
-  .row output { width:44px; text-align:right; }
+  .row output { min-width:52px; text-align:right; font-variant-numeric:tabular-nums; color:var(--text); font-weight:700; font-size:13px; }
   select.add { width:100%; margin-top:6px; padding:8px; background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:8px; }
   .acts { display:flex; gap:8px; margin:8px 0; }
   .parentRow { display:flex; gap:8px; align-items:center; margin:0 0 8px; color:var(--dim); font-size:13px; }
@@ -126,7 +132,7 @@
   .rulegraph .n { fill:var(--raised); stroke:var(--line); } .rulegraph .when { stroke:var(--info); } .rulegraph .if { stroke:var(--warn); } .rulegraph .do { stroke:var(--ok); }
   .rulegraph .t { fill:var(--text); font:700 12px var(--font); } .rulegraph .s { fill:var(--dim); font:10px var(--font); }
   .rulegraph .w { fill:none; stroke:var(--dim); stroke-width:1.5; }
-  #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(var(--dockH) + 8px + env(safe-area-inset-bottom)); z-index:5; pointer-events:none;
+  #liveBadge { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(var(--dockH) + 8px + env(safe-area-inset-bottom)); z-index:3; pointer-events:none;
     font:700 11px/1 var(--font); letter-spacing:.06em; color:#d6ffe0; background:#0b3d1fcc; border:1px solid #3ddc84aa; padding:4px 7px; border-radius:999px; transition:background .2s; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
@@ -192,7 +198,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { World } from './runtime/World.js';
-import { setIcon, iconize } from './ui/icons.js';
+import { setIcon, iconize, icon } from './ui/icons.js';
+import { friendly, behaviorStyle, unitOf, fmtNum } from './runtime/ui-names.js';
+const behClosed = new Set((() => { try { return JSON.parse(localStorage.getItem('sc.behClosed')) || []; } catch { return []; } })());
 iconize(document);   // every [data-icon] button gets its icon + word (Stage 9 icon set)
 // ⋯ More: the settings that are not tools (look, quality, theme, copy JSON) live in a small sheet, not in the toolbar
 document.getElementById('moreBtn').onclick = ev => { ev.stopPropagation(); const m = document.getElementById('more'); m.hidden = !m.hidden; document.getElementById('moreBtn').classList.toggle('on', !m.hidden); };
@@ -542,12 +550,13 @@ function control(def, value, onChange) {
   if (def.type === 'rules') return rulesEditor(value || [], onChange);
   const row = document.createElement('div'); row.className = 'row';
   if (def.type === 'number') {
-    row.innerHTML = `<input type="range" min="${def.min ?? 0}" max="${def.max ?? 10}" step="${def.step ?? 0.1}" value="${value}"><output>${value}</output>`;
+    const u = def._u ? ` ${def._u}` : '', show = v => fmtNum(v, def.step ?? 0.1) + u;
+    row.innerHTML = `<input type="range" min="${def.min ?? 0}" max="${def.max ?? 10}" step="${def.step ?? 0.1}" value="${value}"><output>${show(value)}</output>`;
     const [inp, out] = row.children;
-    inp.oninput = () => { out.textContent = inp.value; onChange(+inp.value); };
+    inp.oninput = () => { out.textContent = show(inp.value); onChange(+inp.value); };
   } else if (def.type === 'boolean') {
-    row.innerHTML = `<input type="checkbox" ${value ? 'checked' : ''}>`;
-    row.firstChild.onchange = e => onChange(e.target.checked);
+    row.innerHTML = `<label class="toggle"><input type="checkbox" ${value ? 'checked' : ''}><span></span></label>`;
+    row.querySelector('input').onchange = e => onChange(e.target.checked);
   } else if (def.type === 'vec3' || def.type === 'vec2') {
     value.forEach((v, i) => {
       const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = v;
@@ -743,8 +752,8 @@ function renderPanel() {
   panel.append(pos);
 
   if (e.light && LIGHT_FIELDS[e.light.type]) {
-    const box = document.createElement('div'); box.className = 'beh';
-    box.innerHTML = `<b>☀ ${e.light.type} light</b>`;
+    const box = document.createElement('div'); box.className = 'beh'; box.style.setProperty('--bc', 'var(--warn)');
+    box.innerHTML = `<div class="bhead">${icon('look')}<b>${friendly(e.light.type)} light</b></div>`;
     for (const [key, def] of Object.entries(LIGHT_FIELDS[e.light.type])) {
       const row = control(def, e.light[key] ?? def.default, async v => {
         record(`light:${e.id}:${key}`);                                       // one undo step per slider drag
@@ -756,7 +765,7 @@ function renderPanel() {
         else if (key === 'angle') L.angle = THREE.MathUtils.degToRad(val);
         else L[key] = val;                                                     // intensity, distance, penumbra
       });
-      const lab = document.createElement('label'); lab.textContent = key; row.prepend(lab);
+      const lab = document.createElement('label'); lab.textContent = friendly(key); lab.title = key; row.prepend(lab);
       box.append(row);
     }
     panel.append(box);
@@ -773,22 +782,27 @@ function renderPanel() {
 
   (ent.resolved.behaviors || []).forEach((b, i) => {
     const Cls = getBehavior(b.type);
-    const box = document.createElement('div'); box.className = 'beh';
-    box.innerHTML = `<b>${b.type}</b>`;
+    const box = document.createElement('div'), st = behaviorStyle(b.type); box.className = 'beh';
+    box.style.setProperty('--bc', st.color);
+    if (behClosed.has(b.type)) box.classList.add('closed');
+    // a card per behavior: its colour + icon + a friendly name; tap the header to fold it (remembered per type)
+    box.innerHTML = `<button class="bhead" title="${b.type} — tap to fold / unfold">${icon(st.icon)}<b>${friendly(b.type)}</b><span class="chev">▾</span></button>`;
+    box.firstChild.onclick = () => { box.classList.toggle('closed'); box.classList.contains('closed') ? behClosed.add(b.type) : behClosed.delete(b.type);
+      try { localStorage.setItem('sc.behClosed', JSON.stringify([...behClosed])); } catch {} };
     if (!Cls) { box.innerHTML += `<div class="hint">unknown behavior</div>`; panel.append(box); return; }
     const params = { ...Object.fromEntries(Object.entries(Cls.schema).map(([k, d]) => [k, d.default])), ...(b.params || {}) };
     for (const [key, def] of Object.entries(Cls.schema)) {
       if (def.type === 'hidden') continue;             // data the behavior's own tools edit (a tilemap's rows, fitted colliders)
-      const row = control(def, params[key], v => {
+      const row = control(def.type === 'number' ? { ...def, _u: unitOf(key, def) } : def, params[key], v => {
         record(`param:${e.id}:${b.type}:${key}`);
         setOverride(e, b.type, key, v);                           // authored data (override if prefab)
         (b.params ||= {})[key] = v;
         ent.behaviors[i]?.onParamChanged(key, v);                 // live runtime
       });
-      const lab = document.createElement('label'); lab.textContent = key; row.prepend(lab);
+      const lab = document.createElement('label'); lab.textContent = friendly(key); lab.title = key; row.prepend(lab);
       box.append(row);
     }
-    if (b.type === 'Tilemap' && !playing) { const pb = document.createElement('button'); pb.textContent = '🧱 Paint tiles'; pb.onclick = () => tilePaint(e.id); box.append(pb); }
+    if (b.type === 'Tilemap' && !playing) { const pb = document.createElement('button'); setIcon(pb, 'brush', 'Paint tiles'); pb.classList.add('side'); pb.onclick = () => tilePaint(e.id); box.append(pb); }
     panel.append(box);
   });
 
