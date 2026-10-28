@@ -63,11 +63,15 @@
   #titleGo { margin-top:10px; font:800 22px system-ui,sans-serif; padding:14px 34px; border:none; border-radius:16px; background:#3ddc84; color:#0b3d1f; }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
 </style>
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-} }
+<script>
+// The import map, picked at load: ?renderer=webgpu (experimental, ultra) uses three's WebGPU build where the browser has
+// WebGPU — "three" and "three/tsl" both point at it — otherwise the usual WebGL build. (Exports rewrite these URLs.)
+{ const gpu = new URLSearchParams(location.search).get('renderer') === 'webgpu' && 'gpu' in navigator;
+  window.SC_WEBGPU = gpu;
+  const webgl = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js', webgpu = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js';
+  const im = document.createElement('script'); im.type = 'importmap';
+  im.textContent = JSON.stringify({ imports: { three: gpu ? webgpu : webgl, 'three/webgpu': webgpu, 'three/tsl': webgpu, 'three/addons/': 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/' } });
+  document.currentScript.after(im); }
 </script>
 </head>
 <body>
@@ -125,7 +129,11 @@ $('scenesX').onclick = () => { $('scenes').hidden = true; };
 let data = SCENE_URL.startsWith('desktop:') && window.__TAURI__ ? JSON.parse(await window.__TAURI__.core.invoke('load_scene', { name: SCENE_URL.slice(8) }))   // the desktop app's saved scenes
   : await (await fetch(SCENE_URL)).json();
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// ?renderer=webgpu: three's WebGPURenderer (node materials; the toon look's shader patches and the particle shader do
+// not carry over yet) with its own post (runtime/post-webgpu.js); anything else is the WebGL renderer as always.
+const renderer = window.SC_WEBGPU ? new THREE.WebGPURenderer({ antialias: true }) : new THREE.WebGLRenderer({ antialias: true });
+if (window.SC_WEBGPU) { await renderer.init(); console.info('Scene Companion: WebGPU renderer'); }
+const postGPU = window.SC_WEBGPU ? (await import('./runtime/post-webgpu.js')).createPostGPU : null;
 document.body.prepend(renderer.domElement);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 3000);
 let world, post, player, coinsTotal, over;
@@ -359,7 +367,7 @@ async function start() {
   world.on('checkpoint', () => saveProgress());
   saveT = 0;
   world.on('loadScene', url => { location.search = `?scene=${encodeURIComponent(url)}`; });   // Footsteps varies the pitch (world.rng)
-  post = createPost(renderer, world.scene, camera, data.settings.post, TIER, world);
+  post = (postGPU || createPost)(renderer, world.scene, camera, data.settings.post, TIER, world);
   world.scene.add(marker);                     // editor-selection marker (debug overlay, not part of the scene file)
   resize(); hud();
 }
