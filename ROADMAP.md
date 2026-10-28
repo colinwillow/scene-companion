@@ -221,7 +221,8 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [x] Inspector redesign, part 3: X / Y / Z steppers (coloured axis letters you drag sideways to scrub, or type), capitalised field labels
 - [ ] Inspector: rename an object from its header (needs every reference updated: parents, rules, prefab overrides — do it as a runtime/editing.js op with tests)
 - [x] Library redesign: a grid of thumbnail cards, tab icons, drag (or tap) to place, a preview before adding
-- [ ] [IN PROGRESS] Scene picker + title cards: cards with a thumbnail of each scene, a one-line "try this", playful look
+- [x] Scene picker + title cards: cards with a thumbnail of each scene, a one-line "try this", playful look
+- [ ] The editor's scene picker uses the same thumbnail cards (it is still a plain dropdown in the top bar)
 - [ ] Play HUD polish: hearts / coins / timer as styled pills, stick skins, pause menu and end screen restyled, readable over any scene
 - [ ] Feel: tap feedback (press states, little bounces), smooth panel transitions, toasts instead of text dumps, optional haptics (navigator.vibrate) and UI click sounds, all on a switch
 - [ ] Onboarding + empty states: first-open tour as a few pointing hints (dismissable, not a wall of text), helpful empty Library / no-selection states, friendly error messages

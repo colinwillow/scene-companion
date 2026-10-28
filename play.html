@@ -53,15 +53,25 @@
   #mixer button { background:var(--accent); color:var(--on-accent); border:none; border-radius:var(--r-sm); padding:6px 10px; font-weight:700; min-height:0; }
   #scenes { position:fixed; inset:0; z-index:9; background:var(--scrim); display:flex; align-items:center; justify-content:center; touch-action:manipulation; }
   #scenes[hidden] { display:none; }
-  #scenes .sbox { background:var(--panel-solid); border:1px solid var(--line); box-shadow:var(--sh-2); border-radius:var(--r-lg); width:min(420px, 92vw); max-height:84vh; overflow:auto; padding:12px; }
+  #scenes .sbox { background:var(--panel-solid); border:1px solid var(--line); box-shadow:var(--sh-2); border-radius:var(--r-lg); width:min(720px, 94vw); max-height:84vh; overflow:auto; padding:12px; }
   #scenes .shead { display:flex; justify-content:space-between; align-items:center; font:800 18px var(--font); margin:4px 6px 10px; }
   #scenes .shead button { background:var(--raised); color:var(--text); border:none; border-radius:var(--r-sm); min-height:0; padding:6px 10px; font-size:16px; }
-  #sceneList a { display:block; padding:14px 12px; margin:6px 0; border-radius:var(--r-md); background:var(--raised); color:var(--text); box-shadow:var(--sh-1); text-decoration:none; font:700 16px var(--font); }
-  #sceneList a.here { background:var(--accent); color:var(--on-accent); }
-  #sceneList a small { display:block; font-weight:600; opacity:.75; margin-top:3px; }
+  /* scene cards (Stage 9): a picture of the scene, its name on it, one line of what to try */
+  #sceneList { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+  #sceneList a { display:flex; flex-direction:column; border-radius:var(--r-lg); background:var(--raised); color:var(--text); box-shadow:var(--sh-1); text-decoration:none; overflow:hidden;
+    border:2px solid transparent; transition:transform .12s var(--ease); animation:cardIn .35s var(--ease) both; animation-delay:calc(var(--i) * 35ms); }
+  #sceneList a:active { transform:var(--press); }
+  #sceneList a.here { border-color:var(--accent); }
+  #sceneList .pic { position:relative; aspect-ratio:16/10; background:linear-gradient(135deg, hsl(var(--h) 55% 38%), hsl(calc(var(--h) + 50) 60% 22%)); }
+  #sceneList .pic img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #sceneList .pic b { position:absolute; left:8px; right:8px; bottom:6px; font:800 15px/1.15 var(--font); color:#fff; text-shadow:0 1px 2px #000, 0 2px 10px #000c; }
+  #sceneList .pic .now { position:absolute; top:6px; left:6px; padding:3px 8px; border-radius:var(--r-pill); background:var(--accent); color:var(--on-accent); font:800 11px var(--font); }
+  #sceneList small { display:block; padding:7px 9px 9px; font:600 12px/1.3 var(--font); color:var(--dim); }
+  @keyframes cardIn { from { opacity:0; transform:translateY(10px) scale(.97); } }
   #title { position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:radial-gradient(#0007, #000c); text-align:center; padding:24px; }
   #title[hidden] { display:none; }
-  #titleText { font:900 38px/1.1 var(--font); text-shadow:0 4px 18px #000; }
+  #title > * { animation:cardIn .5s var(--ease) both; } #titleSub { animation-delay:.08s; } #titleGo { animation-delay:.16s; }
+  #titleText { font:900 clamp(30px, 9vw, 52px)/1.05 var(--font); text-shadow:0 4px 0 #0006, 0 6px 24px #000; letter-spacing:-.01em; }
   #titleSub { font:600 17px/1.35 var(--font); opacity:.85; max-width:30em; }
   #titleGo { margin-top:10px; font:800 22px var(--font); padding:14px 34px; border:none; border-radius:var(--r-lg); background:var(--accent); color:var(--on-accent); box-shadow:var(--sh-1); }
   #liveBadge.flash { background:#3ddc84; color:#0b3d1f; }
@@ -88,7 +98,7 @@
 <div id="err" hidden></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="stats" hidden></div>
-<div id="scenes" hidden><div class="sbox"><div class="shead">Scenes <button id="scenesX">✕</button></div><div id="sceneList"></div></div></div>
+<div id="scenes" hidden><div class="sbox"><div class="shead">Scenes <button id="scenesX" class="ib icon-only" data-icon="close" title="Close">Close</button></div><div id="sceneList"></div></div></div>
 <div id="mixer" hidden><button id="mixMute">Sound on</button><label>All <input type="range" min="0" max="1" step="0.05" data-bus="master"></label><label>Music <input type="range" min="0" max="1" step="0.05" data-bus="music"></label><label>Effects <input type="range" min="0" max="1" step="0.05" data-bus="sfx"></label></div>
 <script>
 window.__errQueue=[];
@@ -121,12 +131,17 @@ $('edit').href = `./index.html?scene=${encodeURIComponent(SCENE_URL)}`;
 // 🎬 every example scene (scenes/index.json); opening play.html with no ?scene shows the list first
 fetch('./scenes/index.json').then(r => r.json()).then(list => {
   const here = SCENE_URL.replace(/^\.\//, '');
-  for (const sc of list) {
+  list.forEach((sc, i) => {
     const a = document.createElement('a'); a.href = `./play.html?scene=${encodeURIComponent(sc.file)}`;
-    a.className = sc.file.replace(/^\.\//, '') === here ? 'here' : '';
-    a.innerHTML = `${sc.title}${sc.note ? `<small>${sc.note}</small>` : ''}`;
+    const now = sc.file.replace(/^\.\//, '') === here, name = sc.file.split('/').pop().replace(/\.scene\.json$/, '');
+    let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360;
+    a.className = now ? 'here' : ''; a.style.setProperty('--i', i); a.style.setProperty('--h', h);
+    a.innerHTML = `<span class="pic"><img alt="" loading="lazy" src="./thumbs/scenes/${name}.jpg"><b></b>${now ? '<span class="now">Playing</span>' : ''}</span>${sc.note ? '<small></small>' : ''}`;
+    a.querySelector('img').onerror = e => e.target.remove();          // no thumbnail yet: the coloured card stays
+    a.querySelector('b').textContent = sc.title;
+    if (sc.note) a.querySelector('small').textContent = 'Try: ' + sc.note;
     $('sceneList').append(a);
-  }
+  });
   if (!new URLSearchParams(location.search).has('scene')) $('scenes').hidden = false;
 }).catch(() => {});
 $('scenesBtn').addEventListener('pointerdown', e => { e.stopPropagation(); $('scenes').hidden = false; });

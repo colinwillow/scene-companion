@@ -22,7 +22,8 @@
     "export:unity": "node tools/export-engine.mjs",
     "export:unreal": "node tools/export-engine.mjs --unreal",
     "desktop:prepare": "node tools/desktop-prepare.mjs",
-    "ui:shots": "node tools/ui-shots.mjs"
+    "ui:shots": "node tools/ui-shots.mjs",
+    "thumbs:scenes": "node tools/scene-thumbs.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",
