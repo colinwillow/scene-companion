@@ -226,5 +226,5 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [x] Play HUD polish: hearts / coins / timer as styled pills, stick skins, pause menu and end screen restyled, readable over any scene
 - [x] Feel: tap feedback (press states, little bounces), smooth panel transitions, toasts instead of text dumps, optional haptics (navigator.vibrate) and UI click sounds, all on a switch
 - [x] Onboarding + empty states: first-open tour as a few pointing hints (dismissable, not a wall of text), helpful empty Library / no-selection states, friendly error messages
-- [ ] Tool pages (VFX, Sprite bake, slicer, Generate) brought into the same look
+- [ ] [IN PROGRESS] Tool pages (VFX, Sprite bake, slicer, Generate) brought into the same look
 - [ ] Colin's review round: his notes from the phone become the next UI items (repeat this item as many times as he wants)
