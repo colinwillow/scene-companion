@@ -18,7 +18,8 @@
     "assets": "node tools/assetids.mjs",
     "quality": "node tools/quality.mjs",
     "export:godot": "node tools/export-godot.mjs",
-    "export:app": "node tools/export-app.mjs"
+    "export:app": "node tools/export-app.mjs",
+    "export:unity": "node tools/export-unity.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",
