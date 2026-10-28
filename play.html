@@ -122,7 +122,8 @@ fetch('./scenes/index.json').then(r => r.json()).then(list => {
 }).catch(() => {});
 $('scenesBtn').addEventListener('pointerdown', e => { e.stopPropagation(); $('scenes').hidden = false; });
 $('scenesX').onclick = () => { $('scenes').hidden = true; };
-let data = await (await fetch(SCENE_URL)).json();
+let data = SCENE_URL.startsWith('desktop:') && window.__TAURI__ ? JSON.parse(await window.__TAURI__.core.invoke('load_scene', { name: SCENE_URL.slice(8) }))   // the desktop app's saved scenes
+  : await (await fetch(SCENE_URL)).json();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 document.body.prepend(renderer.domElement);

@@ -159,3 +159,4 @@
 - 2026-10-28 — Extensions part 1 — extension packages (manifest, version ranges, permission scan), World.loadExtensions, validator checks, Wobble example in the kitchen sink; 317 tests; checked headless (live session)
 - 2026-10-28 — Extensions part 2a — Library Extensions tab (Use / Remove per scene), extensions/index.json; checked headless (live session)
 - 2026-10-28 — Extensions part 2b — Worker sandbox (core / worker / host), permissions enforced inside it, Wobble sandboxed; 321 tests; checked headless in game + editor (live session)
+- 2026-10-28 — Desktop part 1 — Tauri 2 app (save/list/load scenes on disk), desktop:prepare, vendor-three shared; cargo build clean, the window launched under Xvfb with the editor offline (live session)

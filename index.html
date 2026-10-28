@@ -195,14 +195,19 @@ const $ = id => document.getElementById(id);
 
 // ---- the single source of truth: scene data
 const SCENE_URL = new URLSearchParams(location.search).get('scene') || './scenes/kitchen-sink.scene.json';
+const DESKTOP = window.__TAURI__ || null;   // running inside the desktop app: files can be written (desktop/src-tauri)
 // The scene picker: every example scene (scenes/index.json); choosing one reopens the editor on it.
 fetch('./scenes/index.json').then(r => r.json()).then(list => {
   const sel = document.getElementById('scenePick'), here = SCENE_URL.replace(/^\.\//, '');
-  if (!list.some(s => s.file.replace(/^\.\//, '') === here)) list.unshift({ file: SCENE_URL, title: SCENE_URL.split('/').pop() });
+  if (!SCENE_URL.startsWith('desktop:') && !list.some(s => s.file.replace(/^\.\//, '') === here)) list.unshift({ file: SCENE_URL, title: SCENE_URL.split('/').pop() });
   for (const s of list) { const o = new Option('🎬 ' + s.title, s.file); o.selected = s.file.replace(/^\.\//, '') === here; sel.append(o); }
+  // the desktop app (desktop/): scenes saved on this computer, listed above the examples
+  if (DESKTOP) DESKTOP.core.invoke('list_scenes').then(names => names.reverse().forEach(n => { const o = new Option('💾 ' + n, 'desktop:' + n); o.selected = SCENE_URL === 'desktop:' + n; sel.prepend(o); })).catch(() => {});
   sel.onchange = () => { location.href = `./index.html?scene=${encodeURIComponent(sel.value)}`; };
 }).catch(() => {});
-let loadedText = await (await fetch(SCENE_URL)).text();   // what the repo had when we opened it
+// In the desktop app a scene can come from this computer ("desktop:<name>", <Documents>/SceneCompanion/scenes)
+let loadedText = SCENE_URL.startsWith('desktop:') ? await DESKTOP.core.invoke('load_scene', { name: SCENE_URL.slice(8) })
+  : await (await fetch(SCENE_URL)).text();   // what the repo had when we opened it
 const data = JSON.parse(loadedText);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -927,6 +932,15 @@ function ghSettings(reset) {
   return cfg;
 }
 $('push').onclick = async () => {
+  if (DESKTOP) {                                    // the desktop app saves to <Documents>/SceneCompanion/scenes, no GitHub
+    const btn = $('push'), name = SCENE_URL.startsWith('desktop:') ? SCENE_URL.slice(8) : SCENE_URL.split('/').pop();
+    try { const where = await DESKTOP.core.invoke('save_scene', { name, json: JSON.stringify(data, null, 2) + '\n' });
+      btn.textContent = 'Saved ✓'; btn.title = where;
+      if (!SCENE_URL.startsWith('desktop:')) history.replaceState(null, '', `?scene=${encodeURIComponent('desktop:' + name)}`);   // it is that file now
+    } catch (e) { showErr('Save: ' + e); btn.textContent = 'Not saved'; }
+    setTimeout(() => (btn.textContent = '⇪ Save'), 2000);
+    return;
+  }
   const cfg = ghSettings(); if (!cfg) return;
   const path = new URL(SCENE_URL, location.href).pathname.replace(/^.*?(scenes\/)/, '$1');
   const text = JSON.stringify(data, null, 2) + '\n';

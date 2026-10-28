@@ -201,7 +201,7 @@ Goal: the kitchen-sink scene should look alive, closer to a modern engine than a
 - [x] Generator plug-ins, part 1: a generator registry (runtime/generators.js) + dev-server `POST /gen/<id>` running image gen (OpenAI) into assets/generated/, key from env or the network proxy, `--dry` safe
 - [x] Generator plug-ins, part 2: Library 'Generate' tab (prompt → image → preview), and image→3D through Tripo (async task, poll, save GLB, add as a prop)
 - [ ] Desktop app (Tauri) + Desktop Ultra tier (WebGPU)
-  - [ ] [IN PROGRESS] Desktop part 1: a Tauri 2 app (desktop/) — the editor and play page offline in a native window (three vendored), and Save writes the scene file straight to disk (a `save_scene` command, editor detects the desktop app); `npm run desktop:prepare` + docs/desktop.md (build on Mac / Windows / Linux)
+  - [x] Desktop part 1: desktop/ — a Tauri 2 app (src-tauri: save_scene / list_scenes / load_scene into <Documents>/SceneCompanion/scenes), `npm run desktop:prepare` (editor + game + assets into desktop/dist with three vendored, tools/vendor-three.mjs shared with the app export), the editor's ⇪ Save writes to disk and the 🎬 picker lists 💾 saved scenes when it finds window.__TAURI__ (play.html loads them too), placeholder icon, docs/desktop.md. Checked: `cargo build` clean (0 warnings) on Linux, the app launched under a virtual display showing the editor + kitchen sink offline; the save / reload round trip checked in the browser with a stand-in __TAURI__
   - [ ] Desktop part 2: open a project folder (native picker), the Library and assets read from it, Blender bridge without the dev server
   - [ ] Desktop part 3: Ultra tier — WebGPU renderer, HDRI lighting, soft shadows, SSAO, bloom, reflections, one toggle
 

@@ -20,7 +20,8 @@
     "export:godot": "node tools/export-godot.mjs",
     "export:app": "node tools/export-app.mjs",
     "export:unity": "node tools/export-engine.mjs",
-    "export:unreal": "node tools/export-engine.mjs --unreal"
+    "export:unreal": "node tools/export-engine.mjs --unreal",
+    "desktop:prepare": "node tools/desktop-prepare.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",
