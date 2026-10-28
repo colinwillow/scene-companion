@@ -125,7 +125,8 @@ Each run: read SPEC.md, FEEDBACK.md, then do ONE item. Keep `npm run validate` p
 - [ ] Marketplace: paid asset packs + level packs next to the free library
 - [ ] Extensions: behaviors/tools/skills as installable, versioned packages (manifest + engine range + permissions), run sandboxed (worker exposing only the entity/world API), quality-gated like assets; core changes as reviewed PRs + versioned releases projects can pin
   - [x] Extensions part 1 (local): extensions/<id>/extension.json + an entry that imports nothing (`register({ Behavior, define })`), runtime/extensions.js (manifest checks, semver ranges, permission scan: network / storage / dom declared, eval / new Function / import never), runtime/version.js ENGINE 0.9.0, World.loadExtensions (scene `extensions: ["id@range"]`, errors in the error box), validator (manifests, sources, ranges, a behavior's extension must be listed), extensions/README.md, the Wobble example on a jelly crate in the kitchen sink (checked headless: it wobbles)
-  - [ ] Extensions part 2: run an extension's behaviors sandboxed in a Worker (only the entity/world API crosses), the editor's Library lists installed extensions with on/off per scene
+  - [ ] [IN PROGRESS] Extensions part 2a: the editor's Library › Extensions tab lists installed extensions (name, version, what it adds, its permissions) with Use / Remove per scene (extensions/index.json from `npm run assets`)
+  - [ ] Extensions part 2b: run an extension's behaviors sandboxed in a Worker (only the entity transform, input and events cross, a frame behind), on by default for extensions that declare permissions
   - [ ] Extensions part 3 (needs accounts): publish / browse / install from the shared library, pinned versions
 
 ## Stage 1.5 — Make it look like a game (Colin's priority, do these first)
