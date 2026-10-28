@@ -83,6 +83,10 @@
   .row input[type=text] { flex:1; min-width:0; }
   .row input[type=number], .row input[type=text] { width:64px; background:var(--field); color:var(--text);
     border:1px solid var(--line); border-radius:6px; padding:4px; font:inherit; }
+  .row .axis { flex:1; min-width:0; display:flex; align-items:center; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--field); overflow:hidden; }
+  .row .axis b { flex:none; width:24px; align-self:stretch; display:grid; place-items:center; cursor:ew-resize; touch-action:none; font-size:12px; color:#1d0f05; }
+  .row .axis.a0 b { background:#ff6b6b; } .row .axis.a1 b { background:#5fd38a; } .row .axis.a2 b { background:#5ab8ff; }
+  .row .axis input[type=number] { flex:1; min-width:0; width:auto; border:0; border-radius:0; background:transparent; padding:6px 4px; }
   .row output { min-width:52px; text-align:right; font-variant-numeric:tabular-nums; color:var(--text); font-weight:700; font-size:13px; }
   select.add { width:100%; margin-top:6px; padding:8px; background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:8px; }
   .acts { display:flex; gap:8px; margin:8px 0; }
@@ -566,10 +570,18 @@ function control(def, value, onChange) {
     row.innerHTML = `<label class="toggle"><input type="checkbox" ${value ? 'checked' : ''}><span></span></label>`;
     row.querySelector('input').onchange = e => onChange(e.target.checked);
   } else if (def.type === 'vec3' || def.type === 'vec2') {
+    // one stepper per axis: type a number, or drag the coloured X / Y / Z letter sideways to scrub (0.1 per 6 px)
     value.forEach((v, i) => {
+      const cell = document.createElement('span'); cell.className = 'axis a' + i;
+      cell.innerHTML = `<b title="Drag sideways to change">${'XYZ'[i]}</b>`;
       const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.value = v;
-      inp.onchange = () => { const nv = [...value]; nv[i] = +inp.value; value = nv; onChange(nv); };
-      row.append(inp);
+      const set = x => { const nv = [...value]; nv[i] = +(+x).toFixed(3); value = nv; inp.value = nv[i]; onChange(nv); };
+      inp.onchange = () => set(inp.value);
+      const grip = cell.firstChild;
+      grip.onpointerdown = ev => { ev.preventDefault(); grip.setPointerCapture?.(ev.pointerId); const x0 = ev.clientX, v0 = +value[i];
+        grip.onpointermove = m => set(v0 + Math.round((m.clientX - x0) / 6) * 0.1);
+        grip.onpointerup = grip.onpointercancel = () => { grip.onpointermove = grip.onpointerup = null; }; };
+      cell.append(inp); row.append(cell);
     });
   } else if (def.type === 'color') {
     row.innerHTML = `<input type="color" value="${value}">`;
@@ -749,13 +761,13 @@ function renderPanel() {
     if (!e.light && data.assets && Object.keys(data.assets).length) {
       const row = document.createElement('div'); row.className = 'row';
       const cur = typeof e.asset === 'string' ? e.asset : '';
-      row.innerHTML = `<label>model</label><select class="add" style="margin:0">${cur ? '' : `<option value="">${e.prefab ? 'from prefab' : 'inline'}</option>`}${Object.keys(data.assets).map(k => `<option ${k === cur ? 'selected' : ''}>${k}</option>`).join('')}</select>`;
+      row.innerHTML = `<label>Model</label><select class="add" style="margin:0">${cur ? '' : `<option value="">${e.prefab ? 'from prefab' : 'inline'}</option>`}${Object.keys(data.assets).map(k => `<option ${k === cur ? 'selected' : ''}>${k}</option>`).join('')}</select>`;
       row.querySelector('select').onchange = async ev => { record(); if (setAsset(data, e.id, ev.target.value)) { await rebuild(); select(e.id); } };
       panel.append(row);
     }
   }
   const pos = document.createElement('div'); pos.className = 'row';
-  pos.innerHTML = `<label>position</label>`;
+  pos.innerHTML = `<label>Position</label>`;
   pos.append(...control({ type: 'vec3' }, e.position || [0, 0, 0], v => { record(`pos:${e.id}`); e.position = v; ent.object3d.position.fromArray(v); }).children);
   panel.append(pos);
 
@@ -781,7 +793,7 @@ function renderPanel() {
 
   if (ent.anim) {
     const row = document.createElement('div'); row.className = 'row';
-    row.innerHTML = `<label>animation</label><select class="add" style="margin:0">${ent.anim.clips.map(c => `<option ${c === (e.animation || ent.anim.current) ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
+    row.innerHTML = `<label>Animation</label><select class="add" style="margin:0">${ent.anim.clips.map(c => `<option ${c === (e.animation || ent.anim.current) ? 'selected' : ''}>${c}</option>`).join('')}</select>`;
     row.querySelector('select').onchange = ev => { record(); e.animation = ev.target.value; ent.anim.play(ev.target.value); };
     if (!playing) { const tb = document.createElement('button'); setIcon(tb, 'timeline', 'Timeline'); tb.title = 'Scrub this clip, look from the front / side / top';
       tb.onclick = () => openTimeline(e.id); row.append(tb); }
