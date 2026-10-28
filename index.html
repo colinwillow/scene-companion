@@ -94,9 +94,27 @@
   .parentRow select { flex:1; padding:7px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
   .acts button { flex:1; padding:9px; border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
   #lib .tabs { flex:none; display:flex; gap:6px; margin-bottom:6px; overflow-x:auto; scrollbar-width:none; }
-  #lib .tabs button { flex:1 0 auto; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
+  #lib .tabs button { flex:0 0 auto; min-width:58px; padding:6px 8px; border-radius:var(--r-md); border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; }
+  #lib .tabs { -webkit-mask:linear-gradient(90deg, #0000, #000 14px, #000 calc(100% - 18px), #0000); mask:linear-gradient(90deg, #0000, #000 14px, #000 calc(100% - 18px), #0000); padding:0 14px; scroll-padding:0 30px; }
+  /* card grid for Characters / Props / Kit: a big thumbnail, the name, one small line */
+  #libList.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:6px; align-content:start; padding-bottom:6px; }
+  #libList.grid li { min-width:0; flex-direction:column; align-items:stretch; gap:4px; padding:6px; background:var(--raised); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--sh-1); -webkit-touch-callout:none; }
+  #libList.grid li.head { grid-column:1 / -1; background:none; border:0; box-shadow:none; }
+  #libList.grid li img { -webkit-user-drag:none; user-select:none; }
+  #libList.grid li img, #libList.grid li .ph { width:100%; height:auto; aspect-ratio:1; border-radius:var(--r-sm); background:var(--field); object-fit:contain; }
+  #libList.grid li .ph { display:grid; place-items:center; font:800 30px var(--font); color:hsl(var(--h) 70% 72%); background:hsl(var(--h) 35% 22%); }
+  #libList.grid li span { display:block; width:100%; min-width:0; font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+  #libList.grid li small { display:block; width:100%; text-align:center; font-size:11px; }
+  #libList.grid li.picked { outline:2px solid var(--accent); }
+  #libPrev { flex:none; display:flex; align-items:center; gap:10px; margin-top:6px; padding:8px; border-radius:var(--r-md); background:var(--raised); border:1px solid var(--accent); }
+  #libPrev[hidden] { display:none; }
+  #libPrev img, #libPrev .ph { width:64px; height:64px; border-radius:var(--r-sm); object-fit:contain; background:var(--field); flex:none; display:grid; place-items:center; font:800 26px var(--font); }
+  #libPrev .pt { flex:1; min-width:0; } #libPrev .pt b { display:block; } #libPrev .pt small { color:var(--dim); }
+  #libPrev button { min-height:44px; }
+  .dragGhost { position:fixed; z-index:50; width:72px; height:72px; margin:-36px 0 0 -36px; pointer-events:none; border-radius:var(--r-md); background:var(--raised); border:2px solid var(--accent); box-shadow:var(--sh-2); display:grid; place-items:center; overflow:hidden; opacity:.92; }
+  .dragGhost img { width:100%; height:100%; object-fit:contain; }
   #lib .tabs button.on { background:var(--accent); color:var(--on-accent); }
-  #tree, #lib { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:38vh; display:none; flex-direction:column;
+  #tree, #lib { position:fixed; z-index:2; left:0; right:0; top:calc(100px + env(safe-area-inset-top)); max-height:52vh; display:none; flex-direction:column;
     background:var(--panel); border-bottom:1px solid var(--line); padding:8px 10px; }
   #tree.open, #lib.open { display:flex; }
   #tree input, #lib input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); font:inherit; margin-bottom:6px; -webkit-user-select:text; user-select:text; }
@@ -182,7 +200,7 @@
 <div id="err" class="errbox" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" class="on">Characters</button><button data-t="props">Props</button><button data-t="kit">Level kit</button><button data-t="packs">Packs</button><button data-t="motions">Motions</button><button data-t="sounds">Sounds</button><button data-t="generate">Generate</button><button data-t="sprites">2D</button><button data-t="ext">Extensions</button><button data-t="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul></div>
+<div id="lib"><div class="tabs"><button data-t="characters" data-icon="person" class="on">Characters</button><button data-t="props" data-icon="boxes">Props</button><button data-t="kit" data-icon="kit">Kit</button><button data-t="packs" data-icon="package">Packs</button><button data-t="motions" data-icon="timeline">Motions</button><button data-t="sounds" data-icon="sound">Sounds</button><button data-t="generate" data-icon="sparkle">Generate</button><button data-t="sprites" data-icon="image">2D</button><button data-t="ext" data-icon="puzzle">Extensions</button><button data-t="vars" data-icon="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul><div id="libPrev" hidden></div></div>
 <div id="tileBar" hidden><span id="tilePal"></span><small id="tileHint">1 finger paints · 2 fingers orbit</small><button id="tileDone" class="ib side" data-icon="check" title="Stop painting tiles">Done</button></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" class="ib side" data-icon="brush" title="Paint or erase instances of this prefab">Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
@@ -516,9 +534,9 @@ function surfaceHit(ndc) {
   const surfaces = [...world.entities.values()].filter(e => !e.object3d.isLight && isDropSurface(e.id, e.resolved)).map(e => e.object3d);
   return dropRay.intersectObjects(surfaces, true).find(h => h.object.visible && h.object.isMesh && !h.object.userData.outline) || null;
 }
-function viewDropPoint() {
+function viewDropPoint(ndc = new THREE.Vector2(0, 0)) {   // where the screen's middle (or a dragged-to point) meets the world
   camera.updateMatrixWorld();
-  dropRay.setFromCamera(new THREE.Vector2(0, 0), camera);
+  dropRay.setFromCamera(ndc, camera);
   const surfaces = [...world.entities.values()].filter(e => !e.object3d.isLight && isDropSurface(e.id, e.resolved)).map(e => e.object3d);
   const hit = dropRay.intersectObjects(surfaces, true).find(h => h.object.visible && h.object.isMesh && !h.object.userData.outline);
   const plane = dropRay.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
@@ -1254,18 +1272,18 @@ $('add').onchange = () => {
   const [kind, name] = $('add').value.split(':'); $('add').value = '';
   if (name) addFrom(kind, name);
 };
-async function addFrom(kind, name) {
+async function addFrom(kind, name, ndc) {
   if (playing) return;                                 // adding is an edit-mode thing
   record();
   if (kind === 'prefab' && !data.prefabs?.[name]) data.prefabs = { ...data.prefabs, [name]: `./prefabs/${name}.prefab.json` };
-  const e = kind === 'light' ? addLight(data, name, viewDropPoint()) : addEntity(data, { [kind]: name }, viewDropPoint());
+  const e = kind === 'light' ? addLight(data, name, viewDropPoint()) : addEntity(data, { [kind]: name }, viewDropPoint(ndc));
   await refresh(); select(e.id); fillAdd();
 }
 
-async function addCharacterFrom(i) {
+async function addCharacterFrom(i, ndc) {
   if (playing) return;
   record();
-  const e = addCharacter(data, i.name, i.path, viewDropPoint());
+  const e = addCharacter(data, i.name, i.path, viewDropPoint(ndc));
   await refresh(); select(e.id); fillAdd();
 }
 
@@ -1452,22 +1470,77 @@ async function renderLib() {
     const show = shown(), group = libraryGroups(libPrefabs, data)[libTab].concat(libTab === 'characters' ? characterLibrary : []).filter(show);
     items = filterNames(group, q).map(i => ({ name: i.name, thumb: thumbIndex[`${i.kind}:${i.name}`],
       sub: i.kind === 'prefab' ? (data.prefabs?.[i.name] ? 'prefab' : 'prefab · not in scene yet') : i.kind === 'character' ? 'character · plays its roles' : 'model',
+      place: ndc => (i.kind === 'character' ? addCharacterFrom(i, ndc) : addFrom(i.kind, i.name, ndc)),
       pick: () => { i.kind === 'character' ? addCharacterFrom(i) : addFrom(i.kind, i.name); if (!wide) closeLib(); } }));
-    $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to add at the view centre`;
+    $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} ${libTab === "kit" ? "level kit pieces" : libTab} — tap to preview, hold and drag onto the scene to place`;
   }
   if (seq !== libSeq) return;
+  const grid = ['characters', 'props', 'kit'].includes(libTab);   // things you place: a card grid with a preview
+  ul.classList.toggle('grid', grid); libPreview(null);
   ul.innerHTML = '';
   for (const it of items) {
     const li = document.createElement('li');
     li.innerHTML = '<span></span><small></small>';
-    li.firstChild.textContent = it.name; li.lastChild.textContent = it.sub;
+    li.firstChild.textContent = grid && !it.header ? friendly(it.name) : it.name; li.lastChild.textContent = it.sub;
+    if (grid) li.title = it.name;
     if (it.thumb) { const img = new Image(); img.src = it.thumb; img.alt = ''; img.loading = 'lazy'; li.prepend(img); li.classList.add('thumb'); }
-    if (it.header) li.className = 'head'; else li.onclick = it.pick;
+    else if (grid && !it.header) li.prepend(placeholder(it.name));
+    if (it.header) li.className = 'head';
+    else if (grid) { li.onclick = () => { if (dragJustEnded) return; libPreview(it, li); }; if (it.place) cardDrag(li, it); }
+    else li.onclick = it.pick;
     if (it.locked) li.classList.add('locked');
     if (it.btn) { const b = document.createElement('button'); b.className = 'packbtn'; b.textContent = it.btn;
       b.onclick = ev => { ev.stopPropagation(); it.act(); }; li.append(b); }
     ul.append(li);
   }
+}
+// A letter on a colour from the name, for things with no thumbnail yet
+function placeholder(name) {
+  const d = document.createElement('div'); d.className = 'ph'; d.textContent = (name.replace(/^[^a-z0-9]+/i, '')[0] || '?').toUpperCase();
+  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; d.style.setProperty('--h', h); return d;
+}
+// Tap a card: a preview strip (bigger picture, name, Add) — adding is a deliberate second tap, not an accident
+function libPreview(it, li) {
+  const box = $('libPrev'); for (const x of $('libList').querySelectorAll('.picked')) x.classList.remove('picked');
+  if (!it) { box.hidden = true; return; }
+  li?.classList.add('picked');
+  box.innerHTML = `<span class="pt"><b></b><small></small></span><button class="primary ib side" data-icon="add">Add</button><button class="ghost ib side icon-only" data-icon="close">Close</button>`;
+  box.prepend(it.thumb ? Object.assign(new Image(), { src: it.thumb, alt: '' }) : placeholder(it.name));
+  box.querySelector('b').textContent = friendly(it.name); box.querySelector('small').textContent = `${it.sub} · or hold and drag it onto the scene`;
+  iconize(box);
+  const [add, x] = box.querySelectorAll('button');
+  add.onclick = () => { libPreview(null); it.pick(); }; x.onclick = () => libPreview(null);
+  box.hidden = false;
+}
+// Hold a card (~0.3 s, thumb still) to pick it up, drag it over the scene and let go: it lands where it was dropped
+var dragJustEnded = false;
+function cardDrag(li, it) {
+  let t = 0, start = null, ghost = null;
+  const lift = () => { ghost = document.createElement('div'); ghost.className = 'dragGhost';
+    ghost.append(li.querySelector('img, .ph')?.cloneNode(true) || ''); document.body.append(ghost); navigator.vibrate?.(10); };
+  const move = e => {
+    if (!ghost) { if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) { clearTimeout(t); start = null; } return; }
+    e.preventDefault(); ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+    const over = document.elementFromPoint(e.clientX, e.clientY); ghost.style.borderColor = over === renderer.domElement ? 'var(--ok)' : '';
+  };
+  const stopScroll = e => { if (ghost) e.preventDefault(); };
+  li.addEventListener('touchmove', stopScroll, { passive: false });
+  li.ondragstart = e => e.preventDefault();   // a native image drag would cancel the pointer stream
+  li.onpointerdown = e => {
+    if (playing) return;
+    start = { x: e.clientX, y: e.clientY }; clearTimeout(t);
+    t = setTimeout(() => { if (start) { lift(); move(e); } }, 300);
+    const up = ev => {
+      clearTimeout(t); removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true);
+      if (!ghost) return;
+      ghost.remove(); ghost = null; dragJustEnded = true; setTimeout(() => (dragJustEnded = false), 50);
+      if (ev.type === 'pointerup' && document.elementFromPoint(ev.clientX, ev.clientY) === renderer.domElement) {
+        const r = renderer.domElement.getBoundingClientRect();
+        it.place(new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1));
+      }
+    };
+    addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
+  };
 }
 // ---- the sprite slicer: a sheet with its grid drawn over it, cols/rows, a height in metres, and the clips as text
 // ("run 2-5 10"). "Add" writes the asset variant (runtime/sprites.js) and drops one at the view centre with a SpriteAnimator.
@@ -1540,8 +1613,9 @@ $('libBtn').onclick = () => {
   $('lib').classList.toggle('open', open); $('libBtn').classList.toggle('on', open); renderLib();
 };
 $('lib').querySelector('.tabs').onclick = ev => {
-  const t = ev.target.dataset.t; if (!t) return;
+  const t = ev.target.closest('button')?.dataset.t; if (!t) return;
   libTab = t; for (const b of $('lib').querySelectorAll('.tabs button')) b.classList.toggle('on', b.dataset.t === t);
+  $('lib').querySelector(`.tabs [data-t="${t}"]`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
   renderLib();
 };
 $('libSearch').oninput = renderLib;
