@@ -7,7 +7,7 @@ import { dirname, join, basename } from 'node:path';
 import { mergeEntity } from '../runtime/prefabs.js';
 import { characterVariant } from '../runtime/character.js';
 import { toTscn } from '../runtime/godot.js';
-import { undraco } from './undraco.mjs';
+import { undraco, glbExternal } from './undraco.mjs';
 
 const [scenePath, outArg] = process.argv.slice(2);
 if (!scenePath) { console.error('usage: npm run export:godot <scene.json> [out-dir]'); process.exit(1); }
@@ -59,6 +59,7 @@ mkdirSync(out, { recursive: true });
 writeFileSync(join(out, 'main.tscn'), tscn);
 writeFileSync(join(out, 'project.godot'), `; Exported by Scene Companion from ${scenePath}\nconfig_version=5\n\n[application]\n\nconfig/name="${stem}"\nrun/main_scene="res://main.tscn"\nconfig/features=PackedStringArray("4.3")\n\n[rendering]\n\nrenderer/rendering_method="mobile"\n`);
 const missing = [], draco = [];
+for (const g of [...files]) if (g.endsWith('.glb')) for (const x of glbExternal(g)) if (!files.includes(x)) files.push(x);   // textures beside a GLB
 for (const f of files) {
   if (!existsSync(f)) { missing.push(f); continue; }
   mkdirSync(join(out, dirname(f)), { recursive: true });

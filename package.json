@@ -17,7 +17,8 @@
     "footsteps": "node tools/footsteps.mjs",
     "assets": "node tools/assetids.mjs",
     "quality": "node tools/quality.mjs",
-    "export:godot": "node tools/export-godot.mjs"
+    "export:godot": "node tools/export-godot.mjs",
+    "export:app": "node tools/export-app.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",

@@ -153,3 +153,4 @@
 - 2026-10-27 — 2D part 3c — editor tile painting (palette, live paint, erase, undo per stroke); checked headless: drag painted the right cells, saved to the scene (live session)
 - 2026-10-27 — 2D part 4 — spritebake.html (3D character → sprite sheet via the World, ortho side camera), /sprites/save on the dev server, slicer reads <name>.sprite.json, zap_2d baked, Zap Tiles scene; 306 tests; bake + play checked headless (live session)
 - 2026-10-28 — Ship part 1 — Godot 4 export (runtime/godot.js, tools/export-godot.mjs, tools/undraco.mjs); 309 tests; undraco checked vertex-identical in three; NOT opened in Godot (running a downloaded binary was refused here) (live session)
+- 2026-10-28 — Ship part 2 — Capacitor export (tools/export-app.mjs), docs/ship-app.md, glbExternal (textures beside GLBs) for both exporters; offline load checked headless (live session)

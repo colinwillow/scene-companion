@@ -84,3 +84,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const r = await undraco(readFileSync(i)); writeFileSync(o, r.buf);
   console.log(`${i} → ${o}: ${r.decoded} primitive(s) decoded`);
 }
+
+// The files a GLB loads from beside itself (images / buffers with a relative uri, e.g. Kenney's Textures/colormap.png),
+// as repo paths. An exporter that copies the GLB has to copy these too.
+export function glbExternal(path) {
+  try {
+    const { json } = readGlb(readFileSync(path)), base = dirname(path);
+    return [...(json.images || []), ...(json.buffers || [])].map(x => x.uri).filter(u => u && !/^data:|^[a-z]+:\/\//i.test(u))
+      .map(u => join(base, decodeURIComponent(u)));
+  } catch { return []; }
+}
