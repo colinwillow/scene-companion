@@ -16,7 +16,8 @@
     "bake-motions": "node tools/bake-motions.mjs",
     "footsteps": "node tools/footsteps.mjs",
     "assets": "node tools/assetids.mjs",
-    "quality": "node tools/quality.mjs"
+    "quality": "node tools/quality.mjs",
+    "export:godot": "node tools/export-godot.mjs"
   },
   "devDependencies": {
     "three": "^0.170.0",
