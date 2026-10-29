@@ -228,3 +228,10 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [x] Onboarding + empty states: first-open tour as a few pointing hints (dismissable, not a wall of text), helpful empty Library / no-selection states, friendly error messages
 - [x] Tool pages (VFX, Sprite bake, slicer, Generate) brought into the same look
 - [ ] Colin's review round: his notes from the phone become the next UI items (repeat this item as many times as he wants)
+
+## Stage 10 — Packs as a product (docs/packs-store.md, Colin Oct 29: "architect with it in mind")
+- [ ] `.scpack` export: `npm run pack <id>` zips a pack and everything it references (checks every reference resolves), plus an optional plain glTF bundle for Fab / CGTrader
+- [ ] `.scpack` import: drop a file on the editor (or desktop Open…): unzip in the browser, validate, write into the project, install, open its demo scene
+- [ ] Recipes: a pack can name clips it doesn't contain (`recipes/`, Forge-profile style: clip names + fitting dials, no keyframes); the editor says "drop your Mixamo folder here" and builds them locally
+- [ ] Library pack cards: cover, Install / Get / Owned, licence in plain words
+- [ ] Store: Lemon Squeezy / Paddle licence key → signed entitlement + R2 download (blocked on Colin's payments + cloud accounts)
