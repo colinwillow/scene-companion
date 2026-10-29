@@ -235,3 +235,4 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [ ] Recipes: a pack can name clips it doesn't contain (`recipes/`, Forge-profile style: clip names + fitting dials, no keyframes); the editor says "drop your Mixamo folder here" and builds them locally
 - [ ] Library pack cards: cover, Install / Get / Owned, licence in plain words
 - [ ] Store: Lemon Squeezy / Paddle licence key → signed entitlement + R2 download (blocked on Colin's payments + cloud accounts)
+- [ ] Procedural gait generator: idle / walk / run cycles made from code (stride, cadence, hip bob + sway, arm swing, lean, foot roll) with style dials (heavy, sneaky, bouncy, tired, swagger), output as keyframed clips on any Mixamo-named rig — every curve ours, so the clips can be baked into sold packs (docs/packs-store.md); fit with the Forge's dials
