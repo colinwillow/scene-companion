@@ -236,3 +236,14 @@ nothing a scene or MCP tool relies on removed. Taste calls are Colin's: offer A/
 - [ ] Library pack cards: cover, Install / Get / Owned, licence in plain words
 - [ ] Store: Lemon Squeezy / Paddle licence key → signed entitlement + R2 download (blocked on Colin's payments + cloud accounts)
 - [ ] Procedural gait generator: idle / walk / run cycles made from code (stride, cadence, hip bob + sway, arm swing, lean, foot roll) with style dials (heavy, sneaky, bouncy, tired, swagger), output as keyframed clips on any Mixamo-named rig — every curve ours, so the clips can be baked into sold packs (docs/packs-store.md); fit with the Forge's dials
+
+## Stage 11 — KORAJIN opens in Scene Companion (docs/korajin.md; the zap side follows zap/SCENE_COMPANION.md)
+- [ ] Dev server serves the local zap checkout at /zap/ (like /forge/), so KORAJIN's GLBs are read in place (432 MB never copied)
+- [ ] `korajin` pack: character.json for Grumbo, samurai, archer, Osari bowman, toad, stone guardian, Olmec, 3-headed dog, blue dragon, mech dragon (roles lifted from ARENA.kinds / ARENA.beast / GUARD / OLMEC / TOADK, forged clips via `clips`), prefabs with the existing behaviors
+- [ ] KORAJIN sandbox scene: Grumbo + a samurai, a bowman, the dog, the toad, kit blocks — the first thing Colin opens
+- [ ] `tools/korajin-import.mjs`: LVG1, BEACON.plan/CHUNKS and COURSE.blocks lifted from zap's shipped index.html → scenes of kit prefabs (posts → enemy spawns, beats → Triggers/Reactions)
+- [ ] The Red Hollows + Dojo layouts: one entity per place (GHOME, GMERCH, GMILL, GPEAK, GJINRA, GCASTLE, islands) as placeholders until baked
+- [ ] Bake tool (in zap, Playwright): a procedural builder → draco GLB + collision GLB + FALLEN/RESTORED pose table; run it over BLDG.list, the Hollows places, islands, the terrain → Library props in the pack
+- [ ] Behaviors: Guard/Parry/Deflect · Bow · Launcher · Archer / Beast / Spider / Guardian brains + limbs · Jinra (seep, wisps, counter) · Coin + Shop · Restore (two-pose pieces, staggered lift, editor FALLEN/RESTORED switch) · Ride (tame, ground + air, fireballs) — each with zap's tuning object as schema defaults, a test, a spot in the sandbox
+- [ ] Story on Reactions: Quest + Talk data (the uncle, the merchant, Betsy), KSAVE as world variables
+- [ ] The move: when KORAJIN leaves zap, the new repo is a Scene Companion game (scenes, prefabs, behaviors, the pack, a play page with his pads)
