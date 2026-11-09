@@ -10,6 +10,7 @@ import { allEntities, findEntity, walkEntities, reparent } from './tree.js';
 import { searchMotions, addMotion, MOTION_STEM } from './motions.js';
 import { checkRules, describeRule } from './reactions.js';
 import { checkClipVariants } from './animlayers.js';
+import { assetKey, constructAsset } from './construct.js';
 import { setOverride as setParamOverride } from './prefabs.js';
 
 const r3 = v => Math.round(v * 1000) / 1000;
@@ -81,8 +82,14 @@ export const COMMANDS = {
   },
   spawn: {
     mutates: true,
-    run(data, { prefab, asset, position = [0, 0, 0], id, parent }, ctx = {}) {
-      if (!prefab && !asset) throw new Error('spawn needs a prefab or an asset (see list_library)');
+    run(data, { prefab, asset, construct, position = [0, 0, 0], id, parent }, ctx = {}) {
+      if (construct) {                       // a Construct library asset by id: add it to the scene's assets once, then spawn it
+        if (prefab || asset) throw new Error('spawn takes one of prefab, asset or construct');
+        if (typeof construct !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(construct)) throw new Error('construct must be a Construct asset id, e.g. "korajin-blue-dragon" (see search_construct)');
+        asset = assetKey(construct);
+        if (!data.assets?.[asset]) data.assets = { ...data.assets, [asset]: constructAsset(construct) };
+      }
+      if (!prefab && !asset) throw new Error('spawn needs a prefab, an asset or a construct id (see list_library / search_construct)');
       if (prefab && !data.prefabs?.[prefab]) {
         // ctx.library: prefab files from prefabs/ the host fetched ({ name: json }); spawning one adds it to the scene
         if (!ctx.library?.[prefab]) throw new Error(`No prefab "${prefab}" in this scene or in prefabs/. Scene prefabs: ${Object.keys(data.prefabs || {}).join(', ')}`);

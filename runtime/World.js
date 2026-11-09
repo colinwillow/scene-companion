@@ -18,6 +18,7 @@ import { applyLook, applyLookTo } from './look.js';
 import { mergeEntity } from './prefabs.js';
 import { applySky } from './sky.js';
 import { proceduralTexture } from './textures.js';
+import { loadCatalog, catalogUrl, resolveVariant as resolveConstruct } from './construct.js';
 import { frameUV, normClips } from './sprites.js';
 import { cellCentre } from './tilemap.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -110,6 +111,17 @@ export class World {
 
   async buildObject(variant) {
     if (!variant) return new THREE.Group();
+    // { construct: "<asset id>" }: a Construct library asset -> its hosted GLB (runtime/construct.js)
+    if (variant.construct && !variant.glb) {
+      try {
+        const catalog = await loadCatalog(catalogUrl(this.data?.settings, globalThis.location?.search || ''));
+        variant = resolveConstruct(variant, catalog);
+      } catch (err) {                 // one bad id or an offline library shouldn't stop the whole scene loading
+        (this.assetErrors ||= []).push(err.message);
+        console.error(err.message);
+        return new THREE.Group();
+      }
+    }
     if (variant.glb) {
       if (!this.gltfCache.has(variant.glb)) this.gltfCache.set(variant.glb, this.loader.loadAsync(variant.glb).then(markShared));
       const gltf = await this.gltfCache.get(variant.glb);

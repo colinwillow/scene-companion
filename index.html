@@ -233,7 +233,7 @@
 <div id="err" class="errbox" hidden style="position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:3"></div>
 <div id="liveBadge" hidden>● LIVE</div>
 <div id="tree"><input id="treeSearch" type="search" placeholder="Search id, prefab, asset, behavior…" autocomplete="off"><div class="count" id="treeCount"></div><ul id="treeList"></ul></div>
-<div id="lib"><div class="tabs"><button data-t="characters" data-icon="person" class="on">Characters</button><button data-t="props" data-icon="boxes">Props</button><button data-t="kit" data-icon="kit">Kit</button><button data-t="packs" data-icon="package">Packs</button><button data-t="motions" data-icon="timeline">Motions</button><button data-t="sounds" data-icon="sound">Sounds</button><button data-t="generate" data-icon="sparkle">Generate</button><button data-t="sprites" data-icon="image">2D</button><button data-t="ext" data-icon="puzzle">Extensions</button><button data-t="vars" data-icon="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul><div id="libPrev" hidden></div></div>
+<div id="lib"><div class="tabs"><button data-t="characters" data-icon="person" class="on">Characters</button><button data-t="props" data-icon="boxes">Props</button><button data-t="kit" data-icon="kit">Kit</button><button data-t="construct" data-icon="library" title="Construct: the shared asset library (MajiaStudio/construct)">Construct</button><button data-t="packs" data-icon="package">Packs</button><button data-t="motions" data-icon="timeline">Motions</button><button data-t="sounds" data-icon="sound">Sounds</button><button data-t="generate" data-icon="sparkle">Generate</button><button data-t="sprites" data-icon="image">2D</button><button data-t="ext" data-icon="puzzle">Extensions</button><button data-t="vars" data-icon="vars">Variables</button></div><input id="libSearch" type="search" placeholder="Search…" autocomplete="off"><div class="count" id="libCount"></div><ul id="libList"></ul><div id="libPrev" hidden></div></div>
 <div id="tileBar" hidden><span id="tilePal"></span><small id="tileHint">1 finger paints · 2 fingers orbit</small><button id="tileDone" class="ib side" data-icon="check" title="Stop painting tiles">Done</button></div>
 <div id="scatterBar" hidden><select id="scPrefab" title="What to paint"></select><button id="scMode" class="ib side" data-icon="brush" title="Paint or erase instances of this prefab">Paint</button><label title="Spacing between instances (lower = denser)"><small>gap</small><input id="scSpacing" type="range" min="0.5" max="6" step="0.25" value="1.5"><small id="scSpacingV">1.5 m</small></label><label title="Jitter: random turn + size variety (0 = all the same)"><small>jitter</small><input id="scJitter" type="range" min="0" max="1" step="0.1" value="0.4"></label><small id="scHint">1 finger paints · 2 fingers orbit</small></div>
 <div id="tl" hidden>
@@ -277,6 +277,7 @@ import { clipRoles, characterEntries } from './runtime/character.js';
 import { libraryPacks, setInstalled, parseUnlocks, libraryFilter } from './runtime/packs.js';
 import { findEntity, allEntities, descendantIds, reparent } from './runtime/tree.js';
 import { libraryGroups, filterNames } from './runtime/library.js';
+import { loadCatalog, catalogUrl, search as searchConstruct, assetKey, constructAsset } from './runtime/construct.js';
 import { searchMotions, addMotion, motionsBase } from './runtime/motions.js';
 import { guessGrid, parseClipText, clipText, spriteVariant } from './runtime/sprites.js';
 import * as TILE from './runtime/tilemap.js';
@@ -1391,6 +1392,16 @@ async function addFrom(kind, name, ndc) {
   await refresh(); select(e.id); fillAdd(); window.scToast?.(`Added ${e.id}`, 'ok');
 }
 
+// A Construct library asset: add it to the scene's assets once (by reference), then place it.
+async function addConstruct(id, ndc) {
+  if (playing) return;
+  record();
+  const key = assetKey(id);
+  if (!data.assets?.[key]) data.assets = { ...data.assets, [key]: constructAsset(id) };
+  const e = addEntity(data, { asset: key }, viewDropPoint(ndc));
+  await refresh(); select(e.id); fillAdd(); window.scToast?.(`Added ${e.id} from Construct`, 'ok');
+}
+
 async function addCharacterFrom(i, ndc) {
   if (playing) return;
   record();
@@ -1446,7 +1457,19 @@ async function renderLib() {
   if (seq !== libSeq) return;
   const q = $('libSearch').value.trim(), ul = $('libList');
   let items;
-  if (libTab === 'packs') {
+  if (libTab === 'construct') {
+    let catalog = null;
+    try { catalog = await loadCatalog(catalogUrl(data.settings, location.search)); } catch {}
+    if (seq !== libSeq) return;
+    if (!catalog) items = [{ header: true, name: 'Construct library unreachable', sub: 'check your connection (it reads majiastudio.github.io/construct)' }];
+    else {
+      const fmt = s => s ? s.map(v => +v.toPrecision(2)).join(' × ') + ' m' : '';
+      items = searchConstruct(catalog, q).map(h => ({ name: h.name, thumb: h.thumb,
+        sub: [h.character ? 'character' : 'model', fmt(h.size)].filter(Boolean).join(' · '),
+        place: ndc => addConstruct(h.id, ndc), pick: () => { addConstruct(h.id); if (!wide) closeLib(); } }));
+      $('libCount').textContent = playing ? 'Stop play to add things' : `${items.length} Construct assets — tap to preview, hold and drag onto the scene to place`;
+    }
+  } else if (libTab === 'packs') {
     await loadPacks();
     if (seq !== libSeq) return;
     items = [];
@@ -1588,7 +1611,7 @@ async function renderLib() {
   if (seq !== libSeq) return;
   if (!items.length) items = [{ header: true, name: q ? `Nothing matches “${q}”` : 'Nothing here yet',   // a friendly empty state, never a blank list
     sub: q ? 'try a shorter or different word' : ({ characters: 'add a character.json folder under assets/, or install a pack', props: 'prefabs/ and the scene\'s models show up here', kit: 'level kit pieces come from packs — see the Packs tab', sounds: 'drop .mp3 / .ogg files in assets/audio and run npm run assets', ext: 'see extensions/README.md' }[libTab] || '') }];
-  const grid = ['characters', 'props', 'kit'].includes(libTab);   // things you place: a card grid with a preview
+  const grid = ['characters', 'props', 'kit', 'construct'].includes(libTab);   // things you place: a card grid with a preview
   ul.classList.toggle('grid', grid); libPreview(null);
   ul.innerHTML = '';
   for (const it of items) {

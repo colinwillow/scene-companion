@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { TOOLS } from './mcp-tools.mjs';
 import { sceneForSave, sceneFromTemplate } from '../runtime/commands.js';
+import { loadCatalog, search as searchConstruct, CONSTRUCT_CATALOG } from '../runtime/construct.js';
 import { modelPath } from '../runtime/editing.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -133,6 +134,11 @@ async function callTool(name, args = {}) {
     const data = sceneFromTemplate(JSON.parse(await readFile(fromFile, 'utf8')), keep);
     await writeFile(file, JSON.stringify(data, null, 2) + '\n');
     return [{ type: 'text', text: `Created ${rel} with ${data.entities.length} entities (${data.entities.map(e => e.id).join(', ')}). Use scene: "./${rel}" on the other tools. Play it at play.html?scene=./${rel}` }];
+  }
+  if (name === 'search_construct') {    // file-only: reads the Construct catalog over HTTPS (SC_CONSTRUCT overrides the URL)
+    const catalog = await loadCatalog(process.env.SC_CONSTRUCT || CONSTRUCT_CATALOG);
+    const hits = searchConstruct(catalog, rest.query || '', { limit: Math.max(1, Math.min(Number(rest.limit) || 20, 100)) });
+    return [{ type: 'text', text: JSON.stringify({ total: hits.length, results: hits.map(h => ({ id: h.id, name: h.name, character: h.character, size_m: h.size, tags: h.tags.slice(0, 8), thumbnail: h.thumb })) }, null, 1) }];
   }
   if (name === 'save_scene') {
     const { result } = await command('get_scene', {}, scene);

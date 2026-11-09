@@ -1,0 +1,255 @@
+{
+  "settings": {
+    "look": "pbr",
+    "background": "#1d2533",
+    "sky": {
+      "elevation": 22,
+      "azimuth": 135,
+      "turbidity": 5,
+      "rayleigh": 1.4,
+      "exposure": 0.55,
+      "sunColor": "#ffeedd",
+      "sunIntensity": 3.2,
+      "envIntensity": 1.0
+    },
+    "fog": [
+      40,
+      140
+    ],
+    "fogColor": "#c9d6e3"
+  },
+  "assets": {
+    "ground": {
+      "variants": {
+        "web": {
+          "primitive": "plane",
+          "size": [
+            120,
+            1,
+            120
+          ],
+          "texture": "grass",
+          "repeat": 24,
+          "roughness": 0.95
+        },
+        "desktop": {
+          "primitive": "plane",
+          "size": [
+            120,
+            1,
+            120
+          ],
+          "texture": "grass",
+          "repeat": 40,
+          "roughness": 0.95
+        }
+      }
+    },
+    "c_rollergirl_skate_halfpipe": {
+      "variants": {
+        "web": {
+          "construct": "rollergirl-skate-halfpipe"
+        }
+      }
+    },
+    "c_rollergirl_skate_quarterpipe": {
+      "variants": {
+        "web": {
+          "construct": "rollergirl-skate-quarterpipe"
+        }
+      }
+    },
+    "c_rollergirl_skate_kicker": {
+      "variants": {
+        "web": {
+          "construct": "rollergirl-skate-kicker"
+        }
+      }
+    },
+    "c_rollergirl_skate_funbox": {
+      "variants": {
+        "web": {
+          "construct": "rollergirl-skate-funbox"
+        }
+      }
+    },
+    "c_rollergirl_skate_rail_flatbar": {
+      "variants": {
+        "web": {
+          "construct": "rollergirl-skate-rail-flatbar"
+        }
+      }
+    },
+    "c_rollergirl_skater": {
+      "variants": {
+        "web": {
+          "construct": "rollergirl-skater"
+        }
+      }
+    },
+    "c_korajin_blue_dragon": {
+      "variants": {
+        "web": {
+          "construct": "korajin-blue-dragon"
+        }
+      }
+    },
+    "c_weirdport_farm_barn_barn": {
+      "variants": {
+        "web": {
+          "construct": "weirdport-farm-barn-barn"
+        }
+      }
+    },
+    "c_korajin_fire_hydrant": {
+      "variants": {
+        "web": {
+          "construct": "korajin-fire-hydrant"
+        }
+      }
+    }
+  },
+  "entities": [
+    {
+      "id": "sun",
+      "light": {
+        "type": "directional",
+        "intensity": 2.4
+      },
+      "position": [
+        8,
+        14,
+        6
+      ]
+    },
+    {
+      "id": "sky_fill",
+      "light": {
+        "type": "hemisphere",
+        "color": "#dfeaff",
+        "groundColor": "#6f7480",
+        "intensity": 1.0
+      }
+    },
+    {
+      "id": "ground",
+      "asset": "ground",
+      "position": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skate_half_pipe_01",
+      "asset": "c_rollergirl_skate_halfpipe",
+      "position": [
+        0,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "skate_quarter_pipe_01",
+      "asset": "c_rollergirl_skate_quarterpipe",
+      "position": [
+        -7,
+        0,
+        -2
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "id": "skate_kicker_01",
+      "asset": "c_rollergirl_skate_kicker",
+      "position": [
+        3,
+        0,
+        1
+      ],
+      "rotation": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "id": "skate_funbox_01",
+      "asset": "c_rollergirl_skate_funbox",
+      "position": [
+        8,
+        0,
+        -4
+      ]
+    },
+    {
+      "id": "skate_rail_flat_bar_01",
+      "asset": "c_rollergirl_skate_rail_flatbar",
+      "position": [
+        -2,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "id": "skater_01",
+      "asset": "c_rollergirl_skater",
+      "position": [
+        0,
+        0,
+        4
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "id": "blue_dragon_01",
+      "asset": "c_korajin_blue_dragon",
+      "position": [
+        -10,
+        0,
+        -12
+      ],
+      "rotation": [
+        0,
+        35,
+        0
+      ]
+    },
+    {
+      "id": "farm_barn_barn_01",
+      "asset": "c_weirdport_farm_barn_barn",
+      "position": [
+        14,
+        0,
+        -16
+      ],
+      "rotation": [
+        0,
+        -30,
+        0
+      ]
+    },
+    {
+      "id": "fire_hydrant_01",
+      "asset": "c_korajin_fire_hydrant",
+      "position": [
+        5,
+        0,
+        5
+      ]
+    }
+  ]
+}

@@ -11,6 +11,14 @@ A visual editor that lives alongside AI-built Three.js games: vibe-code it, then
   - optional `"castShadow": false` — e.g. clouds
 - Free CC0 models live in `assets/models/kenney/` (see its LICENSE.md). Kenney models have their origin at the bottom.
 
+## Construct library (MajiaStudio/construct)
+Construct is the shared asset library (Colin's characters, creatures, buildings, the skate kit, props; metres, Y up, base at the origin).
+- **Editor:** Library › **Construct** tab: search, tap to preview, Add (or hold and drag onto the scene). It adds a scene asset `c_<id>` that references the Construct asset, and places it.
+- **Scene file:** `"blue_dragon": { "variants": { "web": { "construct": "korajin-blue-dragon" } } }`. World resolves it to the hosted GLB (characters and creatures get `height` from their real size; props need no scale). Your own `glb`, `height`, `scale` or `offset` on the variant win. A bad id is reported and leaves an empty spot instead of stopping the scene.
+- **MCP:** `search_construct { query }` (no editor needed), then `spawn { construct: "<id>" }`.
+- **Catalog URL:** the public site by default; `settings.construct.catalog` or `?construct=<url>` (e.g. a local `_site/catalog.json`) override it; `SC_CONSTRUCT` for the MCP server.
+- Demo: `scenes/construct-demo.scene.json`. Code: `runtime/construct.js`, tests in `tests/construct.test.mjs`.
+
 ## Tests
 `npm install` once (three as a dev dependency, same version as the CDN import map), then `npm test` — node's built-in runner, no browser.
 Covers every behavior, prefab merging, the validator (including that it catches bad scenes), behavior purity, and World loading a scene with real three.
